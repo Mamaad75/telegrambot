@@ -141,3 +141,10 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# خروجی ساخت و فایل‌های موقت این پروژه
+dist/
+.native-cache/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm

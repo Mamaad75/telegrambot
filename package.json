@@ -1,0 +1,27 @@
+{
+  "name": "myshop-accounting",
+  "version": "1.0.0",
+  "description": "نرم‌افزار حسابداری فروشگاه کوچک — کامل، آفلاین و فارسی",
+  "main": "src/main/main.js",
+  "author": "MyShop Accounting",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "node scripts/native-prebuild.js --platform linux --arch x64 --abi 136 --install >/dev/null 2>&1 || true && electron .",
+    "test": "node scripts/native-prebuild.js --restore && node tests/run-tests.js",
+    "test:ui": "node scripts/electron-native.js && xvfb-run -a node tests/ui-smoke.js; node scripts/native-prebuild.js --restore",
+    "test:all": "npm test && npm run test:ui",
+    "gen:libs": "node scripts/gen-renderer-libs.js",
+    "dist:win": "node scripts/build-win.js",
+    "pack:dir": "node scripts/build-win.js --dir"
+  },
+  "dependencies": {
+    "better-sqlite3": "12.2.0"
+  },
+  "devDependencies": {
+    "electron": "37.3.1",
+    "electron-builder": "26.0.12",
+    "playwright": "^1.55.0",
+    "resedit": "^2.0.3"
+  }
+}
