@@ -12,6 +12,20 @@
 
 ---
 
+## ۰) دانلود فایل‌های آماده
+
+فایل‌های ساخته‌شده در پوشه `release/` همین مخزن قرار دارند:
+
+| فایل | حجم | لینک مستقیم |
+|---|---|---|
+| نصب‌کننده ویندوز | ~۸۷ مگابایت | [MyShopAccounting-Setup.exe](https://github.com/Mamaad75/telegrambot/raw/claude/shop-accounting-app-complete-x0nl1s/release/MyShopAccounting-Setup.exe) |
+| نسخه قابل حمل | ~۸۷ مگابایت | [MyShopAccounting-Portable.exe](https://github.com/Mamaad75/telegrambot/raw/claude/shop-accounting-app-complete-x0nl1s/release/MyShopAccounting-Portable.exe) |
+
+> چون فایل امضای دیجیتال تجاری ندارد، ویندوز ممکن است پیام «Windows protected your PC» نشان دهد؛
+> روی **More info → Run anyway** بزنید.
+
+---
+
 ## ۱) نصب روی ویندوز
 
 ۱. فایل `MyShopAccounting-Setup.exe` را اجرا کنید.
