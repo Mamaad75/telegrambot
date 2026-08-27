@@ -395,6 +395,49 @@ const MIGRATIONS = [
       for (const n of ['عمومی']) pcat.run('product', n);
     },
   },
+  {
+    version: 2,
+    name: 'افزودن فهرست پیش‌فرض کالاها (لیست قیمت رسمی)',
+    up(db) {
+      const seed = require('./seed-products.json');
+      const now = new Date().toISOString();
+
+      // دسته‌بندی‌های کالا
+      const catIds = {};
+      const findCat = db.prepare(`SELECT id FROM categories WHERE kind='product' AND name=?`);
+      const addCat = db.prepare(`INSERT INTO categories(kind,name,account_code) VALUES ('product',?,NULL)`);
+      for (const name of seed.categories) {
+        const found = findCat.get(name);
+        catIds[name] = found ? found.id : Number(addCat.run(name).lastInsertRowid);
+      }
+
+      // کالاها؛ اگر کدی از قبل وجود داشته باشد دست‌نخورده باقی می‌ماند
+      const exists = db.prepare(`SELECT id FROM products WHERE code=? AND code<>''`);
+      const insert = db.prepare(`INSERT INTO products
+        (name,code,barcode,category_id,unit,buy_price,sell_price,min_stock,stock,stock_value,
+         description,active,created_at,updated_at)
+        VALUES (@name,@code,'',@category_id,@unit,0,@sell_price,0,0,0,'',1,@now,@now)`);
+      let added = 0;
+      for (const p of seed.products) {
+        if (exists.get(p.code)) continue;
+        insert.run({
+          name: p.name,
+          code: p.code,
+          category_id: catIds[p.category] || null,
+          unit: p.unit || 'عدد',
+          sell_price: Math.max(0, Math.round(p.sell_price || 0)),
+          now,
+        });
+        added += 1;
+      }
+      db.prepare(`INSERT INTO settings(key,value) VALUES ('seed_products_version',?)
+                  ON CONFLICT(key) DO UPDATE SET value=excluded.value`)
+        .run(String(seed.version));
+      db.prepare(`INSERT INTO settings(key,value) VALUES ('seed_products_added',?)
+                  ON CONFLICT(key) DO UPDATE SET value=excluded.value`)
+        .run(String(added));
+    },
+  },
 ];
 
 function currentVersion(db) {

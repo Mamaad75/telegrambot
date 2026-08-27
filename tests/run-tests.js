@@ -5,6 +5,7 @@ const cases = [
   ['هسته حسابداری', require('./cases/core')],
   ['صحت‌سنجی و گزارش‌ها', require('./cases/sanity')],
   ['فایل‌ها: اکسل، پشتیبان و انتقال داده', require('./cases/files')],
+  ['فهرست پیش‌فرض کالاها', require('./cases/seed')],
 ];
 
 console.log('\x1b[1m═══ آزمون‌های نرم‌افزار حسابداری فروشگاه ═══\x1b[0m');

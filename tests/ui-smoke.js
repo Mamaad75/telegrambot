@@ -69,6 +69,14 @@ async function shot(page, name) {
   // ── ثبت کالا
   await page.click('.nav-item[data-page="products"]');
   await page.waitForTimeout(700);
+  // فهرست پیش‌فرض کالاها باید از قبل موجود باشد
+  const seedCount = await page.locator('table.grid-table tbody tr').count();
+  check(seedCount >= 157, 'فهرست پیش‌فرض کالاها (۱۵۷ قلم) در برنامه موجود است', 'ردیف‌ها: ' + seedCount);
+  const catalogText = await page.locator('#view').textContent();
+  check(/کاتالیست تیبا/.test(catalogText), 'کالای «کاتالیست تیبا» از لیست قیمت موجود است');
+  check(/۸۸٬۷۴۰٬۰۰۰/.test(catalogText), 'قیمت فروش کاتالیست تیبا درست نمایش داده می‌شود');
+  await shot(page, '03a-seed-catalog');
+
   await page.click('button:has-text("+ کالای جدید")');
   await page.waitForTimeout(600);
   const modal = page.locator('.modal').last();
@@ -108,6 +116,17 @@ async function shot(page, name) {
   await page.waitForTimeout(1800);
   const toastText = await page.locator('.toast').first().textContent().catch(() => '');
   check(/ثبت شد/.test(toastText), 'فاکتور فروش با موفقیت ثبت شد', toastText);
+
+  // ── جست‌وجوی کالای پیش‌فرض با کد در فاکتور
+  await page.click('.nav-item[data-page="sale"]');
+  await page.waitForTimeout(900);
+  await page.fill('input[placeholder*="نام، کد یا بارکد"]', '30104009');
+  await page.waitForTimeout(800);
+  const codeHit = page.locator('.autocomplete .results div').first();
+  const codeHitText = await codeHit.textContent();
+  check(/کاتالیست تیبا/.test(codeHitText), 'جست‌وجوی کالای پیش‌فرض با کد محصول کار می‌کند', codeHitText);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
 
   // ── چاپ فاکتور و خروجی PDF
   await page.click('.nav-item[data-page="invoices"]');
