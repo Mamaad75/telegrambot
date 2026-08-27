@@ -1,0 +1,379 @@
+@font-face{font-family:JarchiPeyda;src:url('../../admin/fonts/Peyda-Regular.ttf') format('truetype');font-weight:400;font-style:normal;font-display:swap}@font-face{font-family:JarchiPeyda;src:url('../../admin/fonts/Peyda-Bold.ttf') format('truetype');font-weight:700;font-style:normal;font-display:swap}
+.jarchi-ticket-center{--jt-primary:#E84F01;--jt-primary-hi:#FF8A1C;--jt-text:#171717;--jt-muted:#68717c;--jt-surface:#fff;--jt-bg:#f6f7f9;--jt-border:#e5e7eb;--jt-radius:18px;--jt-shadow:0 16px 38px rgba(17,24,39,.08);--jt-success:#15803d;max-width:1180px;margin:32px auto;padding:0 18px;font-family:inherit;color:var(--jt-text)}
+.jarchi-ticket-head{display:flex;justify-content:space-between;gap:20px;align-items:center;margin-bottom:18px}.jarchi-ticket-kicker{display:block;color:var(--jt-primary);font-weight:800;font-size:12px;margin-bottom:4px}.jarchi-ticket-head h2,.jarchi-ticket-thread-head h3{margin:0;font-size:24px;line-height:1.25;color:var(--jt-text)}.jarchi-ticket-head p{margin:7px 0 0;color:var(--jt-muted);font-size:14px}.jarchi-ticket-unread{min-width:34px;height:34px;border-radius:999px;display:grid;place-items:center;background:var(--jt-soft-bg,#fff1e6);color:var(--jt-primary);font-weight:800}.jarchi-ticket-layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:16px;align-items:start}.jarchi-ticket-list,.jarchi-ticket-thread{background:var(--jt-surface);border:1px solid var(--jt-border);border-radius:var(--jt-radius);box-shadow:var(--jt-shadow)}.jarchi-ticket-list{padding:12px}.jarchi-ticket-new,.jarchi-ticket-submit{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:12px;background:linear-gradient(135deg,var(--jt-primary-hi),var(--jt-primary));color:#fff;padding:11px 14px;font-weight:800;cursor:pointer}.jarchi-ticket-new{width:100%;margin-bottom:10px}.jarchi-ticket-list-item{display:flex;gap:8px;align-items:center;padding:11px 10px;border-radius:12px;text-decoration:none;color:var(--jt-text);margin-bottom:3px}.jarchi-ticket-list-item:hover{background:var(--jt-soft-bg,#fff7f1)}.jarchi-ticket-list-item.is-active{background:var(--jt-soft-bg,#fff4eb);box-shadow:inset 3px 0 0 var(--jt-primary)}.jarchi-ticket-list-main{min-width:0;display:block;flex:1}.jarchi-ticket-list-main strong{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.jarchi-ticket-list-main small{display:block;color:var(--jt-muted);margin-top:3px;font-size:11px}.jarchi-ticket-dot{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:var(--jt-primary);color:#fff;font-size:10px;font-weight:800}.jarchi-ticket-thread{padding:18px}.jarchi-ticket-thread-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-bottom:16px;border-bottom:1px solid var(--jt-border)}.jarchi-ticket-status{padding:6px 10px;border-radius:999px;font-size:11px;font-weight:800}.jarchi-ticket-status--open{background:#eaf7ee;color:var(--jt-success)}.jarchi-ticket-status--pending{background:#fff4e0;color:#9a5b00}.jarchi-ticket-status--closed{background:#eef1f4;color:#65707b}.jarchi-ticket-messages{display:grid;gap:12px;padding:18px 0}.jarchi-ticket-message{max-width:86%;padding:13px 14px;border-radius:16px;background:var(--jt-message-bg,#f6f7f9);border:1px solid var(--jt-border)}.jarchi-ticket-message.is-user{margin-inline-start:auto;background:var(--jt-user-message-bg,#fff5ec);border-color:var(--jt-border)}.jarchi-ticket-message__meta{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:8px}.jarchi-ticket-message__meta strong{font-size:12px}.jarchi-ticket-message__meta time{font-size:10px;color:var(--jt-muted)}.jarchi-ticket-message__body{font-size:13px;line-height:1.9}.jarchi-ticket-attachments{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.jarchi-ticket-attachments a{display:block;border-radius:10px;overflow:hidden;border:1px solid var(--jt-border)}.jarchi-ticket-attachments img{display:block;width:86px;height:70px;object-fit:cover}.jarchi-ticket-reply-form{border-top:1px solid var(--jt-border);padding-top:16px}.jarchi-ticket-reply-form textarea,.jarchi-ticket-form-card input[type=text],.jarchi-ticket-form-card textarea,.jarchi-ticket-form-card select{width:100%;background:var(--jt-field-bg,#fff);border:1px solid var(--jt-border,#cdd4db);border-radius:12px;padding:11px 12px;color:var(--jt-field-text,#171717);box-sizing:border-box;font:inherit}.jarchi-ticket-form-card label{display:block;color:var(--jt-text,#303841);font-size:12px;font-weight:700;margin-top:12px}.jarchi-ticket-form-card label input,.jarchi-ticket-form-card label select,.jarchi-ticket-form-card label textarea{margin-top:6px}.jarchi-ticket-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.jarchi-ticket-reply-actions{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-top:10px}.jarchi-ticket-file{display:flex;gap:6px;align-items:center;color:var(--jt-primary);font-size:12px;cursor:pointer}.jarchi-ticket-file input{display:none}.jarchi-ticket-form-card{padding:22px}.jarchi-ticket-form-icon{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;background:var(--jt-soft-bg,#fff1e6);color:var(--jt-primary);font-size:22px}.jarchi-ticket-form-card h3{font-size:20px;margin:12px 0 6px}.jarchi-ticket-form-card>p{margin:0 0 16px;color:var(--jt-muted);font-size:13px}.jarchi-ticket-upload{display:flex;gap:8px;align-items:center;margin:12px 0}.jarchi-ticket-upload small{color:var(--jt-muted);font-size:11px}.jarchi-ticket-empty{padding:30px 18px;text-align:center;color:var(--jt-muted);font-size:13px}.jarchi-ticket-icon{position:relative;display:inline-grid;place-items:center;width:44px;height:44px;border-radius:14px;color:var(--jt-primary);background:var(--jt-soft-bg,#fff7f1);text-decoration:none;flex:none;box-shadow:0 6px 18px rgba(232,79,1,.12);transition:transform .18s ease,box-shadow .18s ease,background .18s ease}.jarchi-ticket-icon:hover{transform:translateY(-1px);box-shadow:0 10px 24px rgba(232,79,1,.18);background:var(--jt-soft-bg,#fff0e5)}.jarchi-ticket-icon__svg{width:22px;height:22px;display:block}.jarchi-ticket-icon__badge{position:absolute;top:-5px;inset-inline-end:-5px;min-width:17px;height:17px;padding:0 3px;border-radius:999px;background:#d92d20;color:#fff;font-size:9px;line-height:17px;text-align:center;font-weight:800;display:none;box-shadow:0 0 0 3px #fff}.jarchi-ticket-icon__badge.is-visible{display:block}.jarchi-ticket-toast{position:fixed;inset-inline-start:24px;bottom:24px;background:#171717;color:#fff;border-radius:14px;padding:12px 16px;box-shadow:0 16px 30px rgba(0,0,0,.2);z-index:99999;font-size:13px;font-weight:700}
+
+/* Jarchi admin ticket thread: product-grade admin surface. */
+.jarchi-admin-ticket-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px;align-items:start;max-width:1280px;margin:26px 20px 40px 0}.jarchi-admin-ticket-main{min-width:0}.jarchi-ticket-back{display:inline-flex;align-items:center;gap:6px;color:var(--jarchi-primary)!important;text-decoration:none;font-size:12px;font-weight:800;margin-bottom:8px}.jarchi-ticket-back:hover{color:var(--jarchi-primary-hover)!important}.wpep-ticket-thread-admin{display:grid;gap:12px;margin-top:18px;max-height:58vh;overflow:auto;padding-inline-end:4px}.wpep-ticket-message-admin{padding:14px 15px;border:1px solid var(--jarchi-border);border-radius:16px;background:var(--jarchi-surface-2);color:var(--jarchi-text);box-shadow:0 4px 18px rgba(12,18,25,.04)}.wpep-ticket-message-admin.is-user{border-inline-start:4px solid var(--jarchi-primary)}.wpep-ticket-message-admin__meta{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:8px;color:var(--jarchi-text)}.wpep-ticket-message-admin__meta small{color:var(--jarchi-text-muted)}.wpep-ticket-message-admin__body{color:var(--jarchi-text-secondary);line-height:1.95;overflow-wrap:anywhere}.wpep-ticket-attachments-admin{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.wpep-ticket-attachments-admin a{display:block;border:1px solid var(--jarchi-border);border-radius:12px;overflow:hidden;background:var(--jarchi-surface)}.wpep-ticket-attachments-admin img{display:block;width:92px;height:76px;object-fit:cover}.wpep-ticket-reply{display:grid;gap:10px;margin-top:16px;padding-top:16px;border-top:1px solid var(--jarchi-border)}.wpep-ticket-reply textarea{min-height:150px;width:100%;box-sizing:border-box;border:1px solid var(--jarchi-input-border);border-radius:14px;background:var(--jarchi-input);color:var(--jarchi-text);padding:13px;resize:vertical;font:inherit;line-height:1.8}.wpep-ticket-reply input[type=file]{color:var(--jarchi-text-secondary)}.wpep-ticket-status-form{margin-top:18px;padding-top:16px;border-top:1px solid var(--jarchi-border)}.wpep-ticket-status-form select{width:100%;min-height:42px;border:1px solid var(--jarchi-input-border);border-radius:12px;background:var(--jarchi-input);color:var(--jarchi-text);padding:8px 10px}.wpep-ticket-meta-card{background:var(--jarchi-surface);border:1px solid var(--jarchi-border);border-radius:18px;padding:18px;box-shadow:0 12px 28px rgba(12,18,25,.05);color:var(--jarchi-text)}.wpep-ticket-meta-card dl{display:grid;gap:10px;margin:14px 0}.wpep-ticket-meta-card dt{font-size:11px;font-weight:800;color:var(--jarchi-text-muted)}.wpep-ticket-meta-card dd{margin:0;color:var(--jarchi-text-secondary);font-size:13px;font-weight:700;overflow-wrap:anywhere}.jarchi-app .wpep-ticket-admin .button-primary{background:linear-gradient(135deg,var(--jarchi-primary),var(--jarchi-primary-hover));border-color:var(--jarchi-primary-hover);color:#fff}.jarchi-app .wpep-ticket-admin .button,.jarchi-shell-active .wpep-ticket-admin .button{color:var(--jarchi-text);background:var(--jarchi-surface);border-color:var(--jarchi-input-border)}
+@media(max-width:900px){.jarchi-admin-ticket-layout{grid-template-columns:1fr;margin-inline:12px}.wpep-ticket-thread-admin{max-height:none}}
+@media(prefers-color-scheme:dark){body.jarchi-shell-active .wpep-ticket-admin{color:var(--jarchi-text)}body.jarchi-shell-active .wpep-ticket-meta-card,body.jarchi-shell-active .wpep-ticket-message-admin{box-shadow:none}}
+
+
+.jarchi-ticket-admin-actions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+.jarchi-ticket-admin-actions .dashicons {
+	vertical-align: middle;
+	margin-inline-end: 4px;
+}
+.wpep-ticket-reply-options {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	flex-wrap: wrap;
+}
+.wpep-ticket-reply-options > label {
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+	color: var(--jarchi-text-secondary);
+	font-size: 12px;
+	font-weight: 700;
+}
+.wpep-ticket-reply-options input[type="file"] {
+	max-width: 240px;
+}
+.jarchi-ticket-sms-opt {
+	padding: 8px 10px;
+	border: 1px solid var(--jarchi-border);
+	background: var(--jarchi-surface-2);
+	border-radius: 10px;
+}
+.jarchi-ticket-sms-opt input {
+	accent-color: var(--jarchi-primary);
+}
+
+/* Frontend ticket center responsive/mobile layout */
+@media (max-width: 900px){
+  .jarchi-ticket-center{max-width:100%;margin:20px auto;padding:0 12px;box-sizing:border-box}
+  .jarchi-ticket-layout{grid-template-columns:1fr;gap:12px}
+  .jarchi-ticket-list{order:0;padding:10px}
+  .jarchi-ticket-thread{order:1;padding:14px}
+  .jarchi-ticket-list-item{min-height:44px}
+}
+@media (max-width: 640px){
+  .jarchi-ticket-head{align-items:flex-start;gap:12px;margin-bottom:12px}
+  .jarchi-ticket-head h2,.jarchi-ticket-thread-head h3{font-size:19px}
+  .jarchi-ticket-head p{font-size:12px;line-height:1.8}
+  .jarchi-ticket-unread{min-width:30px;height:30px;font-size:12px}
+  .jarchi-ticket-row{grid-template-columns:1fr;gap:0}
+  .jarchi-ticket-form-card{padding:15px}
+  .jarchi-ticket-form-card h3{font-size:17px}
+  .jarchi-ticket-form-card input[type=text],.jarchi-ticket-form-card textarea,.jarchi-ticket-form-card select,.jarchi-ticket-reply-form textarea{font-size:14px;min-height:44px}
+  .jarchi-ticket-form-card textarea,.jarchi-ticket-reply-form textarea{min-height:140px}
+  .jarchi-ticket-upload{display:grid;grid-template-columns:1fr;gap:6px}
+  .jarchi-ticket-upload input[type=file]{width:100%;max-width:100%}
+  .jarchi-ticket-message{max-width:100%;padding:11px 12px}
+  .jarchi-ticket-message__meta{align-items:flex-start;flex-direction:column;gap:3px}
+  .jarchi-ticket-message__body{font-size:13px;line-height:1.85;overflow-wrap:anywhere}
+  .jarchi-ticket-reply-actions{align-items:stretch;flex-direction:column}
+  .jarchi-ticket-submit{width:100%;min-height:46px}
+  .jarchi-ticket-new{min-height:46px}
+  .jarchi-ticket-list-item{padding:10px 9px}
+  .jarchi-ticket-list-main strong{font-size:12px}
+}
+@media (max-width: 420px){
+  .jarchi-ticket-center{padding:0 8px}
+  .jarchi-ticket-list,.jarchi-ticket-thread{border-radius:14px}
+  .jarchi-ticket-form-icon{width:42px;height:42px}
+}
+
+
+/* Elementor widget overrides: values are supplied server-side so Elementor controls really affect the rendered ticket center. */
+.elementor-widget-jarchi_ticket_center .jarchi-ticket-center,
+.elementor-widget-jarchi_ticket_icon .jarchi-ticket-icon { box-sizing:border-box; }
+.elementor-widget-jarchi_ticket_center .jarchi-ticket-center{width:100%;margin-left:auto;margin-right:auto;}
+.elementor-widget-jarchi_ticket_center .jarchi-ticket-layout{grid-template-columns:var(--jt-list-width) minmax(0,1fr);}
+.elementor-widget-jarchi_ticket_center .jarchi-ticket-center .jarchi-ticket-new,
+.elementor-widget-jarchi_ticket_center .jarchi-ticket-center .jarchi-ticket-submit{color:var(--jt-button-text);}
+.elementor-widget-jarchi_ticket_center .jarchi-ticket-center input[type=text],
+.elementor-widget-jarchi_ticket_center .jarchi-ticket-center textarea,
+.elementor-widget-jarchi_ticket_center .jarchi-ticket-center select{background:var(--jt-field-bg);color:var(--jt-field-text);border-color:var(--jt-border);}
+.elementor-widget-jarchi_ticket_center .jarchi-ticket-center .jarchi-ticket-icon__badge,
+.elementor-widget-jarchi_ticket_center .jarchi-ticket-center .jarchi-ticket-unread{background:var(--jt-badge-bg);color:var(--jt-badge-text);}
+.elementor-widget-jarchi_ticket_icon .jarchi-ticket-icon--elementor{display:inline-grid;place-items:center;text-decoration:none;transition:transform .2s ease,box-shadow .2s ease;overflow:visible;}
+.elementor-widget-jarchi_ticket_icon .jarchi-ticket-icon--elementor:hover{transform:translateY(-2px);}
+.elementor-widget-jarchi_ticket_icon .jarchi-ticket-icon__elementor-inner{display:grid;place-items:center;width:100%;height:100%;line-height:1;}
+.elementor-widget-jarchi_ticket_icon .jarchi-ticket-icon__elementor-inner svg,
+.elementor-widget-jarchi_ticket_icon .jarchi-ticket-icon__elementor-inner i{width:var(--jarchi-ticket-icon-size);height:var(--jarchi-ticket-icon-size);font-size:var(--jarchi-ticket-icon-size);display:block;color:inherit;fill:currentColor;}
+.elementor-widget-jarchi_ticket_icon .jarchi-ticket-icon__badge{position:absolute;top:-7px;inset-inline-end:-7px;display:none;min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:var(--jarchi-ticket-badge-bg);color:var(--jarchi-ticket-badge-text);border:2px solid var(--jarchi-ticket-badge-border);font-size:10px;line-height:18px;text-align:center;font-weight:900;box-shadow:0 5px 10px rgba(0,0,0,.12);}
+.elementor-widget-jarchi_ticket_icon .jarchi-ticket-icon__badge.is-visible{display:block;}
+@media(max-width:900px){.elementor-widget-jarchi_ticket_center .jarchi-ticket-layout{grid-template-columns:1fr}.elementor-widget-jarchi_ticket_center .jarchi-ticket-list{order:0}.elementor-widget-jarchi_ticket_center .jarchi-ticket-thread{order:1}}
+
+.jarchi-ticket-filters{display:flex;align-items:center;justify-content:flex-start;direction:ltr;gap:10px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 0 18px;padding:4px 2px 7px;width:100%;box-sizing:border-box}.jarchi-ticket-filters::-webkit-scrollbar{display:none}.jarchi-ticket-filter{direction:rtl;display:inline-flex;align-items:center;justify-content:center;gap:8px;flex:0 0 auto;min-height:42px;padding:8px 14px;border:1px solid var(--jt-border,#e5e7eb);border-radius:13px;background:var(--jt-surface,#fff);color:var(--jt-text,#334155);text-decoration:none;box-shadow:0 2px 10px rgba(12,18,25,.04);transition:transform .18s ease,background .18s ease,border-color .18s ease,color .18s ease,box-shadow .18s ease}.jarchi-ticket-filter__icon{font-size:15px!important;width:15px;height:15px;line-height:15px}.jarchi-ticket-filter__label{font-size:12px;font-weight:800;white-space:nowrap}.jarchi-ticket-filter:hover{transform:translateY(-1px);box-shadow:0 6px 14px rgba(12,18,25,.07)}.jarchi-ticket-filter.is-all{--filter-accent:#64748B;--filter-bg:#F1F5F9;--filter-text:#334155}.jarchi-ticket-filter.is-waiting{--filter-accent:#D97706;--filter-bg:#FFF7E8;--filter-text:#9A5B00}.jarchi-ticket-filter.is-reviewing{--filter-accent:#7C3AED;--filter-bg:#F5F3FF;--filter-text:#6D28D9}.jarchi-ticket-filter.is-answered{--filter-accent:#15803D;--filter-bg:#ECFDF3;--filter-text:#166534}.jarchi-ticket-filter.is-closed{--filter-accent:#475569;--filter-bg:#EEF2F6;--filter-text:#475569}.jarchi-ticket-filter .jarchi-ticket-filter__icon{color:var(--filter-accent)}.jarchi-ticket-filter.is-active{background:var(--filter-bg);border-color:var(--filter-accent);color:var(--filter-text);box-shadow:0 0 0 2px color-mix(in srgb,var(--filter-accent) 12%,transparent)}.jarchi-ticket-filter.is-active .jarchi-ticket-filter__icon{color:var(--filter-accent)}.jarchi-ticket-rating{margin-top:18px;padding:18px;border:1px solid var(--jt-border,#e5e7eb);border-radius:var(--jt-radius,18px);background:var(--jt-surface,#fff)}.jarchi-ticket-stars{display:flex;gap:5px;margin:10px 0}.jarchi-ticket-stars input{position:absolute;opacity:0}.jarchi-ticket-stars span{font-size:28px;color:#cbd5e1;cursor:pointer}.jarchi-ticket-stars label:hover span,.jarchi-ticket-stars input:checked+span{color:#f59e0b}.wpep-ticket-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.wpep-ticket-row form{margin:0}
+
+.jarchi-ticket-center,.jarchi-ticket-center *{font-family:JarchiPeyda,Segoe UI,Tahoma,sans-serif}
+
+/* Jarchi 1.9.3: Elementor instance-level styling must win over global ticket styles. */
+.elementor-widget-jarchi_ticket_center .jarchi-ticket-center{background:var(--jt-bg)!important;color:var(--jt-text)!important;}
+.elementor-widget-jarchi_ticket_center .jarchi-ticket-center .jarchi-ticket-head h2,.elementor-widget-jarchi_ticket_center .jarchi-ticket-center .jarchi-ticket-thread-head h3,.elementor-widget-jarchi_ticket_center .jarchi-ticket-center .jarchi-ticket-form-card h3,.elementor-widget-jarchi_ticket_center .jarchi-ticket-center .jarchi-ticket-message__body,.elementor-widget-jarchi_ticket_center .jarchi-ticket-center label{color:var(--jt-text)!important;}
+.elementor-widget-jarchi_ticket_center .jarchi-ticket-center .jarchi-ticket-head p,.elementor-widget-jarchi_ticket_center .jarchi-ticket-center .jarchi-ticket-form-card>p,.elementor-widget-jarchi_ticket_center .jarchi-ticket-center .jarchi-ticket-list-main small,.elementor-widget-jarchi_ticket_center .jarchi-ticket-center .jarchi-ticket-empty,.elementor-widget-jarchi_ticket_center .jarchi-ticket-center .jarchi-ticket-upload small,.elementor-widget-jarchi_ticket_center .jarchi-ticket-center .jarchi-ticket-message__meta time{color:var(--jt-muted)!important;}
+.elementor-widget-jarchi_ticket_center .jarchi-ticket-center .jarchi-ticket-list,.elementor-widget-jarchi_ticket_center .jarchi-ticket-center .jarchi-ticket-thread{background:var(--jt-surface)!important;border-color:var(--jt-border)!important;box-shadow:var(--jt-shadow)!important;}
+.elementor-widget-jarchi_ticket_center .jarchi-ticket-center .jarchi-ticket-list-item{color:var(--jt-text)!important;}
+.elementor-widget-jarchi_ticket_center .jarchi-ticket-center .jarchi-ticket-list-item:hover,.elementor-widget-jarchi_ticket_center .jarchi-ticket-center .jarchi-ticket-list-item.is-active{background:var(--jt-soft-bg)!important;}
+.elementor-widget-jarchi_ticket_center .jarchi-ticket-center input[type=text],.elementor-widget-jarchi_ticket_center .jarchi-ticket-center textarea,.elementor-widget-jarchi_ticket_center .jarchi-ticket-center select{background:var(--jt-field-bg)!important;color:var(--jt-field-text)!important;border-color:var(--jt-border)!important;}
+.elementor-widget-jarchi_ticket_center .jarchi-ticket-center .jarchi-ticket-message{background:var(--jt-message-bg)!important;border-color:var(--jt-border)!important;}
+.elementor-widget-jarchi_ticket_center .jarchi-ticket-center .jarchi-ticket-message.is-user{background:var(--jt-user-message-bg)!important;border-color:var(--jt-border)!important;}
+.elementor-widget-jarchi_ticket_center .jarchi-ticket-center .jarchi-ticket-form-icon{background:var(--jt-soft-bg)!important;color:var(--jt-primary)!important;}
+.elementor-widget-jarchi_ticket_center .jarchi-ticket-center .jarchi-ticket-filter{color:var(--filter-text,#334155)!important;background:var(--filter-bg,var(--jt-surface))!important;border-color:var(--filter-accent,var(--jt-border))!important;}
+.elementor-widget-jarchi_ticket_center .jarchi-ticket-center .jarchi-ticket-filter.is-active{box-shadow:0 0 0 2px color-mix(in srgb,var(--filter-accent) 12%,transparent)!important;}
+@media(max-width:900px){.jarchi-ticket-filters{overflow-x:auto;justify-content:flex-start;flex-wrap:nowrap}.jarchi-ticket-filter{min-width:max-content}}
+
+/* Jarchi 1.10 premium ticket status chips */
+.jarchi-ticket-filters{align-items:stretch;gap:8px;padding-inline:0;margin-bottom:20px}
+.jarchi-ticket-filter{min-width:128px;justify-content:flex-start;padding:9px 12px;border-radius:14px;position:relative}
+.jarchi-ticket-filter__count{margin-inline-start:auto;min-width:22px;height:22px;padding:0 6px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;background:rgba(15,23,42,.06);color:currentColor}
+.jarchi-ticket-filter.is-active .jarchi-ticket-filter__count{background:var(--filter-accent);color:#fff}
+.jarchi-ticket-filter.is-waiting{--filter-accent:#D97706;--filter-bg:#FFF4D8;--filter-text:#8A4B00}
+.jarchi-ticket-filter.is-reviewing{--filter-accent:#7C3AED;--filter-bg:#F2ECFF;--filter-text:#5B21B6}
+.jarchi-ticket-filter.is-answered{--filter-accent:#15803D;--filter-bg:#E8F8EE;--filter-text:#166534}
+.jarchi-ticket-filter.is-closed{--filter-accent:#475569;--filter-bg:#EDF1F5;--filter-text:#334155}
+.jarchi-ticket-filter:hover{border-color:var(--filter-accent);background:var(--filter-bg);color:var(--filter-text)}
+@media(max-width:900px){.jarchi-ticket-filter{min-width:118px}}
+.jarchi-ticket-filter__count{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:999px;font-size:10px;font-weight:900;background:rgba(15,23,42,.07);color:currentColor}.jarchi-ticket-filter.is-active .jarchi-ticket-filter__count{background:var(--filter-accent,#E84F01);color:#fff}.jarchi-ticket-filter.is-all{--filter-accent:#64748B}.jarchi-ticket-filter.is-waiting{--filter-accent:#D97706}.jarchi-ticket-filter.is-reviewing{--filter-accent:#7C3AED}.jarchi-ticket-filter.is-answered{--filter-accent:#15803D}.jarchi-ticket-filter.is-closed{--filter-accent:#475569}
+
+.jarchi-ticket-attachments audio,.wpep-ticket-attachments-admin audio{width:min(100%,360px);display:block;margin-top:8px}.jarchi-ticket-file-link{display:inline-flex;align-items:center;padding:8px 12px;border-radius:12px;background:var(--jarchi-surface-2,#f5f6f8);text-decoration:none}.jarchi-ticket-custom-summary{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.jarchi-ticket-custom-summary span{padding:6px 10px;border-radius:10px;background:rgba(232,79,1,.07)}.jarchi-ticket-faq{margin:14px 0;padding:12px;border:1px solid var(--jarchi-border,#e5e7eb);border-radius:14px}.jarchi-ticket-faq details{padding:8px 0;border-bottom:1px solid var(--jarchi-border,#e5e7eb)}.jarchi-ticket-faq details:last-child{border-bottom:0}.jarchi-ticket-faq summary{cursor:pointer;font-weight:600}
+.jarchi-ticket-head-actions{display:flex;align-items:center;gap:8px;flex:none}.jarchi-ticket-notify-enable{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--jt-border);background:var(--jt-surface);color:var(--jt-text);border-radius:12px;padding:8px 11px;font:inherit;font-size:11px;font-weight:800;cursor:pointer}.jarchi-ticket-notify-enable:hover{border-color:var(--jt-primary);color:var(--jt-primary);background:var(--jt-soft-bg,#fff7f1)}@media (max-width:700px){.jarchi-ticket-head{align-items:flex-start}.jarchi-ticket-head-actions{flex-direction:column;align-items:flex-end}.jarchi-ticket-notify-enable{font-size:10px;padding:7px 9px}}
+
+
+/* Jarchi 1.17: self-contained Ticket Center surface for Elementor/site builders. */
+.jarchi-ticket-center{background:var(--jt-bg,#f6f7f9)!important;color:var(--jt-text,#171717)!important;box-sizing:border-box;isolation:isolate}
+.jarchi-ticket-center,.jarchi-ticket-center *{box-sizing:border-box}
+.jarchi-ticket-center input,.jarchi-ticket-center textarea,.jarchi-ticket-center select{appearance:none;-webkit-appearance:none}
+.jarchi-ticket-faq{background:var(--jt-surface,#fff);border-color:var(--jt-border,#e5e7eb);box-shadow:var(--jt-shadow,0 12px 28px rgba(12,18,25,.05));padding:16px}
+.jarchi-ticket-faq__head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.jarchi-ticket-faq__head .dashicons{color:var(--jt-primary);font-size:18px}
+.jarchi-ticket-faq__search{width:100%;background:var(--jt-field-bg,#fff);color:var(--jt-field-text,#171717);border:1px solid var(--jt-border,#e5e7eb);border-radius:12px;padding:10px 12px;font:inherit;margin-bottom:10px}
+.jarchi-ticket-faq__item[hidden]{display:none!important}
+.jarchi-ticket-faq__help{margin-top:8px;color:var(--jt-muted);font-size:11px}
+.jarchi-ticket-filters{position:relative;z-index:2}
+.jarchi-ticket-filter:focus-visible,.jarchi-ticket-new:focus-visible,.jarchi-ticket-submit:focus-visible,.jarchi-ticket-faq__search:focus-visible{outline:3px solid color-mix(in srgb,var(--jt-primary) 28%,transparent);outline-offset:2px}
+@media(max-width:900px){.jarchi-ticket-center{padding-inline:10px}.jarchi-ticket-row{grid-template-columns:1fr}.jarchi-ticket-filters{gap:7px}.jarchi-ticket-filter{min-width:116px}}
+
+
+/* =========================================================================
+ * v1.9.0 — the customer's ticket centre, built for a phone first.
+ *
+ * The layout above is a fixed two-column grid with no breakpoint, so on a
+ * 390px screen the list and the thread were sharing space neither of them
+ * had: titles truncated to a few characters, messages in a column too narrow
+ * to read, and the reply box below the fold. On a phone the two panes cannot
+ * coexist, so they become two views with a way back between them.
+ * ====================================================================== */
+
+/* --- Status chips. ------------------------------------------------------ */
+
+.jarchi-ticket-list-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 5px;
+  flex-wrap: wrap;
+}
+
+.jarchi-ticket-list-meta time {
+  color: var(--jt-muted);
+  font-size: 11px;
+}
+
+.jarchi-ticket-chip {
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eef1f4;
+  color: #65707b;
+  white-space: nowrap;
+}
+
+.jarchi-ticket-chip--waiting { background: #fff4e0; color: #9a5b00; }
+.jarchi-ticket-chip--reviewing { background: #e8f1ff; color: #1d4ed8; }
+.jarchi-ticket-chip--answered { background: #eaf7ee; color: #15803d; }
+.jarchi-ticket-chip--closed { background: #eef1f4; color: #65707b; }
+
+.jarchi-ticket-status--waiting { background: #fff4e0; color: #9a5b00; }
+.jarchi-ticket-status--reviewing { background: #e8f1ff; color: #1d4ed8; }
+.jarchi-ticket-status--answered { background: #eaf7ee; color: #15803d; }
+
+/* --- The thread header and its way back. -------------------------------- */
+
+.jarchi-ticket-back-link {
+  /* Hidden on desktop, where the list is already on screen beside you. */
+  display: none;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 12px;
+  color: var(--jt-primary);
+  font-weight: 800;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.jarchi-ticket-thread-head__main {
+  min-width: 0;
+}
+
+.jarchi-ticket-thread-head__main h3 {
+  overflow-wrap: anywhere;
+}
+
+/* --- A thread nobody can answer says so. -------------------------------- */
+
+.jarchi-ticket-locked {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  padding: 22px 16px 6px;
+  border-top: 1px solid var(--jt-border);
+  color: var(--jt-muted);
+}
+
+.jarchi-ticket-locked p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.jarchi-ticket-locked .dashicons {
+  font-size: 26px;
+  width: 26px;
+  height: 26px;
+  color: var(--jt-primary);
+}
+
+/* --- Filters scroll rather than wrap into a wall. ----------------------- */
+
+.jarchi-ticket-filters {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.jarchi-ticket-filters::-webkit-scrollbar { display: none; }
+
+.jarchi-ticket-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--jt-border);
+  background: var(--jt-surface);
+  color: var(--jt-muted);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.jarchi-ticket-filter.is-active {
+  border-color: var(--jt-primary);
+  color: var(--jt-primary);
+  background: var(--jt-soft-bg, #fff4eb);
+}
+
+.jarchi-ticket-filter__count {
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.jarchi-ticket-unread:not(.is-visible) { display: none; }
+
+/* --- Phones. ------------------------------------------------------------ */
+
+@media ( max-width: 860px ) {
+  .jarchi-ticket-center {
+    margin: 16px auto;
+    padding: 0 12px;
+  }
+
+  .jarchi-ticket-layout {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  /* One pane at a time. Reading a thread on a phone means the list steps
+     aside, and the back link above brings it back. */
+  .jarchi-ticket-layout.has-open-thread .jarchi-ticket-list { display: none; }
+  .jarchi-ticket-layout.has-open-thread .jarchi-ticket-back-link { display: inline-flex; }
+
+  .jarchi-ticket-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .jarchi-ticket-head h2 { font-size: 20px; }
+
+  .jarchi-ticket-thread { padding: 14px; }
+
+  /* A bubble capped at 86% of a 360px column is unreadable; on a phone the
+     message may use the width it has. */
+  .jarchi-ticket-message { max-width: 100%; }
+
+  .jarchi-ticket-list-item {
+    padding: 13px 10px;
+    /* A comfortable tap target, not a 30px line of text. */
+    min-height: 56px;
+  }
+
+  .jarchi-ticket-list-main strong {
+    font-size: 14px;
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .jarchi-ticket-row { grid-template-columns: 1fr; }
+
+  /* The reply box sits at the bottom of the thread on a phone and stays
+     reachable while the conversation scrolls above it. */
+  .jarchi-ticket-reply-form {
+    position: sticky;
+    bottom: 0;
+    background: var(--jt-surface);
+    padding-bottom: 12px;
+    margin: 0 -14px -14px;
+    padding-inline: 14px;
+    border-radius: 0 0 var(--jt-radius) var(--jt-radius);
+  }
+
+  .jarchi-ticket-reply-form textarea { min-height: 84px; }
+
+  .jarchi-ticket-reply-actions {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .jarchi-ticket-submit {
+    /* Meets the 44px minimum touch target. */
+    min-height: 44px;
+    padding-inline: 18px;
+  }
+
+  .jarchi-ticket-attachments img {
+    width: 72px;
+    height: 60px;
+  }
+}
+
+@media ( max-width: 420px ) {
+  .jarchi-ticket-filter__label { display: none; }
+  .jarchi-ticket-filter { padding: 8px 11px; }
+}
+
+/* --- Respect the reader's preferences. ---------------------------------- */
+
+@media ( prefers-reduced-motion: reduce ) {
+  .jarchi-ticket-icon { transition: none; }
+}

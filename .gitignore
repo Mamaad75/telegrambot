@@ -141,3 +141,11 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Packaged releases are build output, not source.
+#
+# Committing them is what turned an earlier branch's history into 128 MB of
+# blobs and pushed its bundle past the delivery limit. The zip rebuilds from
+# the source beside it whenever it is needed.
+j/*.zip
+j/.bak/
