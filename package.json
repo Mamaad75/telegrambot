@@ -1,0 +1,30 @@
+{
+  "name": "myshop-accounting",
+  "productName": "MyShopAccounting",
+  "version": "1.0.0",
+  "description": "نرم‌افزار حسابداری فروشگاهی ویندوز - حسابداری دوطرفه، انبار، فاکتور، چک و گزارش‌ها",
+  "main": "src/main/main.js",
+  "author": {
+    "name": "MyShop",
+    "email": "support@myshop.local"
+  },
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "test": "node tests/run-tests.js",
+    "rebuild": "electron-builder install-app-deps",
+    "postinstall": "electron-builder install-app-deps || echo \"skip rebuild\"",
+    "dist:win": "electron-builder --win --x64 --publish never",
+    "dist:portable": "electron-builder --win portable --x64 --publish never",
+    "pack": "electron-builder --dir"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.10.0",
+    "exceljs": "^4.4.0"
+  },
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8"
+  }
+}
