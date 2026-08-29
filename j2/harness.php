@@ -310,6 +310,13 @@ class FakeWpdb {
 	public function get_var( $sql ) {
 		$this->queries[] = $sql;
 
+		// The broadcast counts users in SQL so it can show progress without
+		// enumerating them. Returning 0 here would let "every user is queued"
+		// pass against a broadcast that queued nobody.
+		if ( preg_match( '/COUNT\(\*\)\s+FROM\s+wp_users/i', (string) $sql ) ) {
+			return count( (array) ( $GLOBALS['users_store'] ?? array() ) );
+		}
+
 		if ( str_contains( (string) $sql, 'wpep_automation_events' ) ) {
 			if ( ! isset( $GLOBALS['ledger'] ) ) { $GLOBALS['ledger'] = array(); }
 
@@ -867,6 +874,11 @@ function current_user_can( $c, ...$a ) {
 function user_can( $user, $cap, ...$a ) { return current_user_can( $cap ); }
 
 function get_users( $args = array() ) {
+	// Recorded so a test can assert how the user table was reached, not only
+	// what came back. "Counted them in SQL" and "fetched them all and counted
+	// the array" return the same number and are not the same code.
+	$GLOBALS['get_users_calls'][] = $args;
+
 	$users = array_values( $GLOBALS['users_store'] ?? array() );
 	$role  = (string) ( $args['role'] ?? '' );
 

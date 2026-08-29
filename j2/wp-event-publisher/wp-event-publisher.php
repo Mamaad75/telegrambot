@@ -3,7 +3,7 @@
  * Plugin Name:       جارچی
  * Plugin URI:        https://bymer.ir
  * Description:       انتشار خودکار محتوای وردپرس در تلگرام، بله و واتس‌اپ از طریق سرویس جارچی.
- * Version:           1.19.0
+ * Version:           1.19.2
  * Requires at least: 6.5
  * Requires PHP:      8.1
  * Author:            ممد از تیم بایمر
@@ -37,7 +37,7 @@ define( 'WPEP_BOOTSTRAPPED', true );
  * Plugin constants.
  * -------------------------------------------------------------------------
  */
-define( 'WPEP_VERSION', '1.19.0' );
+define( 'WPEP_VERSION', '1.19.2' );
 define( 'WPEP_PLUGIN_FILE', __FILE__ );
 define( 'WPEP_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPEP_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

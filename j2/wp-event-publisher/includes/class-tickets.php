@@ -1747,26 +1747,27 @@ final class Tickets {
 	 * @return int Recipients queued.
 	 */
 	private function start_broadcast( array $payload ): int {
-		$recipients = array_values( array_map( 'absint', (array) get_users( array( 'fields' => 'ID' ) ) ) );
-
-		/**
-		 * Filters who receives a broadcast ticket.
+		/*
+		 * A cursor, not a list.
 		 *
-		 * @since 1.9.0
-		 *
-		 * @param int[]               $recipients User ids.
-		 * @param array<string,mixed> $payload    Ticket payload.
+		 * This used to fetch every user id on the site and store the whole
+		 * array in one option row, then splice twenty-five off the front and
+		 * rewrite the row each batch. On ten thousand users that is a hundred
+		 * thousand ids written and read four hundred times over — quadratic
+		 * work to send a linear number of messages, and a single request that
+		 * had to hold the entire user table in memory before the first ticket
+		 * was created.
 		 */
-		$recipients = (array) apply_filters( 'wpep_broadcast_recipients', $recipients, $payload );
-
 		$payload['broadcast'] = true;
+
+		$total = $this->total_users();
 
 		update_option(
 			self::OPTION_BROADCAST,
 			array(
 				'payload'    => $payload,
-				'pending'    => $recipients,
-				'total'      => count( $recipients ),
+				'cursor'     => 0,
+				'total'      => $total,
 				'sent'       => 0,
 				'started_at' => current_time( 'mysql' ),
 			),
@@ -1775,7 +1776,24 @@ final class Tickets {
 
 		$this->run_broadcast_batch();
 
-		return count( $recipients );
+		return $total;
+	}
+
+	/**
+	 * How many users the site has.
+	 *
+	 * One indexed count, so that a broadcast can show progress without
+	 * enumerating the people it is counting.
+	 *
+	 * @since 1.19.2
+	 *
+	 * @return int User count.
+	 */
+	private function total_users(): int {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$wpdb->users}" );
 	}
 
 	/**
@@ -1788,16 +1806,51 @@ final class Tickets {
 	public function run_broadcast_batch(): void {
 		$state = get_option( self::OPTION_BROADCAST, array() );
 
-		if ( ! is_array( $state ) || empty( $state['pending'] ) ) {
+		if ( ! is_array( $state ) || ! isset( $state['cursor'] ) ) {
 			delete_option( self::OPTION_BROADCAST );
 
 			return;
 		}
 
 		$payload = (array) ( $state['payload'] ?? array() );
-		$batch   = array_splice( $state['pending'], 0, self::BROADCAST_BATCH );
+		$cursor  = max( 0, (int) $state['cursor'] );
 
-		foreach ( $batch as $customer_id ) {
+		$batch = array_map(
+			'absint',
+			(array) get_users(
+				array(
+					'number'  => self::BROADCAST_BATCH,
+					'offset'  => $cursor,
+					'fields'  => 'ID',
+					'orderby' => 'ID',
+					'order'   => 'ASC',
+				)
+			)
+		);
+
+		if ( empty( $batch ) ) {
+			delete_option( self::OPTION_BROADCAST );
+
+			return;
+		}
+
+		/**
+		 * Filters who receives a broadcast ticket.
+		 *
+		 * Runs once per batch rather than once over the whole site, so a
+		 * filter that removes people still works and nothing has to hold every
+		 * user id at once. A filter may narrow the batch; ids it adds that are
+		 * not in the batch are still messaged, but the cursor moves by the
+		 * batch it was given, so adding ids does not extend the run.
+		 *
+		 * @since 1.9.0
+		 *
+		 * @param int[]               $recipients User ids in this batch.
+		 * @param array<string,mixed> $payload    Ticket payload.
+		 */
+		$recipients = (array) apply_filters( 'wpep_broadcast_recipients', $batch, $payload );
+
+		foreach ( $recipients as $customer_id ) {
 			$created = $this->create_admin_ticket( (int) $customer_id, $payload );
 
 			if ( ! is_wp_error( $created ) ) {
@@ -1805,11 +1858,9 @@ final class Tickets {
 			}
 		}
 
-		if ( empty( $state['pending'] ) ) {
-			delete_option( self::OPTION_BROADCAST );
-
-			return;
-		}
+		// Advanced by what was fetched, not by what was sent: a filter that
+		// skipped somebody must not make the cursor stall on them for ever.
+		$state['cursor'] = $cursor + count( $batch );
 
 		update_option( self::OPTION_BROADCAST, $state, false );
 
@@ -1833,7 +1884,7 @@ final class Tickets {
 		}
 
 		return array(
-			'running' => ! empty( $state['pending'] ),
+			'running' => (int) ( $state['cursor'] ?? 0 ) < (int) $state['total'],
 			'sent'    => (int) ( $state['sent'] ?? 0 ),
 			'total'   => (int) $state['total'],
 		);

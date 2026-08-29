@@ -1300,10 +1300,14 @@ final class TicketAutomations {
 			return;
 		}
 
+		$examined = 0;
+
 		foreach ( $users as $user_id ) {
 			if ( self::$created >= self::MAX_PER_REQUEST ) {
 				break;
 			}
+
+			++$examined;
 
 			if ( 'profile_completed' === (string) $rule['trigger'] ) {
 				if ( $this->profile_incomplete( $user_id ) ) {
@@ -1316,7 +1320,16 @@ final class TicketAutomations {
 			$this->fire_rule( $rule, $user_id, array() );
 		}
 
-		update_option( $this->cursor_key( $rule_id ), $cursor + count( $users ), false );
+		/*
+		 * The cursor advances over the users this run actually looked at, not
+		 * over the whole batch it fetched. The batch is twenty-five and the
+		 * per-request ceiling is twenty, so a full batch always stopped five
+		 * users short — and advancing by twenty-five anyway stepped over those
+		 * five. They were picked up on the next pass over the user table, an
+		 * hour or a day later, which looked like the message simply arriving
+		 * late for a scattered few per cent of the site.
+		 */
+		update_option( $this->cursor_key( $rule_id ), $cursor + $examined, false );
 	}
 
 	/* =====================================================================
