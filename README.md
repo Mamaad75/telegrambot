@@ -132,8 +132,42 @@ npm run dist:win            # ساخت نسخه نصبی + قابل حمل وی�
 | `npm run icon` | ساخت مجدد آیکون برنامه |
 | `npm run rebuild` | آماده‌سازی مجدد ماژول بومی برای Electron |
 
-> **نکته:** ساخت فایل `.exe` ویندوز باید روی خود ویندوز انجام شود.
-> ساخت آن روی لینوکس یا مک به Wine نیاز دارد.
+> **نکته:** ساده‌ترین و مطمئن‌ترین راه، ساخت روی خود ویندوز است.
+
+### ساخت از روی لینوکس یا مک (اختیاری)
+
+ساخت `.exe` روی لینوکس ممکن است ولی به دو نکته نیاز دارد:
+
+۱. **Wine** برای ابزار `rcedit` (که ۳۲ بیتی است):
+
+```bash
+sudo dpkg --add-architecture i386 && sudo apt-get update
+sudo apt-get install -y wine64 wine32:i386
+```
+
+۲. **ماژول بومی ویندوز**: `better-sqlite3` قابل کراس‌کامپایل نیست، پس باید نسخه
+   از پیش ساخته‌شده ویندوز آن را دانلود کرد و اجازه نداد electron-builder دوباره
+   آن را برای لینوکس بسازد:
+
+```bash
+# دریافت نسخه ویندوزی ماژول بومی
+(cd node_modules/better-sqlite3 && npx prebuild-install -r electron -t 33.4.11 --platform win32 --arch x64)
+
+# ساخت بدون بازسازی ماژول بومی
+npx electron-builder --win nsis portable --x64 --publish never -c.npmRebuild=false
+```
+
+پس از ساخت، صحت خروجی را بررسی کنید — این فایل باید **PE32+ DLL ویندوزی** باشد، نه ELF لینوکسی:
+
+```bash
+file release/win-unpacked/resources/app.asar.unpacked/node_modules/better-sqlite3/build/Release/better_sqlite3.node
+```
+
+برای برگرداندن محیط توسعه لینوکسی پس از ساخت:
+
+```bash
+npm run rebuild
+```
 
 ---
 
