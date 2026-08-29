@@ -149,3 +149,4 @@ vite.config.ts.timestamp-*
 # the source beside it whenever it is needed.
 j/*.zip
 j/.bak/
+j2/*.zip

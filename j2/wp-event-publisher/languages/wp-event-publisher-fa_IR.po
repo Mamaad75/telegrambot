@@ -1,0 +1,3385 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: جارچی 1.7.0\n"
+"Report-Msgid-Bugs-To: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: fa_IR\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"X-Generator: wp-event-publisher build script\n"
+
+msgid "\"%1$s\" referenced a parent profile (\"%2$s\") that was not in the file, so it was imported as a root profile."
+msgstr "«%1$s» به یک نمایه والد («%2$s») ارجاع می‌داد که در فایل نبود، بنابراین به‌عنوان نمایه ریشه درون‌ریزی شد."
+
+msgid "\"%s\" is required."
+msgstr "«%s» الزامی است."
+
+msgid "%1$d conditions · %2$d actions"
+msgstr "%1$d شرط · %2$d کنش"
+
+msgid "%1$s (%2$s) — %3$d published"
+msgstr "%1$s (%2$s) — %3$d منتشرشده"
+
+msgid "%1$s (in %2$s on line %3$d)"
+msgstr "%1$s (در %2$s، خط %3$d)"
+
+msgid "%1$s answered HTTP %2$d in %3$s s. TLS verification succeeded."
+msgstr "%1$s با HTTP %2$d در %3$s ثانیه پاسخ داد. بررسی گواهی TLS موفق بود."
+
+msgid "%1$s is unreachable: %2$s"
+msgstr "%1$s در دسترس نیست: %2$s"
+
+msgid "%1$s resolves to %2$s."
+msgstr "%1$s به %2$s تفکیک می‌شود."
+
+msgid "%1$s یک فیلد را چاپ می‌کند. %2$s فقط وقتی بلوکش را نگه می‌دارد که فیلد مقدار داشته باشد و %3$s برعکس آن است. خطی که همه جایگزین‌هایش خالی درآمده باشد حذف می‌شود."
+msgstr "%1$s یک فیلد را چاپ می‌کند. %2$s فقط وقتی بلوکش را نگه می‌دارد که فیلد مقدار داشته باشد و %3$s برعکس آن است. خطی که همه جایگزین‌هایش خالی درآمده باشد حذف می‌شود."
+
+msgid "%1$s: %2$s"
+msgstr "%1$s: %2$s"
+
+msgid "%d check failed. Fix it and run the diagnostics again."
+msgstr "%d بررسی ناموفق بود. آن را برطرف کنید و دوباره عیب‌یابی را اجرا کنید."
+
+msgid "%d checks failed. Fix them and run the diagnostics again."
+msgstr "%d بررسی ناموفق بودند. آن‌ها را برطرف کنید و دوباره عیب‌یابی را اجرا کنید."
+
+msgid "%d field"
+msgstr "%d فیلد"
+
+msgid "%d fields"
+msgstr "%d فیلد"
+
+msgid "%d problem"
+msgstr "%d اشکال"
+
+msgid "%d problems"
+msgstr "%d اشکال"
+
+msgid "%d queued events used up their attempts without completing and were retired."
+msgstr "%d رویداد در صف، تلاش‌های خود را بدون تکمیل مصرف کردند و کنار گذاشته شدند."
+
+msgid "%d seconds"
+msgstr "%d ثانیه"
+
+msgid "%s (copy)"
+msgstr "%s (رونوشت)"
+
+msgid "%s The endpoint works, but real advertisements would still not be published:"
+msgstr "%s سرویس پاسخ می‌دهد، اما آگهی‌های واقعی باز هم منتشر نمی‌شوند:"
+
+msgid "%s could not be resolved from this server. This is a DNS problem on the WordPress host."
+msgstr "%s از این سرور قابل تفکیک نبود. این یک مشکل DNS روی میزبان وردپرس است."
+
+msgid "%s log entries found."
+msgstr "%s گزارش یافت شد."
+
+msgid "%s log entry found."
+msgstr "%s گزارش یافت شد."
+
+msgid "%s — deepest term"
+msgstr "%s — عمیق‌ترین دسته"
+
+msgid "%s — full path"
+msgstr "%s — مسیر کامل"
+
+msgid "%s — top level"
+msgstr "%s — سطح نخست"
+
+msgid "&laquo;"
+msgstr "&laquo;"
+
+msgid "&raquo;"
+msgstr "&raquo;"
+
+msgid "(none)"
+msgstr "(هیچ‌کدام)"
+
+msgid ", and "
+msgstr "، و "
+
+msgid "A condition reads the field \"%1$s\", which was not discovered on \"%2$s\". It will be read straight from post meta instead."
+msgstr "یک شرط فیلد «%1$s» را می‌خواند که روی «%2$s» شناسایی نشده است. در عوض مستقیماً از متای نوشته خوانده می‌شود."
+
+msgid "A delayed advertisement is rebuilt when it is finally sent, so an edit during the wait goes out corrected and a deletion cancels it."
+msgstr "آگهی تأخیری هنگام ارسال نهایی دوباره ساخته می‌شود، بنابراین ویرایش در طول انتظار اصلاح‌شده ارسال می‌شود و حذف، ارسال را لغو می‌کند."
+
+msgid "A deletion event was already emitted for this post."
+msgstr "پیش‌تر برای این نوشته رویداد حذف ساخته شده است."
+
+msgid "A destination is one place an advertisement is published. Several destinations may share a provider — five Telegram channels are five destinations — and each carries its own template, image limit and delay."
+msgstr "مقصد یعنی یک جایی که آگهی در آن منتشر می‌شود. چند مقصد می‌توانند یک تأمین‌کننده مشترک داشته باشند — پنج کانال تلگرام یعنی پنج مقصد — و هرکدام الگو، سقف تصویر و تأخیر خودش را دارد."
+
+msgid "A filter callback suppressed the detected event."
+msgstr "یک فیلتر، رویداد شناسایی‌شده را متوقف کرد."
+
+msgid "A number"
+msgstr "یک عدد"
+
+msgid "A plugin file is missing. Re-install the plugin to restore it."
+msgstr "یکی از فایل‌های افزونه موجود نیست. برای بازیابی، افزونه را دوباره نصب کنید."
+
+msgid "A profile is one complete publishing configuration: which fields are sent, under what labels and in what order, rendered by which template, with which images, to which destinations. Assign a profile to a post type or a category; anything below it inherits until you say otherwise."
+msgstr "نمایه یعنی یک پیکربندی کامل انتشار: کدام فیلدها، با چه برچسبی، به چه ترتیب نمایشی، با کدام الگو، با کدام تصاویر و به کدام مقصدها ارسال شوند. یک نمایه را به نوع نوشته یا دسته اختصاص دهید؛ هرچه زیر آن است تا وقتی خلافش را نگویید ارث می‌برد."
+
+msgid "A queued event was picked up from the queue for delivery (attempt %d)."
+msgstr "یک رویداد از صف برای ارسال برداشته شد (تلاش %d)."
+
+msgid "A rule stopped this advertisement from being published."
+msgstr "یک قاعده مانع انتشار این آگهی شد."
+
+msgid "A rule with no conditions applies to every advertisement."
+msgstr "قاعده‌ای که شرطی ندارد بر همه آگهی‌ها اعمال می‌شود."
+
+msgid "A secret is configured but it is shorter than 16 characters."
+msgstr "کلید امنیتی تنظیم شده اما کمتر از ۱۶ نویسه است."
+
+msgid "A secret is configured. Authentication style: %s. The value is never displayed or logged."
+msgstr "کلید امنیتی تنظیم شده است. شیوه احراز هویت: %s. مقدار آن هرگز نمایش داده یا ثبت نمی‌شود."
+
+msgid "A service that is not listed is one adapter class away: implement the DeliveryProvider interface and register it with %s. The settings form on this screen is built from the provider’s own schema, so no admin code is needed."
+msgstr "سرویسی که در این فهرست نیست تنها یک کلاس آداپتور فاصله دارد: رابط DeliveryProvider را پیاده‌سازی کنید و آن را با %s ثبت کنید. فرم تنظیمات این صفحه از شمای خودِ تأمین‌کننده ساخته می‌شود، پس هیچ کد داشبوردی لازم نیست."
+
+msgid "A wpep_is_eligible filter callback rejected the post."
+msgstr "یک فیلتر wpep_is_eligible این نوشته را رد کرد."
+
+msgid "AJAX پیشخوان"
+msgstr "AJAX پیشخوان"
+
+msgid "AND"
+msgstr "و"
+
+msgid "API key only (X-API-Key, X-Webhook-Secret)"
+msgstr "فقط کلید API (هدرهای X-API-Key و X-Webhook-Secret)"
+
+msgid "Accepted (HTTP %d)."
+msgstr "پذیرفته شد (HTTP %d)."
+
+msgid "Actions"
+msgstr "عملیات"
+
+msgid "Active"
+msgstr "فعال"
+
+msgid "Add action"
+msgstr "افزودن کنش"
+
+msgid "Add condition"
+msgstr "افزودن شرط"
+
+msgid "Add nested group"
+msgstr "افزودن گروه تودرتو"
+
+msgid "Add text after the message"
+msgstr "افزودن متن پس از پیام"
+
+msgid "Add text before the message"
+msgstr "افزودن متن پیش از پیام"
+
+msgid "Admin Dashboard — status, settings, logs and diagnostic tools."
+msgstr "پیشخوان مدیریت — وضعیت، تنظیمات، گزارش‌ها و ابزارهای عیب‌یابی."
+
+msgid "Admin Language"
+msgstr "زبان داشبورد افزونه"
+
+msgid "Advanced Custom Fields"
+msgstr "Advanced Custom Fields"
+
+msgid "Advertisement ID"
+msgstr "شناسه آگهی"
+
+msgid "Advertisement fields"
+msgstr "فیلدهای آگهی"
+
+msgid "Advertisement post ID"
+msgstr "شناسه نوشته آگهی"
+
+msgid "Advertisement post types"
+msgstr "نوع‌های نوشته آگهی"
+
+msgid "Advertisements published before this upgrade are now treated as back catalogue: editing one no longer announces it as new. Use Tools → Send One Advertisement Now to send an older advertisement deliberately."
+msgstr "آگهی‌هایی که پیش از این به‌روزرسانی منتشر شده‌اند از این پس آرشیو قدیمی به شمار می‌آیند: ویرایش آن‌ها دیگر آن‌ها را به‌عنوان آگهی تازه اعلام نمی‌کند. برای ارسال عمدی یک آگهی قدیمی از ابزارها ← ارسال فوری یک آگهی استفاده کنید."
+
+msgid "After 30 minutes"
+msgstr "پس از ۳۰ دقیقه"
+
+msgid "After 5 minutes"
+msgstr "پس از ۵ دقیقه"
+
+msgid "After an hour"
+msgstr "پس از یک ساعت"
+
+msgid "All"
+msgstr "همه"
+
+msgid "All %1$d publishing hooks are attached. %2$s"
+msgstr "هر %1$d قلاب انتشار متصل هستند. %2$s"
+
+msgid "All (post type default)"
+msgstr "همه (پیش‌فرض نوع نوشته)"
+
+msgid "All conditions must hold (AND)"
+msgstr "همه شرط‌ها باید برقرار باشند (و)"
+
+msgid "All event types"
+msgstr "همه انواع رویداد"
+
+msgid "All images (featured first, then gallery)"
+msgstr "همه تصاویر (نخست تصویر شاخص، سپس گالری)"
+
+msgid "All logs deleted."
+msgstr "همه گزارش‌ها حذف شدند."
+
+msgid "All of the below (recommended)"
+msgstr "همه موارد زیر (پیشنهاد می‌شود)"
+
+msgid "All statuses"
+msgstr "همه وضعیت‌ها"
+
+msgid "Allow outgoing webhook requests. Disable to pause delivery without losing configuration."
+msgstr "اجازه ارسال درخواست‌های وب‌هوک. برای توقف موقت ارسال بدون از دست رفتن تنظیمات، آن را خاموش کنید."
+
+msgid "Also send to"
+msgstr "همچنین ارسال به"
+
+msgid "Always after"
+msgstr "همیشه پس از"
+
+msgid "Always before"
+msgstr "همیشه پیش از"
+
+msgid "An exception interrupted the delivery: %s"
+msgstr "یک استثنا ارسال را قطع کرد: %s"
+
+msgid "An identical event for this post was already created moments ago; the duplicate was dropped."
+msgstr "لحظه‌ای پیش رویداد یکسانی برای این نوشته ساخته شده بود؛ رویداد تکراری حذف شد."
+
+msgid "Another plugin shortened this request to %1$d s despite the configured %2$d s; that is the cause, not the endpoint."
+msgstr "افزونه دیگری مهلت این درخواست را به %1$d ثانیه کاهش داده است، در حالی که تنظیم شما %2$d ثانیه است؛ علت همین است، نه سرویس مقصد."
+
+msgid "Another plugin tried to shorten this request to %1$d s; it was restored to %2$d s."
+msgstr "افزونه دیگری تلاش کرد مهلت این درخواست را به %1$d ثانیه کاهش دهد؛ مقدار به %2$d ثانیه بازگردانده شد."
+
+msgid "Another process is already delivering this attempt; skipping."
+msgstr "پردازش دیگری همین تلاش را در دست دارد؛ از این اجرا صرف‌نظر شد."
+
+msgid "Any condition is enough (OR)"
+msgstr "هر شرطی کافی است (یا)"
+
+msgid "Any term in a taxonomy"
+msgstr "هر دسته در یک طبقه‌بندی"
+
+msgid "Architecture"
+msgstr "معماری"
+
+msgid "Assigned term (deepest)"
+msgstr "دسته اختصاص‌یافته (عمیق‌ترین)"
+
+msgid "Assignment removed; this scope inherits again."
+msgstr "اختصاص حذف شد؛ این دامنه دوباره ارث می‌برد."
+
+msgid "Assignments"
+msgstr "اختصاص‌ها"
+
+msgid "Attempt %1$d failed; retrying in %2$d seconds. %3$s"
+msgstr "تلاش %1$d ناموفق بود؛ تلاش بعدی %2$d ثانیه دیگر. %3$s"
+
+msgid "Authenticated webhook request"
+msgstr "درخواست وب‌هوک با احراز هویت"
+
+msgid "Authentication failed: the service rejected the webhook secret. Check that the secret in Settings matches the one the Node.js service expects. This is not retried, because repeating it cannot help."
+msgstr "احراز هویت ناموفق بود: سرویس کلید امنیتی وب‌هوک را نپذیرفت. بررسی کنید کلید موجود در تنظیمات با کلید مورد انتظار سرویس Node.js یکسان باشد. این خطا تکرار نمی‌شود، چون تکرار کمکی نمی‌کند."
+
+msgid "Authentication style"
+msgstr "شیوه احراز هویت"
+
+msgid "Author"
+msgstr "نویسنده"
+
+msgid "Author (login)"
+msgstr "نویسنده (نام کاربری)"
+
+msgid "Author role"
+msgstr "نقش نویسنده"
+
+msgid "Automatic detection watches whatever is registered, whichever plugin created it (JetEngine, ACF, CPT UI, WooCommerce or a theme), so a post type added later is picked up without visiting this screen."
+msgstr "تشخیص خودکار هر چه را که ثبت شده باشد پایش می‌کند، فرقی نمی‌کند کدام افزونه آن را ساخته باشد (JetEngine، ACF، CPT UI، ووکامرس یا قالب)، بنابراین نوع نوشته‌ای که بعداً اضافه شود بدون مراجعه به این صفحه شناسایی می‌شود."
+
+msgid "Automatic — WP-Cron, with inline delivery when cron is unavailable (recommended)"
+msgstr "خودکار — ارسال در همان درخواست، با WP-Cron به عنوان پشتیبان (پیشنهاد می‌شود)"
+
+msgid "Automatic — every public post type, plus the ones ticked below"
+msgstr "خودکار — همه نوع‌های نوشته عمومی، به‌علاوه موارد تیک‌خورده پایین"
+
+msgid "Automatic — excerpt when present, otherwise the content"
+msgstr "خودکار — چکیده در صورت وجود، در غیر این صورت متن نوشته"
+
+msgid "Available providers"
+msgstr "تأمین‌کننده‌های در دسترس"
+
+msgid "Bearer token only (Authorization header)"
+msgstr "فقط توکن Bearer (هدر Authorization)"
+
+msgid "Block Kit card"
+msgstr "کارت Block Kit"
+
+msgid "Bootstrap — wp-event-publisher.php wires the autoloader and boots the container."
+msgstr "راه‌اندازی — فایل wp-event-publisher.php بارگذار خودکار را وصل و ظرف سرویس‌ها را اجرا می‌کند."
+
+msgid "Bot identifier"
+msgstr "شناسه ربات"
+
+msgid "Budget for establishing the connection alone (DNS and TLS). It is part of the total timeout above, and it makes an unreachable host fail quickly and recognisably instead of consuming the whole window."
+msgstr "مهلت مربوط به برقراری خود اتصال (DNS و TLS). این مقدار بخشی از مهلت کل بالاست و باعث می‌شود میزبان در دسترس‌نبودن سریع و با پیام روشن شکست بخورد، به‌جای اینکه تمام مهلت را مصرف کند."
+
+msgid "Builds the exact payload a publish would produce for one post ID and sends it immediately, so you can see the HTTP result without waiting for the queue."
+msgstr "برای یک شناسه نوشته، دقیقاً همان داده‌ای را که انتشار واقعی می‌ساخت می‌سازد و فوری می‌فرستد تا نتیجه HTTP را بدون انتظار برای صف ببینید."
+
+msgid "Bullet list"
+msgstr "فهرست گلوله‌ای"
+
+msgid "Buttons"
+msgstr "دکمه‌ها"
+
+msgid "Category"
+msgstr "دسته"
+
+msgid "Category (top level)"
+msgstr "دسته (سطح نخست)"
+
+msgid "Channel"
+msgstr "کانال"
+
+msgid "Channel Settings → Integrations → Webhooks → Copy Webhook URL."
+msgstr "تنظیمات کانال ← یکپارچه‌سازی‌ها ← وب‌هوک‌ها ← رونوشت نشانی وب‌هوک."
+
+msgid "Check"
+msgstr "بررسی"
+
+msgid "Checks the current settings for the problems that silently stop delivery: missing URL, weak secret, disabled toggles, empty post type selection and unusable cron settings."
+msgstr "تنظیمات کنونی را برای اشکال‌هایی که بی‌صدا جلوی ارسال را می‌گیرند بررسی می‌کند: نبودن آدرس، کلید ضعیف، گزینه‌های خاموش، انتخاب نشدن نوع نوشته و تنظیمات کرون غیرقابل استفاده."
+
+msgid "Clear Logs"
+msgstr "پاک کردن همه گزارش‌ها"
+
+msgid "Collapse or expand this group"
+msgstr "جمع یا باز کردن این گروه"
+
+msgid "Conditions"
+msgstr "شرط‌ها"
+
+msgid "Configuration looks valid. You are ready to publish advertisements."
+msgstr "تنظیمات درست است. می‌توانید آگهی منتشر کنید."
+
+msgid "Configured (never displayed or logged)"
+msgstr "تنظیم شده (هرگز نمایش داده یا ثبت نمی‌شود)"
+
+msgid "Connection Test"
+msgstr "آزمایش اتصال"
+
+msgid "Connection Timeout"
+msgstr "مهلت برقراری اتصال"
+
+msgid "Connection timeout: the request ran out of time before the service answered. Raise the Webhook Timeout, or check whether another plugin is shortening outgoing requests. The event stays in the queue and is retried."
+msgstr "مهلت اتصال تمام شد: درخواست پیش از پاسخ سرویس به پایان مهلت رسید. مقدار «مهلت زمانی وب‌هوک» را بالا ببرید یا بررسی کنید افزونه دیگری مهلت درخواست‌های خروجی را کوتاه نکرده باشد. رویداد در صف می‌ماند و دوباره تلاش می‌شود."
+
+msgid "Content (raw)"
+msgstr "محتوا (خام)"
+
+msgid "Continue processing rules"
+msgstr "ادامه پردازش قواعد"
+
+msgid "Contract version"
+msgstr "نسخه قرارداد داده"
+
+msgid "Contract — maps that data onto the versioned JSON envelope."
+msgstr "قرارداد داده — آن داده را به ساختار JSON نسخه‌دار نگاشت می‌کند."
+
+msgid "Create Destination"
+msgstr "ساخت مقصد"
+
+msgid "Create Profile"
+msgstr "ساخت نمایه"
+
+msgid "Create Rule"
+msgstr "ساخت قاعده"
+
+msgid "Create an incoming webhook in your Slack app and paste its URL here."
+msgstr "در برنامه Slack خود یک وب‌هوک ورودی بسازید و نشانی آن را اینجا بچسبانید."
+
+msgid "Credits"
+msgstr "سپاسگزاری"
+
+msgid "Currently retrying"
+msgstr "در حال تلاش دوباره"
+
+msgid "Custom delay in seconds"
+msgstr "تأخیر دلخواه بر حسب ثانیه"
+
+msgid "Custom field (number)"
+msgstr "فیلد سفارشی (عدد)"
+
+msgid "Custom field (text)"
+msgstr "فیلد سفارشی (متن)"
+
+msgid "Custom field (yes/no)"
+msgstr "فیلد سفارشی (بله/خیر)"
+
+msgid "Custom fields (post meta)"
+msgstr "فیلدهای سفارشی (متای نوشته)"
+
+msgid "DISABLE_WP_CRON is defined. Delivery does not depend on it: events are sent at the end of the publish request and the queue sweeper catches the rest."
+msgstr "ثابت DISABLE_WP_CRON تعریف شده است. ارسال به آن وابسته نیست: رویدادها در پایان همان درخواست انتشار فرستاده می‌شوند و بازبین صف بقیه را می‌گیرد."
+
+msgid "DNS resolution"
+msgstr "تفکیک نام دامنه (DNS)"
+
+msgid "Date (UTC)"
+msgstr "تاریخ (UTC)"
+
+msgid "Day of the week"
+msgstr "روز هفته"
+
+msgid "Debug Mode"
+msgstr "حالت اشکال‌زدایی"
+
+msgid "Default profile"
+msgstr "نمایه پیش‌فرض"
+
+msgid "Delay"
+msgstr "تأخیر"
+
+msgid "Delay publishing by N seconds"
+msgstr "تأخیر انتشار به اندازه N ثانیه"
+
+msgid "Delete"
+msgstr "حذف"
+
+msgid "Delete ALL log entries? This cannot be undone."
+msgstr "همه گزارش‌ها حذف شوند؟ این کار بازگشت‌پذیر نیست."
+
+msgid "Delete this log entry?"
+msgstr "این گزارش حذف شود؟"
+
+msgid "Delete this permanently?"
+msgstr "این مورد برای همیشه حذف شود؟"
+
+msgid "Deleted."
+msgstr "حذف شد."
+
+msgid "Delivered (kept for the duplicate guard)"
+msgstr "ارسال‌شده (برای جلوگیری از تکرار نگه داشته می‌شود)"
+
+msgid "Delivered: %1$d. Failed: %2$d."
+msgstr "ارسال‌شده: %1$d. ناموفق: %2$d."
+
+msgid "Delivering inline at the end of this request; the scheduled cron job remains as a backstop."
+msgstr "ارسال در پایان همین درخواست انجام می‌شود؛ کار زمان‌بندی‌شده کرون به عنوان پشتیبان باقی می‌ماند."
+
+msgid "Delivers everything still waiting in the queue. Currently waiting: %d."
+msgstr "هر چه در صف مانده است را ارسال می‌کند. اکنون در انتظار: %d."
+
+msgid "Delivery"
+msgstr "ارسال"
+
+msgid "Delivery queue"
+msgstr "صف ارسال"
+
+msgid "Delivery record"
+msgstr "کارنامه ارسال"
+
+msgid "Delivery scheduled with WP-Cron for %s UTC."
+msgstr "ارسال با WP-Cron برای %s به وقت UTC زمان‌بندی شد."
+
+msgid "Delivery started (attempt %d)."
+msgstr "ارسال آغاز شد (تلاش %d)."
+
+msgid "Delivery to \"%1$s\" was scheduled for %2$d seconds from now."
+msgstr "ارسال به «%1$s» برای %2$d ثانیه دیگر زمان‌بندی شد."
+
+msgid "Description"
+msgstr "توضیح"
+
+msgid "Description (plain text)"
+msgstr "توضیحات (متن ساده)"
+
+msgid "Description Source"
+msgstr "منبع توضیحات"
+
+msgid "Destination \"%1$s\": %2$s"
+msgstr "مقصد «%1$s»: %2$s"
+
+msgid "Destination deleted."
+msgstr "مقصد حذف شد."
+
+msgid "Destination duplicated. It was created disabled so it does not start publishing straight away."
+msgstr "مقصد تکثیر شد. غیرفعال ساخته شد تا بی‌درنگ شروع به انتشار نکند."
+
+msgid "Destination identifiers, comma separated"
+msgstr "شناسه‌های مقصد، جداشده با ویرگول"
+
+msgid "Destination saved."
+msgstr "مقصد ذخیره شد."
+
+msgid "Destinations"
+msgstr "مقصدها"
+
+msgid "Detail"
+msgstr "جزئیات"
+
+msgid "Details"
+msgstr "جزئیات"
+
+msgid "Detected"
+msgstr "شناسایی شد"
+
+msgid "Detected a \"%1$s\" event for post type \"%2$s\"."
+msgstr "رویداد «%1$s» برای نوع نوشته «%2$s» شناسایی شد."
+
+msgid "Detection is automatic: every public post type is watched, whichever plugin registered it, plus anything ticked manually."
+msgstr "تشخیص خودکار است: همه نوع‌های نوشته عمومی پایش می‌شوند، هر افزونه‌ای که آن‌ها را ثبت کرده باشد، به‌علاوه موارد تیک‌خورده دستی."
+
+msgid "Detection is manual: only the ticked post types are watched."
+msgstr "تشخیص دستی است: تنها نوع‌های نوشته تیک‌خورده پایش می‌شوند."
+
+msgid "Developers can customize behaviour without touching core files using these hooks:"
+msgstr "توسعه‌دهندگان می‌توانند رفتار افزونه را با این قلاب‌ها و بدون دست زدن به فایل‌های اصلی تغییر دهند:"
+
+msgid "Diagnostics"
+msgstr "عیب‌یابی"
+
+msgid "Disabled"
+msgstr "غیرفعال"
+
+msgid "Disabled (DISABLE_WP_CRON) — events are delivered inline instead"
+msgstr "غیرفعال (DISABLE_WP_CRON) — رویدادها در همان درخواست ارسال می‌شوند"
+
+msgid "Discard this category’s own mapping and inherit from its parent again?"
+msgstr "نگاشت اختصاصی این دسته کنار گذاشته شود و دوباره از دسته والد ارث‌بری کند؟"
+
+msgid "Discard this scope’s mapping and inherit again"
+msgstr "کنار گذاشتن نگاشت این دامنه و ارث‌بری دوباره"
+
+msgid "Discord"
+msgstr "Discord"
+
+msgid "Discord webhook URL"
+msgstr "نشانی وب‌هوک Discord"
+
+msgid "Dispatch Mode"
+msgstr "حالت ارسال"
+
+msgid "Dispatch mode"
+msgstr "حالت ارسال"
+
+msgid "Dispatch mode is set to Immediate."
+msgstr "حالت ارسال روی «فوری» تنظیم شده است."
+
+msgid "Dispatch mode is set to WP-Cron only but DISABLE_WP_CRON is defined. Use Automatic or Immediate, or run wp-cron.php from a system cron job."
+msgstr "حالت ارسال روی «فقط WP-Cron» است اما DISABLE_WP_CRON تعریف شده است. حالت خودکار یا فوری را انتخاب کنید، یا wp-cron.php را با کرون سیستم اجرا کنید."
+
+msgid "Dispatcher — queues the event, delivers it through WP-Cron or inline, sweeps anything left waiting and retries transient failures."
+msgstr "ارسال‌کننده — رویداد را در صف می‌گذارد، آن را با WP-Cron یا در همان درخواست می‌فرستد، موارد جامانده را بازبینی و خطاهای گذرا را دوباره تلاش می‌کند."
+
+msgid "Do not publish"
+msgstr "منتشر نکن"
+
+msgid "Drag to reorder"
+msgstr "برای تغییر ترتیب نمایش بکشید"
+
+msgid "Duplicate"
+msgstr "تکثیر"
+
+msgid "E-mail"
+msgstr "رایانامه"
+
+msgid "Each row checks one link in the chain, in the order a publication travels it. The first failing row is the thing to fix. The checks below run without touching the network; use the button to include DNS, TLS, the service health endpoint and a real authenticated webhook request."
+msgstr "هر سطر یک حلقه از زنجیره را بررسی می‌کند، به همان ترتیبی که یک انتشار آن را طی می‌کند. نخستین سطر ناموفق همان چیزی است که باید برطرف شود. بررسی‌های زیر بدون تماس با شبکه اجرا می‌شوند؛ برای افزودن DNS، TLS، بررسی سلامت سرویس و یک درخواست وب‌هوک واقعی از دکمه استفاده کنید."
+
+msgid "Edit destination"
+msgstr "ویرایش مقصد"
+
+msgid "Edit profile"
+msgstr "ویرایش نمایه"
+
+msgid "Edit rule"
+msgstr "ویرایش قاعده"
+
+msgid "Embed colour"
+msgstr "رنگ امبد"
+
+msgid "Enable Logging"
+msgstr "فعال‌سازی گزارش‌گیری"
+
+msgid "Enable Plugin is off"
+msgstr "گزینه «فعال‌سازی افزونه» خاموش است"
+
+msgid "Enable Webhooks"
+msgstr "فعال‌سازی وب‌هوک"
+
+msgid "Enable Webhooks is off"
+msgstr "گزینه «فعال‌سازی وب‌هوک» خاموش است"
+
+msgid "Enabled"
+msgstr "فعال"
+
+msgid "Enabled and running"
+msgstr "فعال و در حال اجرا"
+
+msgid "Enabled but overdue — events are delivered inline until cron catches up"
+msgstr "فعال اما عقب‌افتاده — تا زمانی که کرون جبران کند، رویدادها در همان درخواست ارسال می‌شوند"
+
+msgid "Enabled post types"
+msgstr "انواع نوشته فعال"
+
+msgid "Enabled: %1$s (out of %2$d registered post types)."
+msgstr "فعال: %1$s (از %2$d نوع نوشته ثبت‌شده)."
+
+msgid "Enabled: %1$s. These are not registered on this site right now: %2$s. If they come from a plugin that registers late, that is expected."
+msgstr "فعال: %1$s. این موارد هم‌اکنون در این سایت ثبت نشده‌اند: %2$s. اگر افزونه‌ای آن‌ها را دیرتر ثبت می‌کند، این طبیعی است."
+
+msgid "Endpoint URL"
+msgstr "نشانی نقطه پایانی"
+
+msgid "English"
+msgstr "انگلیسی"
+
+msgid "Enter the ID of the advertisement you want to send."
+msgstr "شناسه آگهی‌ای که می‌خواهید بفرستید را وارد کنید."
+
+msgid "Evaluate this rule when publishing"
+msgstr "این قاعده هنگام انتشار ارزیابی شود"
+
+msgid "Event Detector — decides whether a change is a created, updated or deleted event."
+msgstr "شناساگر رویداد — تصمیم می‌گیرد که یک تغییر، رویداد created، updated یا deleted است."
+
+msgid "Event ID"
+msgstr "شناسه رویداد"
+
+msgid "Event ID — issues the stable identifier that survives every retry."
+msgstr "شناسه رویداد — شناسه پایداری صادر می‌کند که در همه تلاش‌های دوباره ثابت می‌ماند."
+
+msgid "Event Lifecycle"
+msgstr "چرخه عمر رویداد"
+
+msgid "Event Types"
+msgstr "انواع رویداد"
+
+msgid "Event detection and webhook delivery are both enabled."
+msgstr "شناسایی رویداد و ارسال وب‌هوک هر دو فعال هستند."
+
+msgid "Event queued for delivery (type \"%1$s\", delay %2$d s)."
+msgstr "رویداد برای ارسال در صف قرار گرفت (نوع «%1$s»، تأخیر %2$d ثانیه)."
+
+msgid "Event types"
+msgstr "انواع رویداد"
+
+msgid "Events are always queued first. This setting only decides who drains the queue. A sweeper re-runs anything left waiting, whichever mode you pick."
+msgstr "رویدادها همیشه ابتدا در صف قرار می‌گیرند؛ این تنظیم فقط مشخص می‌کند چه چیزی صف را خالی می‌کند. در هر حالتی، بازبین صف هر رویداد جامانده را دوباره اجرا می‌کند."
+
+msgid "Events waiting in the queue"
+msgstr "رویدادهای در انتظار در صف"
+
+msgid "Every check passed. Publishing an advertisement will reach the service."
+msgstr "همه بررسی‌ها موفق بودند. انتشار آگهی به سرویس می‌رسد."
+
+msgid "Every destination was scheduled for later delivery."
+msgstr "همه مقصدها برای ارسال بعدی زمان‌بندی شدند."
+
+msgid "Every event receives an identifier such as evt_9f1c0f2a… when it is detected. That identifier is persisted, travels in the payload, the X-Event-ID header and the logs, and is reused unchanged by every retry — so the Node.js service can safely deduplicate on it. A genuinely new event always receives a new identifier."
+msgstr "هر رویداد در زمان شناسایی شناسه‌ای مانند evt_9f1c0f2a… می‌گیرد. این شناسه ذخیره می‌شود، در داده ارسالی، هدر X-Event-ID و گزارش‌ها حضور دارد و در همه تلاش‌های دوباره بدون تغییر تکرار می‌شود؛ بنابراین سرویس Node.js می‌تواند با خیال راحت تکرارها را حذف کند. یک رویداد واقعاً تازه، همیشه شناسه تازه می‌گیرد."
+
+msgid "Every field this post type actually has was discovered automatically, whatever plugin or theme provides it. Choose which ones are sent, what they are called, and in what order. A category can override what it inherits from its parent, so cars and real estate can send completely different fields."
+msgstr "همه فیلدهایی که این نوع نوشته واقعاً دارد به‌طور خودکار شناسایی شده‌اند، فارغ از اینکه کدام افزونه یا پوسته آن‌ها را فراهم می‌کند. انتخاب کنید کدام‌ها ارسال شوند، با چه نامی و به چه ترتیب نمایشی. هر دسته می‌تواند آنچه را از والد خود به ارث می‌برد بازنویسی کند، بنابراین خودرو و املاک می‌توانند فیلدهای کاملاً متفاوتی بفرستند."
+
+msgid "Every post type (site default)"
+msgstr "همه انواع نوشته (پیش‌فرض سایت)"
+
+msgid "Every step of that journey is written to the Logs screen, so a publish that produced nothing always has a recorded reason."
+msgstr "هر مرحله از این مسیر در صفحه گزارش‌ها نوشته می‌شود، بنابراین انتشاری که نتیجه‌ای نداشته همیشه دلیل ثبت‌شده دارد."
+
+msgid "Excerpt"
+msgstr "چکیده"
+
+msgid "Excerpt only"
+msgstr "فقط چکیده"
+
+msgid "Export"
+msgstr "برون‌ریزی"
+
+msgid "Export Logs (CSV)"
+msgstr "خروجی گزارش‌ها (CSV)"
+
+msgid "Export all profiles"
+msgstr "برون‌ریزی همه نمایه‌ها"
+
+msgid "Export all rules"
+msgstr "برون‌ریزی همه قواعد"
+
+msgid "Export file contents"
+msgstr "محتوای فایل برون‌ریزی"
+
+msgid "Extensibility"
+msgstr "توسعه‌پذیری"
+
+msgid "Extra header"
+msgstr "سرایند اضافی"
+
+msgid "Fail"
+msgstr "ناموفق"
+
+msgid "Featured image"
+msgstr "تصویر شاخص"
+
+msgid "Featured image and gallery"
+msgstr "تصویر شاخص و گالری"
+
+msgid "Field Mapping"
+msgstr "فیلدهای انتشارها"
+
+msgid "Field keys, comma separated"
+msgstr "کلیدهای فیلد، جداشده با ویرگول"
+
+msgid "Field sources on this site"
+msgstr "منابع فیلد در این سایت"
+
+msgid "Filter"
+msgstr "پالایش"
+
+msgid "Follow the WordPress language"
+msgstr "پیروی از زبان وردپرس"
+
+msgid "Format"
+msgstr "قالب"
+
+msgid "Formatting"
+msgstr "قالب‌بندی"
+
+msgid "Full content"
+msgstr "متن کامل نوشته"
+
+msgid "Gallery"
+msgstr "گالری"
+
+msgid "Gallery (all images except the featured one)"
+msgstr "گالری (همه تصاویر به‌جز تصویر شاخص)"
+
+msgid "Generic webhook"
+msgstr "وب‌هوک عمومی"
+
+msgid "Giving up after %1$d attempts. %2$s"
+msgstr "پس از %1$d تلاش متوقف شد. %2$s"
+
+msgid "HMAC signature only (X-Signature, X-Hub-Signature-256)"
+msgstr "فقط امضای HMAC (هدرهای X-Signature و X-Hub-Signature-256)"
+
+msgid "HMAC-%s over \"timestamp.raw_body\""
+msgstr "HMAC-%s روی «timestamp.raw_body»"
+
+msgid "HTML"
+msgstr "HTML"
+
+msgid "HTTP"
+msgstr "HTTP"
+
+msgid "HTTP %1$d at %2$s UTC"
+msgstr "HTTP %1$d در %2$s به وقت UTC"
+
+msgid "HTTPS (admin)"
+msgstr "HTTPS (داشبورد)"
+
+msgid "HTTPS endpoint of the Node.js Telegram Publisher. The connection test and real advertisement events both post to exactly this URL."
+msgstr "آدرس HTTPS سرویس Node.js انتشاردهنده تلگرام. آزمایش اتصال و رویدادهای واقعی آگهی، هر دو به همین آدرس ارسال می‌شوند."
+
+msgid "Heads up: the post type \"%s\" is not enabled in Settings, so publishing it would not create an event automatically."
+msgstr "توجه: نوع نوشته «%s» در تنظیمات فعال نیست، بنابراین انتشار آن به‌صورت خودکار رویدادی نمی‌سازد."
+
+msgid "Heads up: the status \"%s\" is not one of the enabled publish statuses."
+msgstr "توجه: وضعیت «%s» در فهرست وضعیت‌های مجاز انتشار نیست."
+
+msgid "Hide field"
+msgstr "پنهان کردن فیلد"
+
+msgid "Hook %1$s fired for post type \"%2$s\"."
+msgstr "قلاب %1$s برای نوع نوشته «%2$s» اجرا شد."
+
+msgid "Hook Manager — listens to WordPress lifecycle hooks and delegates."
+msgstr "مدیر قلاب‌ها — به قلاب‌های چرخه عمر وردپرس گوش می‌دهد و کار را واگذار می‌کند."
+
+msgid "How long one delivery attempt may take. Do not go below 10 seconds: a TLS handshake to a remote server can exceed a very short budget, which surfaces as \"cURL error 28: Operation timed out\" even though the endpoint is healthy."
+msgstr "مدت زمانی که یک تلاش ارسال می‌تواند طول بکشد. مقدار کمتر از ۱۰ ثانیه انتخاب نکنید: دست‌دادن TLS با یک سرور دور می‌تواند از یک مهلت خیلی کوتاه بیشتر شود و نتیجه‌اش خطای «cURL error 28: Operation timed out» است، حتی وقتی سرویس کاملاً سالم باشد."
+
+msgid "How many image URLs travel in the images array. The featured image always comes first."
+msgstr "تعداد نشانی تصویری که در آرایه images فرستاده می‌شود. تصویر شاخص همیشه اول قرار می‌گیرد."
+
+msgid "How many times a failed webhook is retried with exponential backoff (1, 2, 4, 8 … minutes). Every retry re-uses the same event_id, so the backend can deduplicate."
+msgstr "تعداد تلاش دوباره برای وب‌هوک ناموفق، با فاصله فزاینده (۱، ۲، ۴، ۸ … دقیقه). همه تلاش‌ها از همان event_id استفاده می‌کنند تا سرویس بتواند تکرارها را تشخیص دهد."
+
+msgid "ID"
+msgstr "شناسه"
+
+msgid "Idempotency"
+msgstr "یکتایی رویداد"
+
+msgid "Identifier"
+msgstr "شناسه"
+
+msgid "Identifies this site to the Node.js service. Sent as site_id in the payload and as the X-Site-ID header."
+msgstr "این سایت را برای سرویس Node.js مشخص می‌کند. با کلید site_id در داده ارسالی و هدر X-Site-ID فرستاده می‌شود."
+
+msgid "Images"
+msgstr "تصاویر"
+
+msgid "Immediate — deliver at the end of the publish request"
+msgstr "فوری — ارسال در پایان همان درخواست انتشار"
+
+msgid "Import"
+msgstr "درون‌ریزی"
+
+msgid "Imported %1$d profiles, skipped %2$d."
+msgstr "%1$d نمایه درون‌ریزی شد، %2$d مورد نادیده گرفته شد."
+
+msgid "Imported %d rules."
+msgstr "%d قاعده درون‌ریزی شد."
+
+msgid "Inherits from"
+msgstr "ارث‌بری از"
+
+msgid "Insufficient permissions."
+msgstr "دسترسی کافی ندارید."
+
+msgid "Invalid or missing API key."
+msgstr "کلید API نامعتبر است یا فرستاده نشده است."
+
+msgid "Jarchi requires PHP %1$s or newer. Your server runs PHP %2$s. The plugin has not been loaded."
+msgstr "جارچی به PHP %1$s یا بالاتر نیاز دارد. سرور شما PHP %2$s را اجرا می‌کند. افزونه بارگذاری نشد."
+
+msgid "JetEngine"
+msgstr "JetEngine"
+
+msgid "Language of this plugin's own admin screens. Only these screens are affected; the rest of the WordPress admin keeps the site language."
+msgstr "زبان صفحه‌های پیشخوان همین افزونه. تنها این صفحه‌ها تغییر می‌کنند و بقیه پیشخوان وردپرس با زبان سایت باقی می‌ماند."
+
+msgid "Last failed delivery (UTC)"
+msgstr "آخرین ارسال ناموفق (UTC)"
+
+msgid "Last failure: %1$s UTC — %2$s"
+msgstr "آخرین خطا: %1$s به وقت UTC — %2$s"
+
+msgid "Last failure: %s UTC."
+msgstr "آخرین ناکامی: %s به وقت UTC."
+
+msgid "Last hook seen: %1$s, %2$s ago."
+msgstr "آخرین قلاب مشاهده‌شده: %1$s، %2$s پیش."
+
+msgid "Last response code"
+msgstr "آخرین کد پاسخ"
+
+msgid "Last response code: HTTP %d."
+msgstr "آخرین کد پاسخ: HTTP %d."
+
+msgid "Last success: %s UTC."
+msgstr "آخرین موفقیت: %s به وقت UTC."
+
+msgid "Last successful delivery (UTC)"
+msgstr "آخرین ارسال موفق (UTC)"
+
+msgid "Last successful delivery: %s UTC."
+msgstr "آخرین ارسال موفق: %s به وقت UTC."
+
+msgid "Leave empty to inherit, or to have the message generated from the enabled fields. Field mapping itself lives on the Field Mapping screen."
+msgstr "برای ارث‌بری، یا برای اینکه پیام از فیلدهای فعال ساخته شود، خالی بگذارید. خودِ فیلدهای انتشارها در صفحه فیلدهای انتشارها است."
+
+msgid "Leave empty to use the URL from Settings. Set it to publish through a different Telegram Publisher instance."
+msgstr "برای استفاده از نشانی تنظیمات خالی بگذارید. برای انتشار از طریق نمونه دیگری از Telegram Publisher آن را پر کنید."
+
+msgid "Leave empty to use the derived value %s."
+msgstr "برای استفاده از مقدار خودکار %s این فیلد را خالی بگذارید."
+
+msgid "Leave these empty to use whatever the profile and the rules decided. Set them to make this destination differ from the others."
+msgstr "برای پیروی از تصمیم نمایه و قواعد، این‌ها را خالی بگذارید. برای متفاوت کردن این مقصد از بقیه، آن‌ها را پر کنید."
+
+msgid "Loading fields…"
+msgstr "در حال بارگذاری فیلدها…"
+
+msgid "Loading…"
+msgstr "در حال بارگذاری…"
+
+msgid "Locale"
+msgstr "زبان سایت"
+
+msgid "Log entry deleted."
+msgstr "این گزارش حذف شد."
+
+msgid "Log queueing, delivery and responses. Failures are always logged."
+msgstr "ثبت صف‌بندی، ارسال و پاسخ‌ها در گزارش‌ها. خطاها همیشه ثبت می‌شوند."
+
+msgid "Log the complete event lifecycle: every hook, every skip reason, every scheduling decision and every request."
+msgstr "ثبت کامل چرخه عمر رویداد: هر قلاب، دلیل هر رد شدن، هر تصمیم زمان‌بندی و هر درخواست."
+
+msgid "Logger — records every request, response and exception in a custom table."
+msgstr "گزارش‌گیر — هر درخواست، پاسخ و استثنا را در یک جدول اختصاصی ثبت می‌کند."
+
+msgid "Manual — only the post types ticked below"
+msgstr "دستی — تنها نوع‌های نوشته‌ای که پایین تیک خورده‌اند"
+
+msgid "Mapping saved."
+msgstr "نگاشت ذخیره شد."
+
+msgid "Match"
+msgstr "تطبیق"
+
+msgid "Matched"
+msgstr "تطبیق یافت"
+
+msgid "Max execution time"
+msgstr "حداکثر زمان اجرا"
+
+msgid "Maximum Images"
+msgstr "حداکثر تعداد تصاویر"
+
+msgid "Maximum images"
+msgstr "بیشینه تصاویر"
+
+msgid "Memory limit"
+msgstr "محدودیت حافظه"
+
+msgid "Menu order"
+msgstr "ترتیب نمایش منو"
+
+msgid "Message"
+msgstr "پیام"
+
+msgid "Message style"
+msgstr "سبک پیام"
+
+msgid "Message template"
+msgstr "الگوی پیام"
+
+msgid "Meta Box"
+msgstr "Meta Box"
+
+msgid "Modified date"
+msgstr "تاریخ ویرایش"
+
+msgid "Multisite"
+msgstr "چندسایتی"
+
+msgid "MySQL version"
+msgstr "نسخه MySQL"
+
+msgid "NEW"
+msgstr "تازه"
+
+msgid "Name"
+msgstr "نام"
+
+msgid "Name:"
+msgstr "نام:"
+
+msgid "Native scheduling"
+msgstr "زمان‌بندی بومی"
+
+msgid "Nested group:"
+msgstr "گروه تودرتو:"
+
+msgid "New destination"
+msgstr "مقصد تازه"
+
+msgid "New fields appeared since you last looked. They are badged and left switched off."
+msgstr "از آخرین باری که نگاه کردید فیلدهای تازه‌ای پیدا شده‌اند. آن‌ها نشان‌دار و خاموش رها شده‌اند."
+
+msgid "New profile"
+msgstr "نمایه تازه"
+
+msgid "New rule"
+msgstr "قاعده تازه"
+
+msgid "Next attempt due (UTC)"
+msgstr "زمان تلاش بعدی (UTC)"
+
+msgid "Next queue sweep (UTC)"
+msgstr "بازبینی بعدی صف (UTC)"
+
+msgid "No"
+msgstr "خیر"
+
+msgid "No API secret is configured on this site."
+msgstr "در این سایت هیچ کلید امنیتی تنظیم نشده است."
+
+msgid "No Site ID is configured. A value derived from the site address is being sent instead."
+msgstr "شناسه سایت تنظیم نشده است. به‌جای آن مقداری برگرفته از نشانی سایت فرستاده می‌شود."
+
+msgid "No advertisement has been delivered yet. Publish one, or use Tools → Send One Advertisement Now."
+msgstr "هنوز هیچ آگهی‌ای ارسال نشده است. یک آگهی منتشر کنید یا از ابزارها ← ارسال فوری یک آگهی استفاده کنید."
+
+msgid "No advertisement of this type exists yet, so no sample values can be shown."
+msgstr "هنوز هیچ آگهی‌ای از این نوع وجود ندارد، بنابراین نمونه‌مقداری نمایش داده نمی‌شود."
+
+msgid "No destinations are configured. Advertisements are sent to the webhook URL in Settings, exactly as before."
+msgstr "هیچ مقصدی پیکربندی نشده است. آگهی‌ها دقیقاً مانند قبل به نشانی وب‌هوک موجود در تنظیمات ارسال می‌شوند."
+
+msgid "No endpoint to probe."
+msgstr "نقطه پایانی‌ای برای بررسی وجود ندارد."
+
+msgid "No event types are enabled. Detected events would be discarded."
+msgstr "هیچ نوع رویدادی فعال نیست. رویدادهای شناسایی‌شده دور ریخته می‌شوند."
+
+msgid "No fields were discovered for this post type."
+msgstr "برای این نوع نوشته هیچ فیلدی شناسایی نشد."
+
+msgid "No host to resolve."
+msgstr "میزبانی برای تفکیک نام وجود ندارد."
+
+msgid "No images"
+msgstr "بدون تصویر"
+
+msgid "No log entries match your filters."
+msgstr "هیچ گزارشی با پالایه‌های شما مطابقت ندارد."
+
+msgid "No post statuses are selected. Publishing will never be detected."
+msgstr "هیچ وضعیت نوشته‌ای انتخاب نشده است. انتشار هرگز شناسایی نمی‌شود."
+
+msgid "No post type is enabled, so publishing is always ignored. Select one in Settings, or switch Post Type Detection to automatic."
+msgstr "هیچ نوع نوشته‌ای فعال نیست، بنابراین انتشار همیشه نادیده گرفته می‌شود. یکی را در تنظیمات انتخاب کنید یا شیوه تشخیص را روی خودکار بگذارید."
+
+msgid "No post types are selected. No events will ever be published."
+msgstr "هیچ نوع نوشته‌ای انتخاب نشده است. هیچ رویدادی منتشر نخواهد شد."
+
+msgid "No post with ID %d exists."
+msgstr "هیچ نوشته‌ای با شناسه %d وجود ندارد."
+
+msgid "No profiles yet. Until one is created and assigned, every post type keeps publishing with the automatically generated default, exactly as before."
+msgstr "هنوز نمایه‌ای وجود ندارد. تا زمانی که یکی ساخته و اختصاص داده شود، هر نوع نوشته دقیقاً مانند قبل با پیش‌فرض خودکار منتشر می‌شود."
+
+msgid "No publishing hook has fired since the plugin was updated."
+msgstr "از زمان بروزرسانی افزونه هیچ قلاب انتشاری اجرا نشده است."
+
+msgid "No rules are defined, so every advertisement is published with whichever profile its category resolves to — exactly the behaviour of earlier versions."
+msgstr "هیچ قاعده‌ای تعریف نشده است، بنابراین هر آگهی با همان نمایه‌ای منتشر می‌شود که دسته‌اش به آن می‌رسد — دقیقاً رفتار نسخه‌های پیشین."
+
+msgid "No rules are defined. Everything is published with the assigned profile."
+msgstr "هیچ قاعده‌ای تعریف نشده است. همه‌چیز با نمایه اختصاص‌یافته منتشر می‌شود."
+
+msgid "No webhook URL is configured here or in Settings, so this destination has nowhere to send."
+msgstr "نه اینجا و نه در تنظیمات نشانی وب‌هوکی پیکربندی نشده است، بنابراین این مقصد جایی برای ارسال ندارد."
+
+msgid "No webhook URL is configured."
+msgstr "هیچ آدرس وب‌هوکی تنظیم نشده است."
+
+msgid "No webhook secret is configured, so the service answers \"Missing webhook authentication\" to every request."
+msgstr "هیچ کلید امنیتی تنظیم نشده است، بنابراین سرویس به هر درخواست پاسخ «Missing webhook authentication» می‌دهد."
+
+msgid "None of the recipients is a valid e-mail address."
+msgstr "هیچ‌یک از گیرنده‌ها نشانی رایانامه معتبری نیست."
+
+msgid "None of these is required. A provider that is not installed simply contributes nothing; the custom fields scan still finds the same data."
+msgstr "هیچ‌یک از این‌ها الزامی نیست. تأمین‌کننده‌ای که نصب نشده باشد صرفاً چیزی اضافه نمی‌کند؛ پویش فیلدهای سفارشی همچنان همان داده‌ها را پیدا می‌کند."
+
+msgid "None — publishing is ignored"
+msgstr "هیچ‌کدام — انتشار نادیده گرفته می‌شود"
+
+msgid "Normalizer — collects everything WordPress knows about the post."
+msgstr "آماده‌ساز داده — هر چه وردپرس از نوشته می‌داند را گردآوری می‌کند."
+
+msgid "Normalizes your most recent published advertisement and sends it as a \"sample\" event so the Node.js team can inspect real data."
+msgstr "آخرین آگهی منتشرشده شما را آماده و به عنوان رویداد «sample» می‌فرستد تا تیم Node.js داده واقعی را بررسی کند."
+
+msgid "Not active"
+msgstr "غیرفعال"
+
+msgid "Not configured"
+msgstr "تنظیم نشده"
+
+msgid "Not installed"
+msgstr "نصب نشده"
+
+msgid "Not matched"
+msgstr "تطبیق نیافت"
+
+msgid "Not retried: %1$s (%2$s)"
+msgstr "تلاش دوباره انجام نشد: %1$s (%2$s)"
+
+msgid "Not set — requests carry no credentials"
+msgstr "تنظیم نشده — درخواست‌ها هیچ اعتبارنامه‌ای ندارند"
+
+msgid "Number of gallery images"
+msgstr "تعداد تصاویر گالری"
+
+msgid "Number of images"
+msgstr "تعداد تصاویر"
+
+msgid "Numbered list"
+msgstr "فهرست شماره‌دار"
+
+msgid "OR"
+msgstr "یا"
+
+msgid "One or more addresses, separated by commas."
+msgstr "یک یا چند نشانی، جداشده با ویرگول."
+
+msgid "One per line"
+msgstr "هر مورد در یک سطر"
+
+msgid "One publish produces several entries: the hook that fired, the event that was created, how it was scheduled, the request that went out and the status the endpoint returned. Turn on Debug Mode in Settings to also record the steps that decided nothing should happen."
+msgstr "هر انتشار چند سطر گزارش می‌سازد: قلابی که اجرا شده، رویدادی که ساخته شده، شیوه زمان‌بندی آن، درخواستی که فرستاده شده و وضعیتی که سرویس برگردانده است. برای ثبت مراحلی که تصمیم گرفته‌اند هیچ کاری لازم نیست، حالت اشکال‌زدایی را در تنظیمات روشن کنید."
+
+msgid "Only the featured image"
+msgstr "فقط تصویر شاخص"
+
+msgid "Only the gallery"
+msgstr "فقط گالری"
+
+msgid "Open Settings"
+msgstr "رفتن به تنظیمات"
+
+msgid "Optional display name for the webhook."
+msgstr "نام نمایشی اختیاری برای وب‌هوک."
+
+msgid "Optional reason for the log"
+msgstr "دلیل اختیاری برای گزارش"
+
+msgid "Optional. One \"Name: value\" header, for services that authenticate with their own header."
+msgstr "اختیاری. یک سرایند «نام: مقدار» برای سرویس‌هایی که با سرایند خودشان احراز هویت می‌کنند."
+
+msgid "Optional. Sent as \"bot\" so a service that manages several bots can pick one. This is a name, not a token — never put a bot token here."
+msgstr "اختیاری. به‌عنوان «bot» فرستاده می‌شود تا سرویسی که چند ربات را مدیریت می‌کند بتواند یکی را انتخاب کند. این یک نام است، نه توکن — هرگز توکن ربات را اینجا نگذارید."
+
+msgid "Optional. When set, every request carries an HMAC-SHA256 signature over the timestamp and the raw body. The value is stored but never displayed again."
+msgstr "اختیاری. با تنظیم آن، هر درخواست یک امضای HMAC-SHA256 روی برچسب زمانی و بدنه خام حمل می‌کند. مقدار ذخیره می‌شود اما دیگر هرگز نمایش داده نمی‌شود."
+
+msgid "Other providers"
+msgstr "سایر تأمین‌کننده‌ها"
+
+msgid "Overrides"
+msgstr "بازنویسی‌ها"
+
+msgid "Overwrite anything with the same identifier"
+msgstr "بازنویسی هر مورد با شناسه یکسان"
+
+msgid "PHP version"
+msgstr "نسخه PHP"
+
+msgid "POSTing %2$d bytes of JSON to %1$s."
+msgstr "ارسال %2$d بایت JSON به %1$s."
+
+msgid "Parent category"
+msgstr "دسته والد"
+
+msgid "Pass"
+msgstr "قبول"
+
+msgid "Paste a profile or rule export from this or another site. A profile whose identifier is already taken is imported under a new one unless you tick overwrite."
+msgstr "برون‌ریزی نمایه یا قاعده را از این سایت یا سایتی دیگر بچسبانید. نمایه‌ای که شناسه‌اش گرفته شده باشد، مگر اینکه بازنویسی را علامت بزنید، با شناسه تازه‌ای درون‌ریزی می‌شود."
+
+msgid "Paste an export file first."
+msgstr "نخست یک فایل برون‌ریزی بچسبانید."
+
+msgid "Payload"
+msgstr "داده ارسالی"
+
+msgid "Permalink"
+msgstr "پیوند یکتا"
+
+msgid "Permanently failed"
+msgstr "ناموفق قطعی"
+
+msgid "Persian (right to left)"
+msgstr "فارسی (راست‌به‌چپ)"
+
+msgid "Pick a real advertisement and see exactly what would happen to it: which rules matched and which did not, which profile and template won, which destinations it would reach, the final message and the final payload. Nothing is sent."
+msgstr "یک آگهی واقعی را انتخاب کنید و دقیقاً ببینید چه بر سرش می‌آید: کدام قواعد تطبیق یافتند و کدام نه، کدام نمایه و الگو برنده شد، به کدام مقصدها می‌رسد، پیام نهایی و بار داده نهایی چیست. هیچ‌چیز ارسال نمی‌شود."
+
+msgid "Pin this field to the top"
+msgstr "سنجاق کردن این فیلد به بالا"
+
+msgid "Pipeline Status"
+msgstr "وضعیت زنجیره ارسال"
+
+msgid "Placeholder copied."
+msgstr "جانگهدار رونوشت شد."
+
+msgid "Placeholders work here too: {{title}}, {{price}}, and any mapped field."
+msgstr "جانگهدارها اینجا هم کار می‌کنند: ‎{{title}}‎، ‎{{price}}‎ و هر فیلد نگاشت‌شده دیگری."
+
+msgid "Plain text"
+msgstr "متن ساده"
+
+msgid "Plain text message"
+msgstr "پیام متن ساده"
+
+msgid "Plugin configuration"
+msgstr "پیکربندی افزونه"
+
+msgid "Plugin version"
+msgstr "نسخه افزونه"
+
+msgid "Pods"
+msgstr "Pods"
+
+msgid "Post"
+msgstr "نوشته"
+
+msgid "Post ID"
+msgstr "شناسه نوشته"
+
+msgid "Post Type Detection"
+msgstr "شیوه تشخیص نوع نوشته"
+
+msgid "Post as"
+msgstr "ارسال با نام"
+
+msgid "Post status"
+msgstr "وضعیت نوشته"
+
+msgid "Post type"
+msgstr "نوع نوشته"
+
+msgid "Posts a \"test\" event to the configured webhook URL with the production credentials and reports the HTTP status, the response body and any configuration problem that would still block a real advertisement."
+msgstr "یک رویداد «test» را با همان اعتبارنامه‌های تولیدی به آدرس وب‌هوک تنظیم‌شده می‌فرستد و وضعیت HTTP، بدنه پاسخ و هر اشکال تنظیماتی که جلوی انتشار آگهی واقعی را می‌گیرد گزارش می‌کند."
+
+msgid "Price"
+msgstr "قیمت"
+
+msgid "Process Queue"
+msgstr "پردازش صف"
+
+msgid "Process Queue Now"
+msgstr "پردازش فوری صف"
+
+msgid "Processed %1$d of %2$d queued events. Check the Logs screen for each delivery result."
+msgstr "%1$d رویداد از %2$d رویداد در صف پردازش شد. نتیجه هر ارسال را در صفحه گزارش‌ها ببینید."
+
+msgid "Processing the queue…"
+msgstr "در حال پردازش صف…"
+
+msgid "Production default: %s"
+msgstr "مقدار پیش‌فرض تولیدی: %s"
+
+msgid "Profile"
+msgstr "نمایه"
+
+msgid "Profile assigned."
+msgstr "نمایه اختصاص یافت."
+
+msgid "Profile deleted. Anything that inherited from it now inherits from its parent."
+msgstr "نمایه حذف شد. هرچه از آن ارث می‌برد اکنون از والدش ارث می‌برد."
+
+msgid "Profile duplicated."
+msgstr "نمایه تکثیر شد."
+
+msgid "Profile for this scope"
+msgstr "نمایه این دامنه"
+
+msgid "Profile identifier"
+msgstr "شناسه نمایه"
+
+msgid "Profile saved."
+msgstr "نمایه ذخیره شد."
+
+msgid "Profiles"
+msgstr "نمایه‌ها"
+
+msgid "Profiles, Rules and Destinations are now available. A Default profile was created from the field mapping this site already had, and the Telegram Publisher webhook became its first destination, so nothing about what is published or where it goes has changed."
+msgstr "نمایه‌ها، قواعد و مقصدها اکنون در دسترس‌اند. یک نمایه پیش‌فرض از فیلدهای انتشاری که این سایت از پیش داشت ساخته شد و وب‌هوک Telegram Publisher نخستین مقصد آن شد، بنابراین درباره اینکه چه چیزی و به کجا منتشر می‌شود هیچ تغییری رخ نداده است."
+
+msgid "Provider"
+msgstr "تأمین‌کننده"
+
+msgid "Provider settings"
+msgstr "تنظیمات تأمین‌کننده"
+
+msgid "Public"
+msgstr "عمومی"
+
+msgid "Publication date"
+msgstr "تاریخ انتشار"
+
+msgid "Publication time"
+msgstr "زمان انتشار"
+
+msgid "Publish advertisements to this destination"
+msgstr "انتشار آگهی‌ها به این مقصد"
+
+msgid "Publish immediately"
+msgstr "انتشار بی‌درنگ"
+
+msgid "Publish statuses"
+msgstr "وضعیت‌های انتشار"
+
+msgid "Published"
+msgstr "منتشرشده"
+
+msgid "Published date"
+msgstr "تاریخ انتشار"
+
+msgid "Publishing hooks"
+msgstr "قلاب‌های انتشار"
+
+msgid "Queue"
+msgstr "صف"
+
+msgid "REST API"
+msgstr "REST API"
+
+msgid "REST namespace"
+msgstr "فضای‌نام REST"
+
+msgid "Raise the Webhook Timeout setting: a remote TLS handshake rarely fits into a very short budget."
+msgstr "مقدار «مهلت زمانی وب‌هوک» را بالا ببرید: دست‌دادن TLS با سرور دور به‌سختی در یک مهلت خیلی کوتاه جا می‌شود."
+
+msgid "Recipients"
+msgstr "گیرندگان"
+
+msgid "Registered post types"
+msgstr "نوع‌های نوشته ثبت‌شده"
+
+msgid "Remove"
+msgstr "حذف"
+
+msgid "Rendering preview…"
+msgstr "در حال ساخت پیش‌نمایش…"
+
+msgid "Replace text"
+msgstr "جایگزینی متن"
+
+msgid "Replay window advertised to the Node.js service. WordPress always signs the current time; every retry is re-signed with a fresh timestamp."
+msgstr "بازه زمانی مجاز که به سرویس Node.js اعلام می‌شود. وردپرس همیشه زمان کنونی را امضا می‌کند و هر تلاش دوباره با زمان تازه امضا می‌شود."
+
+msgid "Request URL"
+msgstr "آدرس درخواست"
+
+msgid "Request failed. Check your network and try again."
+msgstr "درخواست انجام نشد. شبکه را بررسی کنید و دوباره تلاش کنید."
+
+msgid "Rescan fields"
+msgstr "پویش دوباره فیلدها"
+
+msgid "Rescanning fields…"
+msgstr "در حال پویش دوباره فیلدها…"
+
+msgid "Response Body"
+msgstr "بدنه پاسخ"
+
+msgid "Restoring inheritance…"
+msgstr "در حال بازگرداندن ارث‌بری…"
+
+msgid "Result"
+msgstr "نتیجه"
+
+msgid "Retry Count"
+msgstr "تعداد تلاش دوباره"
+
+msgid "Rich embed (title, image, fields)"
+msgstr "امبد غنی (عنوان، تصویر، فیلدها)"
+
+msgid "Rule Tester"
+msgstr "آزمایشگر قواعد"
+
+msgid "Rule deleted."
+msgstr "قاعده حذف شد."
+
+msgid "Rule order saved."
+msgstr "ترتیب نمایش قواعد ذخیره شد."
+
+msgid "Rule saved."
+msgstr "قاعده ذخیره شد."
+
+msgid "Rules"
+msgstr "قواعد"
+
+msgid "Rules run in order before every publication and decide what happens: which profile, which template, which destinations, whether to publish at all. A rule that matches applies its actions and, unless it says to stop, the next rule still runs and can add to the decision."
+msgstr "قواعد پیش از هر انتشار به ترتیب نمایش اجرا می‌شوند و تصمیم می‌گیرند چه رخ دهد: کدام نمایه، کدام الگو، کدام مقصدها، و اصلاً انتشار انجام شود یا نه. قاعده‌ای که تطبیق یابد کنش‌هایش را اعمال می‌کند و اگر نگوید متوقف شو، قاعده بعدی هم اجرا می‌شود و می‌تواند به تصمیم بیفزاید."
+
+msgid "Run Connection Test"
+msgstr "اجرای آزمایش اتصال"
+
+msgid "Run Full Diagnostics"
+msgstr "اجرای کامل عیب‌یابی"
+
+msgid "Running diagnostics…"
+msgstr "در حال اجرای عیب‌یابی…"
+
+msgid "Sample payload"
+msgstr "داده نمونه"
+
+msgid "Save"
+msgstr "ذخیره"
+
+msgid "Save Destination"
+msgstr "ذخیره مقصد"
+
+msgid "Save Mapping"
+msgstr "ذخیره نگاشت"
+
+msgid "Save Profile"
+msgstr "ذخیره نمایه"
+
+msgid "Save Rule"
+msgstr "ذخیره قاعده"
+
+msgid "Save Settings"
+msgstr "ذخیره تنظیمات"
+
+msgid "Saved."
+msgstr "ذخیره شد."
+
+msgid "Saving…"
+msgstr "در حال ذخیره…"
+
+msgid "Scheduling"
+msgstr "زمان‌بندی"
+
+msgid "Scope"
+msgstr "دامنه"
+
+msgid "Search URL, payload, response, message…"
+msgstr "جست‌وجو در آدرس، داده ارسالی، پاسخ و پیام…"
+
+msgid "Seconds; 300 is five minutes"
+msgstr "ثانیه؛ ۳۰۰ یعنی پنج دقیقه"
+
+msgid "Select a post type first."
+msgstr "نخست یک نوع نوشته انتخاب کنید."
+
+msgid "Select all"
+msgstr "انتخاب همه"
+
+msgid "Select none"
+msgstr "لغو انتخاب همه"
+
+msgid "Select none to publish to every enabled destination, which is what a single-destination site wants."
+msgstr "برای انتشار به همه مقصدهای فعال هیچ‌کدام را انتخاب نکنید؛ سایتی با یک مقصد همین را می‌خواهد."
+
+msgid "Send Advertisement"
+msgstr "ارسال آگهی"
+
+msgid "Send One Advertisement Now"
+msgstr "ارسال فوری یک آگهی"
+
+msgid "Send Sample Payload"
+msgstr "ارسال داده نمونه"
+
+msgid "Send a test"
+msgstr "ارسال آزمایشی"
+
+msgid "Send at most N images"
+msgstr "ارسال حداکثر N تصویر"
+
+msgid "Send no images"
+msgstr "ارسال بدون تصویر"
+
+msgid "Send only to"
+msgstr "ارسال فقط به"
+
+msgid "Sending advertisement…"
+msgstr "در حال ارسال آگهی…"
+
+msgid "Sending sample payload…"
+msgstr "در حال ارسال داده نمونه…"
+
+msgid "Sent as \"channel\" in the payload so the service knows where to post. Leave empty for the service default."
+msgstr "به‌عنوان «channel» در بار داده فرستاده می‌شود تا سرویس بداند کجا منتشر کند. برای پیش‌فرض سرویس خالی بگذارید."
+
+msgid "Sent to %d recipient."
+msgstr "به %d گیرنده ارسال شد."
+
+msgid "Sent to %d recipients."
+msgstr "به %d گیرنده ارسال شد."
+
+msgid "Separated by a separator"
+msgstr "جداشده با یک جداکننده"
+
+msgid "Service health endpoint"
+msgstr "نقطه بررسی سلامت سرویس"
+
+msgid "Settings"
+msgstr "تنظیمات"
+
+msgid "Shared secret"
+msgstr "کلید محرمانه مشترک"
+
+msgid "Shared secret used to authenticate every request. It must match the secret the Node.js service expects (for example WEBHOOK_SECRET in its .env file). Leave blank to keep the stored secret."
+msgstr "کلید مشترکی که هر درخواست با آن احراز هویت می‌شود. باید با کلید مورد انتظار سرویس Node.js یکسان باشد (مثلاً WEBHOOK_SECRET در فایل .env آن). برای نگه داشتن کلید ذخیره‌شده، این فیلد را خالی بگذارید."
+
+msgid "Show field"
+msgstr "نمایش فیلد"
+
+msgid "Signature algorithm"
+msgstr "الگوریتم امضا"
+
+msgid "Signature tolerance"
+msgstr "بازه مجاز زمانی امضا"
+
+msgid "Signer — computes the HMAC-SHA256 signature over the raw request body."
+msgstr "امضاکننده — امضای HMAC-SHA256 را روی بدنه خام درخواست محاسبه می‌کند."
+
+msgid "Site ID"
+msgstr "شناسه سایت"
+
+msgid "Slack"
+msgstr "Slack"
+
+msgid "Slack webhook URL"
+msgstr "نشانی وب‌هوک Slack"
+
+msgid "Slug"
+msgstr "نامک"
+
+msgid "Stage"
+msgstr "مرحله"
+
+msgid "Stage, e.g. webhook.response"
+msgstr "مرحله، مثلاً webhook.response"
+
+msgid "Status"
+msgstr "وضعیت"
+
+msgid "Status \"%1$s\" is not one of the enabled publish statuses (%2$s)."
+msgstr "وضعیت «%1$s» در فهرست وضعیت‌های مجاز انتشار (%2$s) نیست."
+
+msgid "Stop processing further rules"
+msgstr "توقف پردازش قواعد بعدی"
+
+msgid "Subcategory"
+msgstr "زیردسته"
+
+msgid "Subject"
+msgstr "موضوع"
+
+msgid "System Information"
+msgstr "اطلاعات سیستم"
+
+msgid "Tags"
+msgstr "برچسب‌ها"
+
+msgid "Taxonomies"
+msgstr "طبقه‌بندی‌ها"
+
+msgid "Telegram Publisher"
+msgstr "Telegram Publisher"
+
+msgid "Telegram Publisher (Node.js webhook)"
+msgstr "Telegram Publisher (وب‌هوک Node.js)"
+
+msgid "Template text with {{placeholders}}"
+msgstr "متن الگو با ‎{{جانگهدارها}}‎"
+
+msgid "Test Rules"
+msgstr "آزمایش قواعد"
+
+msgid "Testing connection…"
+msgstr "در حال آزمایش اتصال…"
+
+msgid "Testing…"
+msgstr "در حال آزمایش…"
+
+msgid "Text"
+msgstr "متن"
+
+msgid "Text, for example a ⭐ badge"
+msgstr "متن، برای نمونه یک نشان ⭐"
+
+msgid "That advertisement does not exist."
+msgstr "چنین آگهی‌ای وجود ندارد."
+
+msgid "That delivery provider is not registered."
+msgstr "آن تأمین‌کننده ارسال ثبت نشده است."
+
+msgid "That delivery provider is not registered. If it came from another plugin, activate that plugin first."
+msgstr "آن تأمین‌کننده ارسال ثبت نشده است. اگر از افزونه دیگری می‌آید، نخست آن افزونه را فعال کنید."
+
+msgid "That destination could not be deleted."
+msgstr "آن مقصد حذف نشد."
+
+msgid "That destination could not be duplicated."
+msgstr "آن مقصد تکثیر نشد."
+
+msgid "That destination does not exist."
+msgstr "چنین مقصدی وجود ندارد."
+
+msgid "That does not look like a Discord webhook URL. It should start with https://discord.com/api/webhooks/."
+msgstr "این نشانی شبیه وب‌هوک Discord نیست. باید با https://discord.com/api/webhooks/ آغاز شود."
+
+msgid "That file is neither a profile export nor a rule export."
+msgstr "آن فایل نه برون‌ریزی نمایه است و نه برون‌ریزی قاعده."
+
+msgid "That is not a scope this site has."
+msgstr "این دامنه‌ای نیست که این سایت داشته باشد."
+
+msgid "That is not valid JSON."
+msgstr "این JSON معتبر نیست."
+
+msgid "That looks like a Telegram bot token. Bot tokens belong in the Node.js service, never in WordPress. Use a short name here instead."
+msgstr "این شبیه توکن ربات تلگرام است. توکن ربات جایش در سرویس Node.js است، نه در وردپرس. اینجا به‌جای آن یک نام کوتاه بگذارید."
+
+msgid "That parent would create a circular inheritance chain: the profile would end up inheriting from itself."
+msgstr "آن والد یک زنجیره ارث‌بری حلقوی می‌سازد: نمایه در نهایت از خودش ارث می‌برد."
+
+msgid "That profile could not be deleted. The default profile is protected."
+msgstr "آن نمایه حذف نشد. نمایه پیش‌فرض محافظت‌شده است."
+
+msgid "That profile could not be duplicated."
+msgstr "آن نمایه تکثیر نشد."
+
+msgid "That rule could not be deleted."
+msgstr "آن قاعده حذف نشد."
+
+msgid "The API secret is empty, so the request carries no authentication."
+msgstr "کلید امنیتی خالی است، بنابراین درخواست هیچ احراز هویتی همراه ندارد."
+
+msgid "The API secret is shorter than 16 characters. Use a long random token."
+msgstr "کلید امنیتی کمتر از ۱۶ نویسه است. از یک رشته تصادفی بلند استفاده کنید."
+
+msgid "The Discord webhook URL must be an absolute HTTPS address."
+msgstr "نشانی وب‌هوک Discord باید یک نشانی HTTPS مطلق باشد."
+
+msgid "The Slack webhook URL must be an absolute HTTPS address."
+msgstr "نشانی وب‌هوک Slack باید یک نشانی HTTPS مطلق باشد."
+
+msgid "The TLS handshake failed: the certificate could not be verified from this server. Check the certificate chain and the WordPress CA bundle. The event stays in the queue and is retried."
+msgstr "دست‌دادن TLS ناموفق بود: گواهی از این سرور تأیید نشد. زنجیره گواهی و مجموعه گواهی‌های وردپرس را بررسی کنید. رویداد در صف می‌ماند و دوباره تلاش می‌شود."
+
+msgid "The advertisement no longer exists, so its delayed delivery was dropped."
+msgstr "آگهی دیگر وجود ندارد، بنابراین ارسال تأخیری آن رها شد."
+
+msgid "The conditions did not match this advertisement."
+msgstr "شرط‌ها با این آگهی تطبیق نیافتند."
+
+msgid "The conditions matched."
+msgstr "شرط‌ها تطبیق یافتند."
+
+msgid "The configuration has problems that stop advertisements from being published:"
+msgstr "تنظیمات اشکال‌هایی دارد که جلوی انتشار آگهی‌ها را می‌گیرد:"
+
+msgid "The configured URL was rejected. Only HTTPS URLs are accepted, and link-local addresses are refused."
+msgstr "آدرس تنظیم‌شده پذیرفته نشد. تنها آدرس‌های HTTPS مجاز هستند و آدرس‌های محلی شبکه رد می‌شوند."
+
+msgid "The connection was refused or reset, usually a firewall on the WordPress host or the service not listening. The event stays in the queue and is retried."
+msgstr "اتصال رد یا قطع شد؛ معمولاً به دلیل فایروال روی میزبان وردپرس یا خاموش بودن سرویس. رویداد در صف می‌ماند و دوباره تلاش می‌شود."
+
+msgid "The delivery failed for an unrecognised reason. The exact transport message is stored with this log entry."
+msgstr "ارسال به دلیلی ناشناخته ناموفق بود. پیام دقیق لایه انتقال همراه این گزارش ذخیره شده است."
+
+msgid "The delivery provider \"%s\" is not registered, so this destination was skipped."
+msgstr "تأمین‌کننده ارسال «%s» ثبت نشده است، بنابراین این مقصد نادیده گرفته شد."
+
+msgid "The delivery provider raised an error: %s"
+msgstr "تأمین‌کننده ارسال خطایی ایجاد کرد: %s"
+
+msgid "The delivery queue now lives in its own database table instead of transients, which an object cache could evict. %d in-flight events were carried over."
+msgstr "صف ارسال اکنون به‌جای transient در جدول اختصاصی خود در پایگاه داده نگه‌داری می‌شود، چون کش شیء می‌توانست transient را حذف کند. %d رویداد در جریان منتقل شدند."
+
+msgid "The delivery used up its attempts without completing. This usually means building the payload killed the request — a fatal in a content filter, the memory limit, or the execution time limit. The event was retired so it cannot loop."
+msgstr "این ارسال تلاش‌های خود را بدون تکمیل مصرف کرد. معمولاً یعنی ساخت داده ارسالی خودِ درخواست را از کار انداخته است — خطای مرگبار در یک فیلتر محتوا، محدودیت حافظه، یا محدودیت زمان اجرا. رویداد کنار گذاشته شد تا در حلقه نیفتد."
+
+msgid "The description is sent as plain UTF-8 text, ready for a Telegram message. The untouched HTML is still available as post.content."
+msgstr "توضیحات به صورت متن ساده UTF-8 و آماده برای پیام تلگرام فرستاده می‌شود. HTML دست‌نخورده همچنان در کلید post.content موجود است."
+
+msgid "The destination \"%s\" is not configured. The advertisement will simply not be sent there."
+msgstr "مقصد «%s» پیکربندی نشده است. آگهی صرفاً به آنجا فرستاده نمی‌شود."
+
+msgid "The destination needs a name."
+msgstr "مقصد به یک نام نیاز دارد."
+
+msgid "The destination was not saved: fix these first, or save it disabled."
+msgstr "مقصد ذخیره نشد: نخست این‌ها را برطرف کنید یا آن را غیرفعال ذخیره کنید."
+
+msgid "The destination was removed or disabled before its delayed delivery ran."
+msgstr "مقصد پیش از اجرای ارسال تأخیری‌اش حذف یا غیرفعال شد."
+
+msgid "The endpoint URL is missing, is not HTTPS, or points at a private network address."
+msgstr "نشانی نقطه پایانی موجود نیست، HTTPS نیست، یا به نشانی یک شبکه خصوصی اشاره می‌کند."
+
+msgid "The endpoint accepted the payload (HTTP %1$d) in %2$s s."
+msgstr "سرویس داده را پذیرفت (HTTP %1$d) در %2$s ثانیه."
+
+msgid "The endpoint must be an absolute HTTPS address and must not point at a private network."
+msgstr "نقطه پایانی باید یک نشانی HTTPS مطلق باشد و نباید به شبکه خصوصی اشاره کند."
+
+msgid "The endpoint rejected the payload (HTTP %1$d): %2$s"
+msgstr "سرویس داده را رد کرد (HTTP %1$d): %2$s"
+
+msgid "The event reached a terminal state earlier; this duplicate run was ignored."
+msgstr "این رویداد پیش‌تر به وضعیت نهایی رسیده بود؛ این اجرای تکراری نادیده گرفته شد."
+
+msgid "The event type \"%1$s\" is disabled in Settings. Enabled types: %2$s."
+msgstr "نوع رویداد «%1$s» در تنظیمات غیرفعال است. نوع‌های فعال: %2$s."
+
+msgid "The export file contains no profiles."
+msgstr "فایل برون‌ریزی هیچ نمایه‌ای ندارد."
+
+msgid "The extra header must be written as \"Name: value\"."
+msgstr "سرایند اضافی باید به شکل «نام: مقدار» نوشته شود."
+
+msgid "The field \"%1$s\" no longer exists on the post type \"%2$s\". It is kept but will be ignored until the field comes back."
+msgstr "فیلد «%1$s» دیگر روی نوع نوشته «%2$s» وجود ندارد. نگه داشته می‌شود اما تا بازگشت فیلد نادیده گرفته خواهد شد."
+
+msgid "The message could not be encoded as JSON."
+msgstr "پیام به JSON رمزگذاری نشد."
+
+msgid "The message template could not be rendered, so a minimal message was sent instead: %s"
+msgstr "الگوی پیام ساخته نشد، بنابراین به‌جای آن یک پیام کمینه ارسال شد: %s"
+
+msgid "The parent profile \"%s\" does not exist."
+msgstr "نمایه والد «%s» وجود ندارد."
+
+msgid "The plugin is disabled in Settings (Enable Plugin is off)."
+msgstr "افزونه در تنظیمات غیرفعال است (گزینه «فعال‌سازی افزونه» خاموش است)."
+
+msgid "The plugin is disabled in Settings, so publishing an advertisement creates no event."
+msgstr "افزونه در تنظیمات غیرفعال است، بنابراین انتشار آگهی هیچ رویدادی نمی‌سازد."
+
+msgid "The plugin never talks to Telegram or any other social platform directly — all channel-specific logic lives in the Node.js service. WordPress stays responsible only for detecting events, collecting data, authenticating requests and logging."
+msgstr "این افزونه هرگز به‌صورت مستقیم با تلگرام یا هیچ شبکه دیگری صحبت نمی‌کند؛ همه منطق مربوط به کانال در سرویس Node.js قرار دارد. وظیفه وردپرس تنها شناسایی رویداد، گردآوری داده، احراز هویت درخواست و ثبت گزارش است."
+
+msgid "The post is a revision or an autosave."
+msgstr "این نوشته یک نسخه بازبینی یا ذخیره خودکار است."
+
+msgid "The post is gone or no longer published, so the event was dropped instead of delivered."
+msgstr "نوشته وجود ندارد یا دیگر منتشرشده نیست، بنابراین رویداد به‌جای ارسال، دور ریخته شد."
+
+msgid "The post is still an auto-draft."
+msgstr "این نوشته هنوز پیش‌نویس خودکار است."
+
+msgid "The post type \"%1$s\" is not enabled. Enabled post types: %2$s. Enable it under Settings → Allowed Post Types."
+msgstr "نوع نوشته «%1$s» فعال نیست. نوع‌های فعال: %2$s. آن را در تنظیمات ← انواع نوشته مجاز فعال کنید."
+
+msgid "The profile needs a name that produces a usable identifier."
+msgstr "نمایه به نامی نیاز دارد که شناسه قابل استفاده‌ای بسازد."
+
+msgid "The profile was not saved."
+msgstr "نمایه ذخیره نشد."
+
+msgid "The provider could not check its settings: %s"
+msgstr "تأمین‌کننده نتوانست تنظیماتش را بررسی کند: %s"
+
+msgid "The queue table is missing. Deactivate and reactivate the plugin to create it."
+msgstr "جدول صف وجود ندارد. افزونه را غیرفعال و دوباره فعال کنید تا ساخته شود."
+
+msgid "The request failed."
+msgstr "درخواست ناموفق بود."
+
+msgid "The request never completed (%1$s): %2$s — after %3$s s with a %4$d s timeout."
+msgstr "درخواست هرگز کامل نشد (%1$s): %2$s — پس از %3$s ثانیه با مهلت %4$d ثانیه."
+
+msgid "The request signature could not be verified."
+msgstr "امضای درخواست تأیید نشد."
+
+msgid "The request timestamp is outside the allowed tolerance window."
+msgstr "زمان درخواست بیرون از بازه مجاز است."
+
+msgid "The requested log action failed."
+msgstr "عملیات درخواستی روی گزارش‌ها انجام نشد."
+
+msgid "The rule \"%s\" stopped this advertisement from being published."
+msgstr "قاعده «%s» مانع انتشار این آگهی شد."
+
+msgid "The rule assigns the profile \"%s\", which does not exist."
+msgstr "قاعده نمایه «%s» را اختصاص می‌دهد که وجود ندارد."
+
+msgid "The rule could not be evaluated and was skipped: %s"
+msgstr "قاعده ارزیابی نشد و نادیده گرفته شد: %s"
+
+msgid "The rule has no actions, so matching it will not change anything."
+msgstr "قاعده هیچ کنشی ندارد، بنابراین تطبیق آن چیزی را تغییر نمی‌دهد."
+
+msgid "The rule has no conditions, so it applies to everything."
+msgstr "قاعده هیچ شرطی ندارد، بنابراین بر همه‌چیز اعمال می‌شود."
+
+msgid "The rule is disabled."
+msgstr "قاعده غیرفعال است."
+
+msgid "The rule needs a name that produces a usable identifier."
+msgstr "قاعده به نامی نیاز دارد که شناسه قابل استفاده‌ای بسازد."
+
+msgid "The rule sends to the destination \"%s\", which is not configured."
+msgstr "قاعده به مقصد «%s» می‌فرستد که پیکربندی نشده است."
+
+msgid "The rule was not saved."
+msgstr "قاعده ذخیره نشد."
+
+msgid "The rules now say this advertisement should not be published."
+msgstr "قواعد اکنون می‌گویند این آگهی نباید منتشر شود."
+
+msgid "The save did not change anything the payload exposes."
+msgstr "این ذخیره هیچ‌یک از داده‌های ارسالی را تغییر نداد."
+
+msgid "The save happened inside the post-publish cooldown window."
+msgstr "این ذخیره در بازه آرامش پس از انتشار انجام شد."
+
+msgid "The selected post type \"%s\" is not registered on this site. Check the slug."
+msgstr "نوع نوشته انتخاب‌شده «%s» در این سایت ثبت نشده است. نامک را بررسی کنید."
+
+msgid "The service answered with a server error (HTTP %d). It is usually restarting or overloaded; the event stays in the queue and is retried."
+msgstr "سرویس با خطای سمت سرور پاسخ داد (HTTP %d). معمولاً در حال راه‌اندازی دوباره یا زیر بار است؛ رویداد در صف می‌ماند و دوباره تلاش می‌شود."
+
+msgid "The service health probe at %1$s answered HTTP %2$d, so the host is reachable and the failure above is about the webhook request itself — check the secret and the response body."
+msgstr "بررسی سلامت سرویس در %1$s پاسخ HTTP %2$d داد؛ پس میزبان در دسترس است و خطای بالا مربوط به خود درخواست وب‌هوک است — کلید امنیتی و بدنه پاسخ را بررسی کنید."
+
+msgid "The service health probe at %1$s is also unreachable (%2$s), so this is a network or firewall problem on the WordPress side rather than a plugin setting."
+msgstr "بررسی سلامت سرویس در %1$s هم در دسترس نیست (%2$s)؛ پس این یک مشکل شبکه یا فایروال در سمت وردپرس است، نه تنظیمات افزونه."
+
+msgid "The service is rate limiting this site. The event stays in the queue and is retried later, honouring the Retry-After header when the service sends one."
+msgstr "سرویس برای این سایت محدودیت نرخ اعمال کرده است. رویداد در صف می‌ماند و بعداً دوباره تلاش می‌شود؛ اگر سرویس هدر Retry-After بفرستد، همان رعایت می‌شود."
+
+msgid "The service rejected the message (HTTP %d)."
+msgstr "سرویس پیام را نپذیرفت (HTTP %d)."
+
+msgid "The service rejected the payload itself (HTTP %d). The response body is stored with this log entry. This is not retried, because the same payload would be rejected again."
+msgstr "سرویس خودِ داده ارسالی را رد کرد (HTTP %d). بدنه پاسخ همراه این گزارش ذخیره شده است. این خطا تکرار نمی‌شود، چون همان داده دوباره رد می‌شود."
+
+msgid "The test could not be completed: %s"
+msgstr "آزمایش کامل نشد: %s"
+
+msgid "The webhook URL does not exist on that host, or the route does not accept POST. Check the Webhook URL setting. This is not retried."
+msgstr "آدرس وب‌هوک روی آن میزبان وجود ندارد، یا آن مسیر درخواست POST نمی‌پذیرد. تنظیم «آدرس وب‌هوک» را بررسی کنید. این خطا تکرار نمی‌شود."
+
+msgid "The webhook URL is empty."
+msgstr "آدرس وب‌هوک خالی است."
+
+msgid "The webhook URL is invalid. Only HTTPS URLs are accepted."
+msgstr "آدرس وب‌هوک نامعتبر است. تنها آدرس‌های HTTPS پذیرفته می‌شوند."
+
+msgid "The webhook URL must be an absolute HTTPS address and must not point at a private network."
+msgstr "نشانی وب‌هوک باید یک نشانی HTTPS مطلق باشد و نباید به شبکه خصوصی اشاره کند."
+
+msgid "The webhook URL was rejected: only valid HTTPS URLs are accepted."
+msgstr "آدرس وب‌هوک پذیرفته نشد: تنها آدرس‌های HTTPS معتبر مجاز هستند."
+
+msgid "The webhook host name could not be resolved from this server. Check DNS on the WordPress host. The event stays in the queue and is retried."
+msgstr "نام میزبان وب‌هوک از این سرور قابل تفکیک نبود. تنظیمات DNS میزبان وردپرس را بررسی کنید. رویداد در صف می‌ماند و دوباره تلاش می‌شود."
+
+msgid "The webhook timeout is only %d seconds. A TLS handshake to a remote server can take longer than that, which produces \"cURL error 28: Operation timed out\" even though the endpoint is healthy. Use 15 seconds."
+msgstr "مهلت زمانی وب‌هوک تنها %d ثانیه است. دست‌دادن TLS با یک سرور دور می‌تواند بیشتر از این طول بکشد و همین باعث خطای «cURL error 28: Operation timed out» می‌شود، حتی وقتی سرویس سالم است. مقدار ۱۵ ثانیه را انتخاب کنید."
+
+msgid "The webhook timeout was %d seconds, which is too short for a remote TLS handshake and produces spurious cURL error 28 failures. It has been raised to 15 seconds."
+msgstr "مهلت زمانی وب‌هوک %d ثانیه بود که برای دست‌دادن TLS با سرور دور کوتاه است و خطاهای بی‌مورد cURL error 28 می‌سازد. این مقدار به ۱۵ ثانیه افزایش یافت."
+
+msgid "There is no advertisement of this type to preview with. Publish one first."
+msgstr "آگهی‌ای از این نوع برای پیش‌نمایش وجود ندارد. نخست یکی منتشر کنید."
+
+msgid "There is no advertisement to test with. Publish one first."
+msgstr "آگهی‌ای برای آزمایش وجود ندارد. نخست یکی منتشر کنید."
+
+msgid "These hooks have no listener: %s. Another plugin may have removed them."
+msgstr "این قلاب‌ها هیچ شنونده‌ای ندارند: %s. ممکن است افزونه دیگری آن‌ها را حذف کرده باشد."
+
+msgid "These problems stop advertisements from reaching Telegram:"
+msgstr "این اشکال‌ها مانع رسیدن آگهی‌ها به تلگرام می‌شوند:"
+
+msgid "These totals count every advertisement this site has delivered, and they are kept independently of the queue, which only retains recent rows. The webhook secret is never shown here, in the logs, or in the page source."
+msgstr "این شمارنده‌ها همه آگهی‌هایی را که این سایت ارسال کرده است می‌شمارند و مستقل از صف نگهداری می‌شوند، چون صف تنها ردیف‌های اخیر را نگه می‌دارد. کلید محرمانه وب‌هوک هرگز در اینجا، در گزارش‌ها یا در سورس صفحه نمایش داده نمی‌شود."
+
+msgid "This advertisement was published before the plugin was installed, so it is treated as back catalogue and not announced. Use Tools → Send One Advertisement Now to send it deliberately."
+msgstr "این آگهی پیش از نصب افزونه منتشر شده است، بنابراین به‌عنوان آرشیو قدیمی در نظر گرفته می‌شود و اعلام نمی‌گردد. برای ارسال عمدی آن از ابزارها ← ارسال فوری یک آگهی استفاده کنید."
+
+msgid "This category inherits from its parent again."
+msgstr "این دسته دوباره از والد خود ارث‌بری می‌کند."
+
+msgid "This destination has no valid recipient address."
+msgstr "این مقصد هیچ نشانی گیرنده معتبری ندارد."
+
+msgid "This post is published but was never announced, so it is being sent now."
+msgstr "این نوشته منتشر شده اما هرگز اعلام نشده بود، بنابراین همین حالا فرستاده می‌شود."
+
+msgid "This profile stores only what it changes; everything else comes from its parent. A chain that would loop back on itself is refused."
+msgstr "این نمایه تنها آنچه را تغییر می‌دهد ذخیره می‌کند؛ باقی همه از والدش می‌آید. زنجیره‌ای که به خودش بازگردد پذیرفته نمی‌شود."
+
+msgid "This request already delivers %d advertisements itself, so this one waits in the queue and is delivered by the scheduler or the queue sweeper instead. Publishing many advertisements at once therefore never chains a long series of HTTP requests onto one page load."
+msgstr "این درخواست هم‌اکنون %d آگهی را خودش ارسال می‌کند، بنابراین این یکی در صف می‌ماند و به‌جای آن توسط زمان‌بند یا جاروکش صف ارسال می‌شود. به این ترتیب نمایش انتشار همزمان تعداد زیادی آگهی هرگز زنجیره بلندی از درخواست‌های HTTP را به یک بارگذاری صفحه تحمیل نمی‌کند."
+
+msgid "This scope inherits from its parent again."
+msgstr "این دامنه دوباره از والد خود ارث‌بری می‌کند."
+
+msgid "Timeout (seconds)"
+msgstr "مهلت زمانی (ثانیه)"
+
+msgid "Timezone"
+msgstr "منطقه زمانی"
+
+msgid "Title"
+msgstr "عنوان"
+
+msgid "Tomorrow (24 hours)"
+msgstr "فردا (۲۴ ساعت)"
+
+msgid "Total failed deliveries"
+msgstr "مجموع ارسال‌های ناموفق"
+
+msgid "Total successful deliveries"
+msgstr "مجموع ارسال‌های موفق"
+
+msgid "Try"
+msgstr "تلاش"
+
+msgid "Turn this on while diagnosing a publish that produced nothing, then turn it off again. Secrets are never written to the log. With WP_DEBUG_LOG enabled the same entries are mirrored into debug.log."
+msgstr "هنگام بررسی انتشاری که هیچ نتیجه‌ای نداشته آن را روشن کنید و بعد خاموش کنید. کلیدهای امنیتی هرگز در گزارش نوشته نمی‌شوند. با فعال بودن WP_DEBUG_LOG همان موارد در فایل debug.log هم ثبت می‌شوند."
+
+msgid "Type"
+msgstr "نوع"
+
+msgid "Untitled"
+msgstr "بی‌عنوان"
+
+msgid "Untitled profile"
+msgstr "نمایه بی‌عنوان"
+
+msgid "Untitled rule"
+msgstr "قاعده بی‌عنوان"
+
+msgid "Use profile"
+msgstr "استفاده از نمایه"
+
+msgid "Use this template"
+msgstr "استفاده از این الگو"
+
+msgid "Validate Configuration"
+msgstr "بررسی تنظیمات"
+
+msgid "Validating configuration…"
+msgstr "در حال بررسی تنظیمات…"
+
+msgid "Version"
+msgstr "نسخه"
+
+msgid "View"
+msgstr "نمایش"
+
+msgid "WP-Cron"
+msgstr "WP-Cron"
+
+msgid "WP-Cron did not accept the delivery job (a pre_schedule_event filter returned false)."
+msgstr "WP-Cron کار ارسال را نپذیرفت (یک فیلتر pre_schedule_event مقدار false برگرداند)."
+
+msgid "WP-Cron is enabled but overdue, so it is not running reliably on this site. Delivery falls back to inline sending."
+msgstr "WP-Cron فعال است اما عقب افتاده، پس در این سایت مطمئن اجرا نمی‌شود. ارسال به حالت درون‌درخواستی برمی‌گردد."
+
+msgid "WP-Cron is running. It is the backstop; delivery does not depend on it."
+msgstr "WP-Cron در حال اجراست. نقش آن پشتیبان است و ارسال به آن وابسته نیست."
+
+msgid "WP-Cron is unavailable or overdue on this site, so the event is delivered inline."
+msgstr "WP-Cron در این سایت در دسترس نیست یا عقب افتاده است، بنابراین رویداد در همان درخواست ارسال می‌شود."
+
+msgid "WP-Cron only"
+msgstr "فقط WP-Cron"
+
+msgid "WP-Cron refused the job, so the event is delivered inline."
+msgstr "WP-Cron کار را نپذیرفت، بنابراین رویداد در همان درخواست ارسال می‌شود."
+
+msgid "WP-Cron rejected the delivery job: %s"
+msgstr "WP-Cron کار ارسال را نپذیرفت: %s"
+
+msgid "Waiting for delivery"
+msgstr "در انتظار ارسال"
+
+msgid "Waiting: %1$d. Retrying: %2$d. Delivered: %3$d. Failed: %4$d."
+msgstr "در انتظار: %1$d. در حال تلاش دوباره: %2$d. ارسال‌شده: %3$d. ناموفق: %4$d."
+
+msgid "Warning"
+msgstr "هشدار"
+
+msgid "Watched"
+msgstr "پایش می‌شود"
+
+msgid "Webhook Client — delivers the signed payload via wp_remote_post()."
+msgstr "فرستنده وب‌هوک — داده امضاشده را با wp_remote_post() ارسال می‌کند."
+
+msgid "Webhook Secret"
+msgstr "کلید امنیتی وب‌هوک"
+
+msgid "Webhook Signature Tolerance"
+msgstr "بازه مجاز زمانی امضای وب‌هوک"
+
+msgid "Webhook Timeout"
+msgstr "مهلت زمانی وب‌هوک"
+
+msgid "Webhook URL"
+msgstr "آدرس وب‌هوک"
+
+msgid "Webhook aborted: no valid HTTPS endpoint URL is configured. Set it under Settings → Webhook URL."
+msgstr "ارسال وب‌هوک متوقف شد: هیچ آدرس HTTPS معتبری تنظیم نشده است. آن را در تنظیمات ← آدرس وب‌هوک وارد کنید."
+
+msgid "Webhook aborted: the payload could not be encoded as JSON (%s)."
+msgstr "ارسال وب‌هوک متوقف شد: داده ارسالی به JSON تبدیل نشد (%s)."
+
+msgid "Webhook authentication"
+msgstr "احراز هویت وب‌هوک"
+
+msgid "Webhook delivery is disabled in Settings (Enable Webhooks is off)."
+msgstr "ارسال وب‌هوک در تنظیمات غیرفعال است (گزینه «فعال‌سازی وب‌هوک» خاموش است)."
+
+msgid "Webhook secret"
+msgstr "کلید امنیتی وب‌هوک"
+
+msgid "Webhooks are disabled in Settings, so nothing was sent."
+msgstr "وب‌هوک‌ها در تنظیمات غیرفعال هستند، بنابراین چیزی فرستاده نشد."
+
+msgid "Webhooks are disabled in Settings."
+msgstr "وب‌هوک‌ها در تنظیمات غیرفعال هستند."
+
+msgid "What this plugin does"
+msgstr "این افزونه چه می‌کند"
+
+msgid "What triggers an event"
+msgstr "چه چیزی رویداد می‌سازد"
+
+msgid "Which profile applies where. Resolution walks from an advertisement’s own category outwards through its parents to the post type, and takes the first assignment it finds — so assigning \"Cars\" covers every category under it."
+msgstr "کدام نمایه کجا اعمال می‌شود. تعیین آن از دسته خودِ آگهی رو به بیرون، از میان والدها تا نوع نوشته پیش می‌رود و نخستین اختصاصی را که بیابد برمی‌دارد — پس اختصاص دادن «خودرو» همه دسته‌های زیر آن را پوشش می‌دهد."
+
+msgid "WooCommerce"
+msgstr "ووکامرس"
+
+msgid "Word count"
+msgstr "شمار واژه‌ها"
+
+msgid "WordPress"
+msgstr "وردپرس"
+
+msgid "WordPress could not hand the message to the mail server. Check the site's mail configuration."
+msgstr "وردپرس نتوانست پیام را به کارگزار رایانامه تحویل دهد. پیکربندی رایانامه سایت را بررسی کنید."
+
+msgid "WordPress version"
+msgstr "نسخه وردپرس"
+
+msgid "Written and maintained by %s."
+msgstr "نوشته و نگهداری توسط %s."
+
+msgid "Yes"
+msgstr "بله"
+
+msgid "You are not allowed to export logs."
+msgstr "شما اجازه گرفتن خروجی از گزارش‌ها را ندارید."
+
+msgid "You are not allowed to manage logs."
+msgstr "شما اجازه مدیریت گزارش‌ها را ندارید."
+
+msgid "You cannot read that advertisement."
+msgstr "شما نمی‌توانید آن آگهی را بخوانید."
+
+msgid "You do not have permission to access this page."
+msgstr "شما اجازه دسترسی به این صفحه را ندارید."
+
+msgid "You do not have permission to export."
+msgstr "شما اجازه برون‌ریزی ندارید."
+
+msgid "all (AND)"
+msgstr "همه (و)"
+
+msgid "any (OR)"
+msgstr "هر (یا)"
+
+msgid "change how many advertisements one request delivers itself."
+msgstr "تغییر تعداد آگهی‌هایی که یک درخواست خودش ارسال می‌کند."
+
+msgid "change which internal post types can never be watched."
+msgstr "تغییر اینکه کدام انواع نوشته داخلی هرگز پایش نشوند."
+
+msgid "contains"
+msgstr "شامل باشد"
+
+msgid "control which changes count as a modification."
+msgstr "تعیین اینکه چه تغییرهایی «تغییر» شمرده شوند."
+
+msgid "created"
+msgstr "created"
+
+msgid "customize the retry backoff."
+msgstr "تغییر فاصله تلاش‌های دوباره."
+
+msgid "deleted"
+msgstr "deleted"
+
+msgid "does not contain"
+msgstr "شامل نباشد"
+
+msgid "ends with"
+msgstr "پایان یابد به"
+
+msgid "event detection is switched off (Enable Plugin)"
+msgstr "شناسایی رویداد خاموش است (فعال‌سازی افزونه)"
+
+msgid "extend individual envelope blocks."
+msgstr "افزودن به بخش‌های مشخصی از ساختار داده."
+
+msgid "field key"
+msgstr "کلید فیلد"
+
+msgid "filter request headers."
+msgstr "تغییر هدرهای درخواست."
+
+msgid "filter the complete envelope before it is encoded and signed."
+msgstr "تغییر کل ساختار داده پیش از تبدیل به JSON و امضا."
+
+msgid "filter the custom fields included in the payload."
+msgstr "تغییر فیلدهای سفارشی موجود در داده ارسالی."
+
+msgid "filter the flat normalized post data."
+msgstr "تغییر داده ساده و آماده‌شده نوشته."
+
+msgid "filter wp_remote_post() arguments."
+msgstr "تغییر پارامترهای wp_remote_post()."
+
+msgid "has its own mapping"
+msgstr "نگاشت اختصاصی خود را دارد"
+
+msgid "inherits %s"
+msgstr "ارث‌بری از %s"
+
+msgid "inherits from"
+msgstr "ارث‌بری از"
+
+msgid "is"
+msgstr "برابر است با"
+
+msgid "is at least"
+msgstr "دست‌کم برابر است با"
+
+msgid "is at most"
+msgstr "حداکثر برابر است با"
+
+msgid "is between (min,max)"
+msgstr "بین (کمینه،بیشینه) باشد"
+
+msgid "is empty"
+msgstr "خالی است"
+
+msgid "is greater than"
+msgstr "بزرگ‌تر است از"
+
+msgid "is less than"
+msgstr "کوچک‌تر است از"
+
+msgid "is none of (comma separated)"
+msgstr "هیچ‌یک از این‌ها نباشد (جداشده با ویرگول)"
+
+msgid "is not"
+msgstr "برابر نیست با"
+
+msgid "is not empty"
+msgstr "خالی نیست"
+
+msgid "is one of (comma separated)"
+msgstr "یکی از این‌ها باشد (جداشده با ویرگول)"
+
+msgid "matches pattern (* and ?)"
+msgstr "با الگو مطابقت دارد (* و ?)"
+
+msgid "maximum"
+msgstr "بیشینه"
+
+msgid "move the line between back catalogue and new advertisements."
+msgstr "جابه‌جایی مرز میان آرشیو قدیمی و آگهی‌های تازه."
+
+msgid "never"
+msgstr "هرگز"
+
+msgid "no advertisement can be published right now because"
+msgstr "در حال حاضر هیچ آگهی‌ای منتشر نمی‌شود، زیرا"
+
+msgid "no event types are enabled"
+msgstr "هیچ نوع رویدادی فعال نیست"
+
+msgid "no post types are selected, so publishing an advertisement is ignored"
+msgstr "هیچ نوع نوشته‌ای انتخاب نشده است، بنابراین انتشار آگهی نادیده گرفته می‌شود"
+
+msgid "no response received yet"
+msgstr "هنوز هیچ پاسخی دریافت نشده است"
+
+msgid "no valid HTTPS webhook URL is configured"
+msgstr "هیچ آدرس HTTPS معتبری برای وب‌هوک تنظیم نشده است"
+
+msgid "not configured"
+msgstr "تنظیم نشده"
+
+msgid "not scheduled"
+msgstr "زمان‌بندی نشده"
+
+msgid "nothing scheduled"
+msgstr "چیزی زمان‌بندی نشده"
+
+msgid "observe the async queue."
+msgstr "پایش صف غیرهمزمان."
+
+msgid "override the site identifier at runtime."
+msgstr "بازنویسی شناسه سایت در زمان اجرا."
+
+msgid "react to delivery results."
+msgstr "واکنش به نتیجه ارسال."
+
+msgid "reclassify or suppress a detected event."
+msgstr "تغییر نوع یا متوقف کردن یک رویداد شناسایی‌شده."
+
+msgid "replace the identifier strategy."
+msgstr "جایگزینی روش ساخت شناسه رویداد."
+
+msgid "search|replacement"
+msgstr "جست‌وجو|جایگزین"
+
+msgid "seconds"
+msgstr "ثانیه"
+
+msgid "sent once, the first time a post enters a configured publish status."
+msgstr "تنها یک بار فرستاده می‌شود؛ نخستین باری که نوشته به یکی از وضعیت‌های انتشار تنظیم‌شده می‌رسد."
+
+msgid "sent when a previously published post is permanently deleted. Drafts that never went live are ignored."
+msgstr "زمانی فرستاده می‌شود که نوشته‌ای که پیش‌تر منتشر شده بود برای همیشه حذف شود. پیش‌نویس‌هایی که هرگز منتشر نشده‌اند نادیده گرفته می‌شوند."
+
+msgid "sent when an already published post is modified and stays published. Saves that change nothing observable are ignored."
+msgstr "زمانی فرستاده می‌شود که نوشته‌ای منتشرشده تغییر کند و منتشرشده بماند. ذخیره‌هایی که چیز قابل مشاهده‌ای را تغییر نمی‌دهند نادیده گرفته می‌شوند."
+
+msgid "starts with"
+msgstr "آغاز شود با"
+
+msgid "the webhook secret is empty, so the Node.js service will reject every request with \"Missing webhook authentication\""
+msgstr "کلید امنیتی وب‌هوک خالی است، بنابراین سرویس Node.js هر درخواست را با پیام «Missing webhook authentication» رد می‌کند"
+
+msgid "tune the window that suppresses update events right after publishing."
+msgstr "تنظیم بازه‌ای که بلافاصله پس از انتشار، رویدادهای بروزرسانی را متوقف می‌کند."
+
+msgid "updated"
+msgstr "updated"
+
+msgid "value"
+msgstr "مقدار"
+
+msgid "veto dispatching for specific posts."
+msgstr "جلوگیری از ارسال برای نوشته‌های مشخص."
+
+msgid "webhook delivery is switched off (Enable Webhooks)"
+msgstr "ارسال وب‌هوک خاموش است (فعال‌سازی وب‌هوک)"
+
+msgid "آخرین خبرها و اطلاعیه‌ها"
+msgstr "آخرین خبرها و اطلاعیه‌ها"
+
+msgid "آدرس وب‌هوک"
+msgstr "آدرس وب‌هوک"
+
+msgid "آدرس وب‌هوک جارچی"
+msgstr "آدرس وب‌هوک جارچی"
+
+msgid "آیکون"
+msgstr "آیکون"
+
+msgid "اتصال به جارچی"
+msgstr "اتصال به جارچی"
+
+msgid "اجازه انجام این کار را ندارید."
+msgstr "اجازه انجام این کار را ندارید."
+
+msgid "اختیاری. با کلیک روی عنوان اطلاعیه باز می‌شود."
+msgstr "اختیاری. با کلیک روی عنوان اطلاعیه باز می‌شود."
+
+msgid "ارتباط با سرور برقرار نشد. این به معنی نبودن فیلد نیست — دوباره تلاش کنید."
+msgstr "ارتباط با سرور برقرار نشد. این به معنی نبودن فیلد نیست — دوباره تلاش کنید."
+
+msgid "ارسال پیام برای سفارش‌های ووکامرس"
+msgstr "ارسال پیام برای سفارش‌های ووکامرس"
+
+msgid "استان"
+msgstr "استان"
+
+msgid "استفاده از این تصویر"
+msgstr "استفاده از این تصویر"
+
+msgid "اشکال"
+msgstr "اشکال"
+
+msgid "اطلاعات"
+msgstr "اطلاعات"
+
+msgid "اطلاعات فنی"
+msgstr "اطلاعات فنی"
+
+msgid "اطلاعاتی که منتشر می‌شود"
+msgstr "اطلاعاتی که منتشر می‌شود"
+
+msgid "اطلاعیه"
+msgstr "اطلاعیه"
+
+msgid "اطلاعیه تازه"
+msgstr "اطلاعیه تازه"
+
+msgid "اطلاعیه خصوصی هرگز به بازدیدکننده‌ای که وارد نشده نمایش داده نمی‌شود."
+msgstr "اطلاعیه خصوصی هرگز به بازدیدکننده‌ای که وارد نشده نمایش داده نمی‌شود."
+
+msgid "اطلاعیه‌ای در زباله‌دان نیست."
+msgstr "اطلاعیه‌ای در زباله‌دان نیست."
+
+msgid "اطلاعیه‌ای یافت نشد."
+msgstr "اطلاعیه‌ای یافت نشد."
+
+msgid "اطلاعیه‌ها"
+msgstr "اطلاعیه‌ها"
+
+msgid "اطلاعیه‌های جارچی"
+msgstr "اطلاعیه‌های جارچی"
+
+msgid "اطلاع‌رسانی سفارش‌ها"
+msgstr "اطلاع‌رسانی سفارش‌ها"
+
+msgid "اعلان شناور"
+msgstr "اعلان شناور"
+
+msgid "افزودن اطلاعیه"
+msgstr "افزودن اطلاعیه"
+
+msgid "افزودن اطلاعیه تازه"
+msgstr "افزودن اطلاعیه تازه"
+
+msgid "افزودن به پیام"
+msgstr "افزودن به پیام"
+
+msgid "افزودن شرط"
+msgstr "افزودن شرط"
+
+msgid "افزونه‌های شناسایی‌شده"
+msgstr "افزونه‌های شناسایی‌شده"
+
+msgid "اقلام سفارش"
+msgstr "اقلام سفارش"
+
+msgid "المنتور روی این سایت نصب نیست. صفحه با ویرایشگر وردپرس هم کاملاً قابل ویرایش است؛ اگر المنتور را نصب کنید، دکمه ویرایش با المنتور همین‌جا اضافه می‌شود."
+msgstr "المنتور روی این سایت نصب نیست. صفحه با ویرایشگر وردپرس هم کاملاً قابل ویرایش است؛ اگر المنتور را نصب کنید، دکمه ویرایش با المنتور همین‌جا اضافه می‌شود."
+
+msgid "انتخاب آیکون"
+msgstr "انتخاب آیکون"
+
+msgid "انتخاب تصویر"
+msgstr "انتخاب تصویر"
+
+msgid "انتخاب تصویر اطلاعیه"
+msgstr "انتخاب تصویر اطلاعیه"
+
+msgid "انتخاب صفحه"
+msgstr "انتخاب صفحه"
+
+msgid "انتخاب کنید این اطلاعات در کدام پلتفرم‌ها نمایش داده شود."
+msgstr "انتخاب کنید این اطلاعات در کدام پلتفرم‌ها نمایش داده شود."
+
+msgid "انتخاب کنید این اطلاعیه کجای سایت دیده شود. هر جای دیگری که انتخاب نکنید، نمایش داده نمی‌شود."
+msgstr "انتخاب کنید این اطلاعیه کجای سایت دیده شود. هر جای دیگری که انتخاب نکنید، نمایش داده نمی‌شود."
+
+msgid "انتخاب کنید این محتوا در کدام پلتفرم‌ها منتشر شود."
+msgstr "انتخاب کنید این محتوا در کدام پلتفرم‌ها منتشر شود."
+
+msgid "انتخاب کنید چه چیزی در پیام بیاید، با چه عنوانی و به چه ترتیبی. عدد کوچک‌تر بالاتر نمایش داده می‌شود."
+msgstr "انتخاب کنید چه چیزی در پیام بیاید، با چه عنوانی و به چه ترتیبی. عدد کوچک‌تر بالاتر نمایش داده می‌شود."
+
+msgid "انتشار"
+msgstr "انتشار"
+
+msgid "انتشار جدید"
+msgstr "انتشار جدید"
+
+msgid "انتشار در این پلتفرم فعال باشد"
+msgstr "انتشار در این پلتفرم فعال باشد"
+
+msgid "انتشار در جارچی"
+msgstr "انتشار در جارچی"
+
+msgid "انتقال آزمایشی"
+msgstr "انتقال آزمایشی"
+
+msgid "اهمیت"
+msgstr "اهمیت"
+
+msgid "اگر شرطی اضافه نکنید، اطلاعیه در همه صفحه‌هایی که محل نمایش آن اجازه می‌دهد دیده می‌شود."
+msgstr "اگر شرطی اضافه نکنید، اطلاعیه در همه صفحه‌هایی که محل نمایش آن اجازه می‌دهد دیده می‌شود."
+
+msgid "اگر صفحه‌ای که انتخاب می‌کنید شورت‌کد اطلاعیه‌ها را نداشته باشد، این شورت‌کد را در آن قرار دهید:"
+msgstr "اگر صفحه‌ای که انتخاب می‌کنید شورت‌کد اطلاعیه‌ها را نداشته باشد، این شورت‌کد را در آن قرار دهید:"
+
+msgid "اگر هنوز صفحه‌ای ندارید، جارچی می‌تواند یک صفحه آماده با شورت‌کد اطلاعیه‌ها بسازد و همین‌جا انتخابش کند."
+msgstr "اگر هنوز صفحه‌ای ندارید، جارچی می‌تواند یک صفحه آماده با شورت‌کد اطلاعیه‌ها بسازد و همین‌جا انتخابش کند."
+
+msgid "اگر چیزی انتخاب نکنید، از همان پلتفرم‌هایی استفاده می‌شود که در تنظیمات هر پلتفرم روشن کرده‌اید."
+msgstr "اگر چیزی انتخاب نکنید، از همان پلتفرم‌هایی استفاده می‌شود که در تنظیمات هر پلتفرم روشن کرده‌اید."
+
+msgid "اگر چیزی نسازید، پیام به‌صورت خودکار از فیلدهای روشن ساخته می‌شود. برای کنترل دقیق‌تر، از سازنده زیر استفاده کنید."
+msgstr "اگر چیزی نسازید، پیام به‌صورت خودکار از فیلدهای روشن ساخته می‌شود. برای کنترل دقیق‌تر، از سازنده زیر استفاده کنید."
+
+msgid "ایمیل مشتری"
+msgstr "ایمیل مشتری"
+
+msgid "این اطلاعات منتشر شود"
+msgstr "این اطلاعات منتشر شود"
+
+msgid "این دکمه فقط وقتی نمایش داده می‌شود که شماره تماس هم منتشر شده باشد. دکمه تماسی که شماره‌ای پشتش نباشد، بن‌بست است."
+msgstr "این دکمه فقط وقتی نمایش داده می‌شود که شماره تماس هم منتشر شده باشد. دکمه تماسی که شماره‌ای پشتش نباشد، بن‌بست است."
+
+msgid "این صفحه نشان می‌دهد جارچی روی این سایت چه چیزی را می‌بیند. اگر افزونه‌ای را نصب کرده‌اید و اینجا دیده نمی‌شود، جارچی هم آن را نمی‌بیند."
+msgstr "این صفحه نشان می‌دهد جارچی روی این سایت چه چیزی را می‌بیند. اگر افزونه‌ای را نصب کرده‌اید و اینجا دیده نمی‌شود، جارچی هم آن را نمی‌بیند."
+
+msgid "این فایل، خروجی قالب پیام جارچی نیست."
+msgstr "این فایل، خروجی قالب پیام جارچی نیست."
+
+msgid "این فایل، خروجی قوانین انتشار جارچی نیست."
+msgstr "این فایل، خروجی قوانین انتشار جارچی نیست."
+
+msgid "این قالب دستی نوشته شده و در سازنده نمایش داده نمی‌شود. برای ویرایش آن از «ویرایش پیشرفته» استفاده کنید."
+msgstr "این قالب دستی نوشته شده و در سازنده نمایش داده نمی‌شود. برای ویرایش آن از «ویرایش پیشرفته» استفاده کنید."
+
+msgid "با فعال بودن این گزینه، وقتی محتوایی در وردپرس برای همیشه حذف شود، جارچی تلاش می‌کند نسخه منتشرشده آن را هم از پلتفرم‌های متصل بردارد."
+msgstr "با فعال بودن این گزینه، وقتی محتوایی در وردپرس برای همیشه حذف شود، جارچی تلاش می‌کند نسخه منتشرشده آن را هم از پلتفرم‌های متصل بردارد."
+
+msgid "بارگذاری جارچی کامل نشد."
+msgstr "بارگذاری جارچی کامل نشد."
+
+msgid "بازپرداخت‌شده"
+msgstr "بازپرداخت‌شده"
+
+msgid "بالا"
+msgstr "بالا"
+
+msgid "بالای محتوا"
+msgstr "بالای محتوا"
+
+msgid "بدون آدرس، هیچ چیزی ارسال نمی‌شود."
+msgstr "بدون آدرس، هیچ چیزی ارسال نمی‌شود."
+
+msgid "برابر است با"
+msgstr "برابر است با"
+
+msgid "برابر نیست با"
+msgstr "برابر نیست با"
+
+msgid "برای این نوع محتوا هیچ فیلدی شناسایی نشد. اگر به‌تازگی افزونه‌ای مثل ACF یا ووکامرس اضافه کرده‌اید، «بررسی دوباره فیلدها» را بزنید."
+msgstr "برای این نوع محتوا هیچ فیلدی شناسایی نشد. اگر به‌تازگی افزونه‌ای مثل ACF یا ووکامرس اضافه کرده‌اید، «بررسی دوباره فیلدها» را بزنید."
+
+msgid "برای درج در محل مکان‌نما کلیک کنید."
+msgstr "برای درج در محل مکان‌نما کلیک کنید."
+
+msgid "بستن"
+msgstr "بستن"
+
+msgid "بستن با کلید Esc"
+msgstr "بستن با کلید Esc"
+
+msgid "بستن با کلیک بیرون"
+msgstr "بستن با کلیک بیرون"
+
+msgid "بعد از این تاریخ دیگر نمایش داده نمی‌شود. خالی بگذارید تا همیشه بماند."
+msgstr "بعد از این تاریخ دیگر نمایش داده نمی‌شود. خالی بگذارید تا همیشه بماند."
+
+msgid "بله"
+msgstr "بله"
+
+msgid "به کدام پلتفرم‌ها فرستاده شود؟"
+msgstr "به کدام پلتفرم‌ها فرستاده شود؟"
+
+msgid "تأخیر نمایش (ثانیه)"
+msgstr "تأخیر نمایش (ثانیه)"
+
+msgid "تا وقتی این گزینه خاموش است هیچ پیامی درباره سفارش‌ها فرستاده نمی‌شود."
+msgstr "تا وقتی این گزینه خاموش است هیچ پیامی درباره سفارش‌ها فرستاده نمی‌شود."
+
+msgid "تا وقتی این گزینه خاموش است، هیچ محتوایی به این پلتفرم فرستاده نمی‌شود — حتی اگر در تک‌تک نوشته‌ها انتخاب شده باشد."
+msgstr "تا وقتی این گزینه خاموش است، هیچ محتوایی به این پلتفرم فرستاده نمی‌شود — حتی اگر در تک‌تک نوشته‌ها انتخاب شده باشد."
+
+msgid "تاریخ انقضا"
+msgstr "تاریخ انقضا"
+
+msgid "تاریخ سفارش"
+msgstr "تاریخ سفارش"
+
+msgid "تاریخچه انتقال"
+msgstr "تاریخچه انتقال"
+
+msgid "تخفیف"
+msgstr "تخفیف"
+
+msgid "ترتیب نمایش"
+msgstr "ترتیب نمایش"
+
+msgid "تست اتصال جارچی"
+msgstr "تست اتصال جارچی"
+
+msgid "تست انتقال"
+msgstr "تست انتقال"
+
+msgid "تسویه حساب"
+msgstr "تسویه حساب"
+
+msgid "تصویر"
+msgstr "تصویر"
+
+msgid "تعداد اطلاعیه‌ها"
+msgstr "تعداد اطلاعیه‌ها"
+
+msgid "تعداد اقلام"
+msgstr "تعداد اقلام"
+
+msgid "تغییر تصویر"
+msgstr "تغییر تصویر"
+
+msgid "تلاش دوباره"
+msgstr "تلاش دوباره"
+
+msgid "تلفن مشتری"
+msgstr "تلفن مشتری"
+
+msgid "تلگرام"
+msgstr "تلگرام"
+
+msgid "تماس با آگهی‌دهنده"
+msgstr "تماس با آگهی‌دهنده"
+
+msgid "تنظیم شده"
+msgstr "تنظیم شده"
+
+msgid "تنظیم فیلدها از مسیر جارچی ← فیلدها در دسترس است. تا زمانی که تنظیمی ذخیره نشود، هر نوع محتوا دقیقاً همان چیزی را می‌فرستد که پیش‌تر می‌فرستاد؛ بنابراین ارتقا چیزی را تغییر نمی‌دهد."
+msgstr "تنظیم فیلدها از مسیر جارچی ← فیلدها در دسترس است. تا زمانی که تنظیمی ذخیره نشود، هر نوع محتوا دقیقاً همان چیزی را می‌فرستد که پیش‌تر می‌فرستاد؛ بنابراین ارتقا چیزی را تغییر نمی‌دهد."
+
+msgid "تنظیم نشده"
+msgstr "تنظیم نشده"
+
+msgid "تنظیمات"
+msgstr "تنظیمات"
+
+msgid "تنظیمات اطلاعیه"
+msgstr "تنظیمات اطلاعیه"
+
+msgid "تنظیمات اعلان شناور"
+msgstr "تنظیمات اعلان شناور"
+
+msgid "تنظیمات جارچی"
+msgstr "تنظیمات جارچی"
+
+msgid "تنظیمات نوار"
+msgstr "تنظیمات نوار"
+
+msgid "تنظیمات پنجره بازشو"
+msgstr "تنظیمات پنجره بازشو"
+
+msgid "توکن ربات و کلیدهای محرمانه در وردپرس ذخیره نمی‌شوند. وردپرس فقط می‌گوید چه چیزی و کجا منتشر شود؛ ارتباط با پلتفرم بر عهده سرویس جارچی است."
+msgstr "توکن ربات و کلیدهای محرمانه در وردپرس ذخیره نمی‌شوند. وردپرس فقط می‌گوید چه چیزی و کجا منتشر شود؛ ارتباط با پلتفرم بر عهده سرویس جارچی است."
+
+msgid "تکمیل‌شده"
+msgstr "تکمیل‌شده"
+
+msgid "تیره کردن پس‌زمینه"
+msgstr "تیره کردن پس‌زمینه"
+
+msgid "جارچی"
+msgstr "جارچی"
+
+msgid "جارچی %s — GPL-2.0-or-later."
+msgstr "جارچی %s — GPL-2.0-or-later."
+
+msgid "جارچی با هر دو حالت کار می‌کند."
+msgstr "جارچی با هر دو حالت کار می‌کند."
+
+msgid "جارچی به PHP 8.1 یا بالاتر نیاز دارد."
+msgstr "جارچی به PHP 8.1 یا بالاتر نیاز دارد."
+
+msgid "جارچی رویدادهای انتشار سایت شما را تشخیص می‌دهد، محتوا را به یک بسته JSON استاندارد تبدیل می‌کند و آن را از طریق یک وب‌هوک امن به سرویس جارچی می‌فرستد تا در پلتفرم‌های انتخابی منتشر شود."
+msgstr "جارچی رویدادهای انتشار سایت شما را تشخیص می‌دهد، محتوا را به یک بسته JSON استاندارد تبدیل می‌کند و آن را از طریق یک وب‌هوک امن به سرویس جارچی می‌فرستد تا در پلتفرم‌های انتخابی منتشر شود."
+
+msgid "جارچی سفارش‌ها را از طریق خودِ ووکامرس می‌خواند، بنابراین در هر دو حالت ذخیره‌سازی یکسان کار می‌کند."
+msgstr "جارچی سفارش‌ها را از طریق خودِ ووکامرس می‌خواند، بنابراین در هر دو حالت ذخیره‌سازی یکسان کار می‌کند."
+
+msgid "جارچی ۱.۶.۰ نصب شد. تنظیم فیلدها، کلیدهای قدیمی و تاریخچه انتقال دست‌نخورده باقی مانده‌اند. بله و واتس‌اپ به‌صورت پیش‌فرض خاموش هستند و از منوی جارچی فعال می‌شوند."
+msgstr "جارچی ۱.۶.۰ نصب شد. تنظیم فیلدها، کلیدهای قدیمی و تاریخچه انتقال دست‌نخورده باقی مانده‌اند. بله و واتس‌اپ به‌صورت پیش‌فرض خاموش هستند و از منوی جارچی فعال می‌شوند."
+
+msgid "جارچی:"
+msgstr "جارچی:"
+
+msgid "جایگاه"
+msgstr "جایگاه"
+
+msgid "جایگزین‌های موجود"
+msgstr "جایگزین‌های موجود"
+
+msgid "جت‌فرم‌بیلدر"
+msgstr "جت‌فرم‌بیلدر"
+
+msgid "جداکننده"
+msgstr "جداکننده"
+
+msgid "جستجو در اطلاعات"
+msgstr "جستجو در اطلاعات"
+
+msgid "جستجوی اطلاعیه‌ها"
+msgstr "جستجوی اطلاعیه‌ها"
+
+msgid "جستجو…"
+msgstr "جستجو…"
+
+msgid "جمع جزء"
+msgstr "جمع جزء"
+
+msgid "جمعه"
+msgstr "جمعه"
+
+msgid "حداکثر عرض (پیکسل)"
+msgstr "حداکثر عرض (پیکسل)"
+
+msgid "حذف"
+msgstr "حذف"
+
+msgid "حذف این خط"
+msgstr "حذف این خط"
+
+msgid "حذف تصویر"
+msgstr "حذف تصویر"
+
+msgid "حذف شرط"
+msgstr "حذف شرط"
+
+msgid "حذف محتوا"
+msgstr "حذف محتوا"
+
+msgid "حذف محتوای منتشرشده"
+msgstr "حذف محتوای منتشرشده"
+
+msgid "حذف محتوای منتشرشده هنگام حذف کامل"
+msgstr "حذف محتوای منتشرشده هنگام حذف کامل"
+
+msgid "حساب کاربری"
+msgstr "حساب کاربری"
+
+msgid "خالی بگذارید تا همه سفارش‌ها پیام داشته باشند."
+msgstr "خالی بگذارید تا همه سفارش‌ها پیام داشته باشند."
+
+msgid "خاموش"
+msgstr "خاموش"
+
+msgid "خاموش کردن همه"
+msgstr "خاموش کردن همه"
+
+msgid "داخل محتوا"
+msgstr "داخل محتوا"
+
+msgid "داخل پیام منتشرشده"
+msgstr "داخل پیام منتشرشده"
+
+msgid "داشبورد"
+msgstr "داشبورد"
+
+msgid "در انتظار بررسی"
+msgstr "در انتظار بررسی"
+
+msgid "در این حالت انتقال به زباله‌دان هم به‌عنوان حذف در نظر گرفته می‌شود و رویداد حذف کامل بعدی نادیده گرفته می‌شود، بنابراین سرویس دقیقاً یک رویداد دریافت می‌کند."
+msgstr "در این حالت انتقال به زباله‌دان هم به‌عنوان حذف در نظر گرفته می‌شود و رویداد حذف کامل بعدی نادیده گرفته می‌شود، بنابراین سرویس دقیقاً یک رویداد دریافت می‌کند."
+
+msgid "در تنظیمات جارچی خاموش است."
+msgstr "در تنظیمات جارچی خاموش است."
+
+msgid "در حال انجام"
+msgstr "در حال انجام"
+
+msgid "در حال حاضر از تنظیمات پیش‌فرض سایت پیروی می‌کند."
+msgstr "در حال حاضر از تنظیمات پیش‌فرض سایت پیروی می‌کند."
+
+msgid "در حال حاضر اطلاعیه‌ای وجود ندارد."
+msgstr "در حال حاضر اطلاعیه‌ای وجود ندارد."
+
+msgid "در دسترس"
+msgstr "در دسترس"
+
+msgid "در دسترس نیست"
+msgstr "در دسترس نیست"
+
+msgid "درباره"
+msgstr "درباره"
+
+msgid "درباره جارچی"
+msgstr "درباره جارچی"
+
+msgid "دریافت فیلدها با مشکل مواجه شد."
+msgstr "دریافت فیلدها با مشکل مواجه شد."
+
+msgid "دسته‌بندی محتوا."
+msgstr "دسته‌بندی محتوا."
+
+msgid "دست‌کم یکی از شرط‌ها برقرار باشد"
+msgstr "دست‌کم یکی از شرط‌ها برقرار باشد"
+
+msgid "دوشنبه"
+msgstr "دوشنبه"
+
+msgid "دکمه بستن"
+msgstr "دکمه بستن"
+
+msgid "دکمه تماس"
+msgstr "دکمه تماس"
+
+msgid "دکمه مشاهده"
+msgstr "دکمه مشاهده"
+
+msgid "دکمه یا لینک تماس با آگهی‌دهنده. برای کار کردن، به شماره تماس منتشرشده نیاز دارد."
+msgstr "دکمه یا لینک تماس با آگهی‌دهنده. برای کار کردن، به شماره تماس منتشرشده نیاز دارد."
+
+msgid "دکمه‌ها"
+msgstr "دکمه‌ها"
+
+msgid "ذخیره تغییرات"
+msgstr "ذخیره تغییرات"
+
+msgid "ذخیره‌سازی سفارش‌ها (HPOS)"
+msgstr "ذخیره‌سازی سفارش‌ها (HPOS)"
+
+msgid "ذخیره‌سازی پرسرعت سفارش‌ها (HPOS) فعال است"
+msgstr "ذخیره‌سازی پرسرعت سفارش‌ها (HPOS) فعال است"
+
+msgid "ذخیره‌سازی کلاسیک سفارش‌ها"
+msgstr "ذخیره‌سازی کلاسیک سفارش‌ها"
+
+msgid "راهنمای جارچی را ببینید"
+msgstr "راهنمای جارچی را ببینید"
+
+msgid "راهنمایی می‌خواهید؟"
+msgstr "راهنمایی می‌خواهید؟"
+
+msgid "رنگ عنوان"
+msgstr "رنگ عنوان"
+
+msgid "رنگ متن"
+msgstr "رنگ متن"
+
+msgid "روش احراز هویت"
+msgstr "روش احراز هویت"
+
+msgid "روش ارسال"
+msgstr "روش ارسال"
+
+msgid "روش پرداخت"
+msgstr "روش پرداخت"
+
+msgid "روش پیشنهادی «کلید API» است و برای اتصال به جارچی همین کافی است. روش‌های HMAC و Bearer برای سایت‌هایی نگه داشته شده‌اند که از قبل از آن‌ها استفاده می‌کردند."
+msgstr "روش پیشنهادی «کلید API» است و برای اتصال به جارچی همین کافی است. روش‌های HMAC و Bearer برای سایت‌هایی نگه داشته شده‌اند که از قبل از آن‌ها استفاده می‌کردند."
+
+msgid "روشن کردن همه"
+msgstr "روشن کردن همه"
+
+msgid "روشن، بدون مقصد"
+msgstr "روشن، بدون مقصد"
+
+msgid "روی هر فیلد بزنید تا به پیام اضافه شود. ترتیب همان ترتیبی است که اضافه می‌کنید و با کشیدن قابل تغییر است."
+msgstr "روی هر فیلد بزنید تا به پیام اضافه شود. ترتیب نمایش همان ترتیب نمایشی است که اضافه می‌کنید و با کشیدن قابل تغییر است."
+
+msgid "ساخت صفحه اطلاعیه‌ها"
+msgstr "ساخت صفحه اطلاعیه‌ها"
+
+msgid "ساخت صفحه تازه"
+msgstr "ساخت صفحه تازه"
+
+msgid "ساختن قالب"
+msgstr "ساختن قالب"
+
+msgid "سالم"
+msgstr "سالم"
+
+msgid "سبد خرید"
+msgstr "سبد خرید"
+
+msgid "سفارش %1$s برای ارسال در صف قرار گرفت (%2$s)."
+msgstr "سفارش %1$s برای ارسال در صف قرار گرفت (%2$s)."
+
+msgid "سفارش %s"
+msgstr "سفارش %s"
+
+msgid "سفارش جدید"
+msgstr "سفارش جدید"
+
+msgid "سفارش ووکامرس"
+msgstr "سفارش ووکامرس"
+
+msgid "سفارش‌های ووکامرس"
+msgstr "سفارش‌های ووکامرس"
+
+msgid "سمت راست (ابتدای جهت متن)"
+msgstr "سمت راست (ابتدای جهت متن)"
+
+msgid "سمت صفحه"
+msgstr "سمت صفحه"
+
+msgid "سمت چپ (انتهای جهت متن)"
+msgstr "سمت چپ (انتهای جهت متن)"
+
+msgid "سه‌شنبه"
+msgstr "سه‌شنبه"
+
+msgid "شامل باشد"
+msgstr "شامل باشد"
+
+msgid "شامل نباشد"
+msgstr "شامل نباشد"
+
+msgid "شرایط نمایش"
+msgstr "شرایط نمایش"
+
+msgid "شماره تماس"
+msgstr "شماره تماس"
+
+msgid "شماره تماس آگهی‌دهنده. تا وقتی این فیلد و پلتفرم مقصد هر دو روشن نباشند، در پیام عمومی فرستاده نمی‌شود."
+msgstr "شماره تماس آگهی‌دهنده. تا وقتی این فیلد و پلتفرم مقصد هر دو روشن نباشند، در پیام عمومی فرستاده نمی‌شود."
+
+msgid "شماره تماس ثبت‌شده در صورتحساب."
+msgstr "شماره تماس ثبت‌شده در صورتحساب."
+
+msgid "شماره سفارش"
+msgstr "شماره سفارش"
+
+msgid "شماره یا شناسه گیرنده واتس‌اپ."
+msgstr "شماره یا شناسه گیرنده واتس‌اپ."
+
+msgid "شناسایی شد"
+msgstr "شناسایی شد"
+
+msgid "شناسه تراکنش"
+msgstr "شناسه تراکنش"
+
+msgid "شناسه سایت"
+msgstr "شناسه سایت"
+
+msgid "شناسه فرم"
+msgstr "شناسه فرم"
+
+msgid "شناسه فنی"
+msgstr "شناسه فنی"
+
+msgid "شناسه کانال"
+msgstr "شناسه کانال"
+
+msgid "شناسه کانال یا گروه بله."
+msgstr "شناسه کانال یا گروه بله."
+
+msgid "شناسه گفتگو"
+msgstr "شناسه گفتگو"
+
+msgid "شناسه یا نام کاربری کانال تلگرام، مثل ‎@my_channel‎."
+msgstr "شناسه یا نام کاربری کانال تلگرام، مثل ‎@my_channel‎."
+
+msgid "شناور"
+msgstr "شناور"
+
+msgid "شنبه"
+msgstr "شنبه"
+
+msgid "شهر"
+msgstr "شهر"
+
+msgid "شهر ارسال"
+msgstr "شهر ارسال"
+
+msgid "صفحه"
+msgstr "صفحه"
+
+msgid "صفحه اصلی"
+msgstr "صفحه اصلی"
+
+msgid "صفحه اطلاعیه‌ها"
+msgstr "صفحه اطلاعیه‌ها"
+
+msgid "صفحه فروشگاه"
+msgstr "صفحه فروشگاه"
+
+msgid "صفحه فعلی: %s"
+msgstr "صفحه فعلی: %s"
+
+msgid "صفحه محصول"
+msgstr "صفحه محصول"
+
+msgid "ظاهر"
+msgstr "ظاهر"
+
+msgid "عدد بزرگ‌تر بالاتر نمایش داده می‌شود."
+msgstr "عدد بزرگ‌تر بالاتر نمایش داده می‌شود."
+
+msgid "عدد کوچک‌تر بالاتر."
+msgstr "عدد کوچک‌تر بالاتر."
+
+msgid "عملگر"
+msgstr "عملگر"
+
+msgid "عمومی — همه بازدیدکنندگان"
+msgstr "عمومی — همه بازدیدکنندگان"
+
+msgid "عنوان نمایشی"
+msgstr "عنوان نمایشی"
+
+msgid "عیب‌یابی"
+msgstr "عیب‌یابی"
+
+msgid "غیرفعال"
+msgstr "غیرفعال"
+
+msgid "فاصله بین موارد"
+msgstr "فاصله بین موارد"
+
+msgid "فعال"
+msgstr "فعال"
+
+msgid "فقط ارسال به سرویس جارچی"
+msgstr "فقط ارسال به سرویس جارچی"
+
+msgid "فقط برای شناسایی در همین صفحه و گزارش‌ها استفاده می‌شود."
+msgstr "فقط برای شناسایی در همین صفحه و گزارش‌ها استفاده می‌شود."
+
+msgid "فقط در پیشخوان"
+msgstr "فقط در داشبورد"
+
+msgid "فقط سفارش‌های بالاتر از این مبلغ"
+msgstr "فقط سفارش‌های بالاتر از این مبلغ"
+
+msgid "فقط عدد، بدون واحد پول."
+msgstr "فقط عدد، بدون واحد پول."
+
+msgid "فقط غیرفعال‌ها"
+msgstr "فقط غیرفعال‌ها"
+
+msgid "فقط متن"
+msgstr "فقط متن"
+
+msgid "فقط منتشرشونده‌ها"
+msgstr "فقط منتشرشونده‌ها"
+
+msgid "فقط کاربران واردشده"
+msgstr "فقط کاربران واردشده"
+
+msgid "فقط یک‌بار برای هر کاربر"
+msgstr "فقط یک‌بار برای هر کاربر"
+
+msgid "فهرست"
+msgstr "فهرست"
+
+msgid "فهرست کالاهای سفارش با نام، تعداد و مبلغ."
+msgstr "فهرست کالاهای سفارش با نام، تعداد و مبلغ."
+
+msgid "فیلد فرم «%s»."
+msgstr "فیلد فرم «%s»."
+
+msgid "فیلدها"
+msgstr "فیلدها"
+
+msgid "فیلدهای انتشار"
+msgstr "فیلدهای انتشار"
+
+msgid "فیلدی پیدا نشد."
+msgstr "فیلدی پیدا نشد."
+
+msgid "قالب پیام"
+msgstr "قالب پیام"
+
+msgid "قوانین انتشار"
+msgstr "قوانین انتشار"
+
+msgid "لغوشده"
+msgstr "لغوشده"
+
+msgid "لینک سفارش"
+msgstr "لینک سفارش"
+
+msgid "لینک مدیریت سفارش در پیشخوان وردپرس."
+msgstr "لینک مدیریت سفارش در پیشخوان وردپرس."
+
+msgid "مالیات"
+msgstr "مالیات"
+
+msgid "مبلغ کل"
+msgstr "مبلغ کل"
+
+msgid "مبلغ کل با واحد پول"
+msgstr "مبلغ کل با واحد پول"
+
+msgid "مبلغ کل همراه با واحد پول فروشگاه."
+msgstr "مبلغ کل همراه با واحد پول فروشگاه."
+
+msgid "متن دکمه مشاهده."
+msgstr "متن دکمه مشاهده."
+
+msgid "متن دکمه‌ها همراه پیام فرستاده می‌شود، بنابراین هرچه اینجا بنویسید دقیقاً همان زیر آگهی دیده می‌شود."
+msgstr "متن دکمه‌ها همراه پیام فرستاده می‌شود، بنابراین هرچه اینجا بنویسید دقیقاً همان زیر آگهی دیده می‌شود."
+
+msgid "متن همراه تصویر"
+msgstr "متن همراه تصویر"
+
+msgid "محتوا"
+msgstr "محتوا"
+
+msgid "محتوای قالب‌بندی‌شده."
+msgstr "محتوای قالب‌بندی‌شده."
+
+msgid "محتوای پیام سفارش"
+msgstr "محتوای پیام سفارش"
+
+msgid "محل نمایش"
+msgstr "محل نمایش"
+
+msgid "محیط"
+msgstr "محیط"
+
+msgid "مخاطبان"
+msgstr "مخاطبان"
+
+msgid "مدیریت"
+msgstr "مدیریت"
+
+msgid "مدیریت جارچی"
+msgstr "مدیریت جارچی"
+
+msgid "مشاهده"
+msgstr "مشاهده"
+
+msgid "مشاهده آگهی"
+msgstr "مشاهده آگهی"
+
+msgid "مشاهده اطلاعیه"
+msgstr "مشاهده اطلاعیه"
+
+msgid "مشاهده صفحه"
+msgstr "مشاهده صفحه"
+
+msgid "مقدار"
+msgstr "مقدار"
+
+msgid "مقدار شرط"
+msgstr "مقدار شرط"
+
+msgid "مقصد ارسال"
+msgstr "مقصد ارسال"
+
+msgid "مقصدها"
+msgstr "مقصدها"
+
+msgid "ممد از تیم بایمر"
+msgstr "ممد از تیم بایمر"
+
+msgid "منابع فیلد فعال"
+msgstr "منابع فیلد فعال"
+
+msgid "منبع"
+msgstr "منبع"
+
+msgid "منطقه زمانی سایت"
+msgstr "منطقه زمانی سایت"
+
+msgid "منقضی"
+msgstr "منقضی"
+
+msgid "منوی جارچی"
+msgstr "منوی جارچی"
+
+msgid "مهم"
+msgstr "مهم"
+
+msgid "موضوع شرط"
+msgstr "موضوع شرط"
+
+msgid "نام فرم"
+msgstr "نام فرم"
+
+msgid "نام مشتری"
+msgstr "نام مشتری"
+
+msgid "نام نمایشی"
+msgstr "نام نمایشی"
+
+msgid "ناموفق"
+msgstr "ناموفق"
+
+msgid "نحوه نمایش چند مقدار"
+msgstr "نحوه نمایش چند مقدار"
+
+msgid "نسخه PHP"
+msgstr "نسخه PHP"
+
+msgid "نسخه جارچی"
+msgstr "نسخه جارچی"
+
+msgid "نسخه وردپرس"
+msgstr "نسخه وردپرس"
+
+msgid "نشانی ارسال"
+msgstr "نشانی ارسال"
+
+msgid "نشانی صفحه"
+msgstr "نشانی صفحه"
+
+msgid "نشانی صورتحساب"
+msgstr "نشانی صورتحساب"
+
+msgid "نصب نیست"
+msgstr "نصب نیست"
+
+msgid "نقش کاربر"
+msgstr "نقش کاربر"
+
+msgid "نمایش"
+msgstr "نمایش"
+
+msgid "نمایش آیکون"
+msgstr "نمایش آیکون"
+
+msgid "نمایش تاریخ"
+msgstr "نمایش تاریخ"
+
+msgid "نمایش داده نشود"
+msgstr "نمایش داده نشود"
+
+msgid "نمایش در پلتفرم‌ها"
+msgstr "نمایش در پلتفرم‌ها"
+
+msgid "نمایش دکمه تماس"
+msgstr "نمایش دکمه تماس"
+
+msgid "نمایش دکمه مشاهده"
+msgstr "نمایش دکمه مشاهده"
+
+msgid "نمایش نشان"
+msgstr "نمایش نشان"
+
+msgid "نمایش وقتی"
+msgstr "نمایش وقتی"
+
+msgid "نمونه مقدار"
+msgstr "نمونه مقدار"
+
+msgid "نوار بالای سایت"
+msgstr "نوار بالای سایت"
+
+msgid "نوار پایین سایت"
+msgstr "نوار پایین سایت"
+
+msgid "نوارها"
+msgstr "نوارها"
+
+msgid "نوع دستگاه"
+msgstr "نوع دستگاه"
+
+msgid "نوع محتوا"
+msgstr "نوع محتوا"
+
+msgid "نوع محتوایی را انتخاب کنید که می‌خواهید منتشر شود — نوشته‌ها، محصولات، آگهی‌ها یا هر نوع محتوای دیگری که سایت شما دارد. تعداد موارد منتشرشده کنار هر گزینه کمک می‌کند مورد درست را بشناسید."
+msgstr "نوع محتوایی را انتخاب کنید که می‌خواهید منتشر شود — نوشته‌ها، محصولات، آگهی‌ها یا هر نوع محتوای دیگری که سایت شما دارد. تعداد موارد منتشرشده کنار هر گزینه کمک می‌کند مورد درست را بشناسید."
+
+msgid "نوع پیام"
+msgstr "نوع پیام"
+
+msgid "هر تغییر وضعیت دیگر"
+msgstr "هر تغییر وضعیت دیگر"
+
+msgid "هر رویداد فقط یک‌بار برای هر سفارش فرستاده می‌شود، حتی اگر ووکامرس آن وضعیت را دوباره اعلام کند."
+msgstr "هر رویداد فقط یک‌بار برای هر سفارش فرستاده می‌شود، حتی اگر ووکامرس آن وضعیت را دوباره اعلام کند."
+
+msgid "هر پنج دقیقه (جارچی)"
+msgstr "هر پنج دقیقه (جارچی)"
+
+msgid "هر چند وقت یک‌بار دیده شود"
+msgstr "هر چند وقت یک‌بار دیده شود"
+
+msgid "هر کارت را که می‌خواهید منتشر شود روشن کنید و مشخص کنید در کدام پلتفرم‌ها دیده شود. بعد تغییرات را ذخیره کنید."
+msgstr "هر کارت را که می‌خواهید منتشر شود روشن کنید و مشخص کنید در کدام پلتفرم‌ها دیده شود. بعد تغییرات را ذخیره کنید."
+
+msgid "هر کارت یک قلم اطلاعات از محتوای شماست. تعیین کنید کدام‌ها منتشر شوند، در کدام پلتفرم‌ها دیده شوند، با چه عنوانی و به چه ترتیبی."
+msgstr "هر کارت یک قلم اطلاعات از محتوای شماست. تعیین کنید کدام‌ها منتشر شوند، در کدام پلتفرم‌ها دیده شوند، با چه عنوانی و به چه ترتیبی."
+
+msgid "هزینه ارسال"
+msgstr "هزینه ارسال"
+
+msgid "هشدار"
+msgstr "هشدار"
+
+msgid "همه"
+msgstr "همه"
+
+msgid "همه شرط‌ها برقرار باشند"
+msgstr "همه شرط‌ها برقرار باشند"
+
+msgid "همیشه"
+msgstr "همیشه"
+
+msgid "همین عنوان کنار مقدار نمایش داده می‌شود."
+msgstr "همین عنوان کنار مقدار نمایش داده می‌شود."
+
+msgid "هنوز هیچ اطلاعاتی برای انتشار انتخاب نشده است."
+msgstr "هنوز هیچ اطلاعاتی برای انتشار انتخاب نشده است."
+
+msgid "هنوز چیزی اضافه نشده است. پیام به‌صورت خودکار ساخته می‌شود."
+msgstr "هنوز چیزی اضافه نشده است. پیام به‌صورت خودکار ساخته می‌شود."
+
+msgid "هیچ فیلدی برای انتشار روشن نیست. تا وقتی دست‌کم یک فیلد روشن نباشد و روی یکی از پلتفرم‌ها نمایش داده نشود، پیام‌ها خالی فرستاده می‌شوند."
+msgstr "هیچ فیلدی برای انتشار روشن نیست. تا وقتی دست‌کم یک فیلد روشن نباشد و روی یکی از پلتفرم‌ها نمایش داده نشود، پیام‌ها خالی فرستاده می‌شوند."
+
+msgid "واتس‌اپ"
+msgstr "واتس‌اپ"
+
+msgid "واحد پول"
+msgstr "واحد پول"
+
+msgid "وسط"
+msgstr "وسط"
+
+msgid "وضعیت افزونه"
+msgstr "وضعیت افزونه"
+
+msgid "وضعیت سفارش"
+msgstr "وضعیت سفارش"
+
+msgid "وضعیت سیستم"
+msgstr "وضعیت سیستم"
+
+msgid "وقتی سفارشی ثبت می‌شود یا وضعیتش تغییر می‌کند، جارچی می‌تواند یک پیام به کانال‌های شما بفرستد."
+msgstr "وقتی سفارشی ثبت می‌شود یا وضعیتش تغییر می‌کند، جارچی می‌تواند یک پیام به کانال‌های شما بفرستد."
+
+msgid "ووکامرس"
+msgstr "ووکامرس"
+
+msgid "ووکامرس شناسایی شد"
+msgstr "ووکامرس شناسایی شد"
+
+msgid "ویرایش اطلاعیه"
+msgstr "ویرایش اطلاعیه"
+
+msgid "ویرایش با المنتور"
+msgstr "ویرایش با المنتور"
+
+msgid "ویرایش با ویرایشگر وردپرس"
+msgstr "ویرایش با ویرایشگر وردپرس"
+
+msgid "ویرایش ظاهر صفحه"
+msgstr "ویرایش ظاهر صفحه"
+
+msgid "ویرایش محتوا"
+msgstr "ویرایش محتوا"
+
+msgid "ویرایش پیشرفته"
+msgstr "ویرایش پیشرفته"
+
+msgid "پایین"
+msgstr "پایین"
+
+msgid "پایین محتوا"
+msgstr "پایین محتوا"
+
+msgid "پرسرعت (جدول اختصاصی)"
+msgstr "پرسرعت (جدول اختصاصی)"
+
+msgid "پلتفرم انتشار"
+msgstr "پلتفرم انتشار"
+
+msgid "پلتفرم‌های انتشار"
+msgstr "پلتفرم‌های انتشار"
+
+msgid "پنجره بازشو"
+msgstr "پنجره بازشو"
+
+msgid "پنج‌شنبه"
+msgstr "پنج‌شنبه"
+
+msgid "پیام شما"
+msgstr "پیام شما"
+
+msgid "پیش‌نمایش با یک آگهی واقعی"
+msgstr "پیش‌نمایش با یک آگهی واقعی"
+
+msgid "پیوند"
+msgstr "پیوند"
+
+msgid "چسبیده به لبه صفحه بماند"
+msgstr "چسبیده به لبه صفحه بماند"
+
+msgid "چند تصویر."
+msgstr "چند تصویر."
+
+msgid "چند ردیف تکرارشونده."
+msgstr "چند ردیف تکرارشونده."
+
+msgid "چه رویدادهایی پیام بفرستند؟"
+msgstr "چه رویدادهایی پیام بفرستند؟"
+
+msgid "چهارشنبه"
+msgstr "چهارشنبه"
+
+msgid "چیدمان"
+msgstr "چیدمان"
+
+msgid "کاربر بتواند ببندد"
+msgstr "کاربر بتواند ببندد"
+
+msgid "کاربر وارد شده"
+msgstr "کاربر وارد شده"
+
+msgid "کارت"
+msgstr "کارت"
+
+msgid "کانال یا گیرنده مشخص نشده است."
+msgstr "کانال یا گیرنده مشخص نشده است."
+
+msgid "کد تخفیف"
+msgstr "کد تخفیف"
+
+msgid "کد پستی"
+msgstr "کد پستی"
+
+msgid "کدام محتوا در جارچی منتشر شود؟"
+msgstr "کدام محتوا در جارچی منتشر شود؟"
+
+msgid "کلاسیک (نوشته‌ها)"
+msgstr "کلاسیک (نوشته‌ها)"
+
+msgid "کلید API"
+msgstr "کلید API"
+
+msgid "گزارش فنی"
+msgstr "گزارش فنی"
+
+msgid "گیرنده"
+msgstr "گیرنده"
+
+msgid "یادداشت مشتری"
+msgstr "یادداشت مشتری"
+
+msgid "یک تاریخ."
+msgstr "یک تاریخ."
+
+msgid "یک تصویر."
+msgstr "یک تصویر."
+
+msgid "یک صفحه از سایت را انتخاب کنید تا اطلاعیه‌ها در آن نمایش داده شوند. این صفحه یک صفحه معمولی وردپرس است، بنابراین می‌توانید آن را با المنتور یا هر ویرایشگر دیگری که استفاده می‌کنید بچینید."
+msgstr "یک صفحه از سایت را انتخاب کنید تا اطلاعیه‌ها در آن نمایش داده شوند. این صفحه یک صفحه معمولی وردپرس است، بنابراین می‌توانید آن را با المنتور یا هر ویرایشگر دیگری که استفاده می‌کنید بچینید."
+
+msgid "یک عدد."
+msgstr "یک عدد."
+
+msgid "یک متن بلند."
+msgstr "یک متن بلند."
+
+msgid "یک متن کوتاه."
+msgstr "یک متن کوتاه."
+
+msgid "یک نشانی اینترنتی."
+msgstr "یک نشانی اینترنتی."
+
+msgid "یک کاربر."
+msgstr "یک کاربر."
+
+msgid "یک یا چند گزینه."
+msgstr "یک یا چند گزینه."
+
+msgid "یکشنبه"
+msgstr "یکشنبه"
+
+msgid "یکی از چند گزینه مشخص."
+msgstr "یکی از چند گزینه مشخص."
+
+msgid "یک‌بار در هر بازدید"
+msgstr "یک‌بار در هر بازدید"
+
+msgid "— inherit —"
+msgstr "— ارث‌بری —"
+
+msgid "— انتخاب نشده —"
+msgstr "— انتخاب نشده —"
+
+msgid "— انتخاب کنید —"
+msgstr "— انتخاب کنید —"
+
+msgid "— پیش‌فرض —"
+msgstr "— پیش‌فرض —"
+
+msgid "−1 uses the profile’s limit. 0 sends no images."
+msgstr "‎−۱ از سقف نمایه استفاده می‌کند. ۰ هیچ تصویری نمی‌فرستد."
