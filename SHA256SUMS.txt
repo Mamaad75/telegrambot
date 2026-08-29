@@ -1,0 +1,2 @@
+b51e411c5093f167955ba4760927297e47ad6451d3b0e531800b388d0bffca45  MyShopAccounting-Portable.exe
+1de51a9a32fb046f4559b039671ed9847c118ad1de7f2f1e2e58fb1bc186f066  MyShopAccounting-Setup.exe
