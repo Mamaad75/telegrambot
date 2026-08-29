@@ -87,6 +87,10 @@ final class Tickets {
 		// Whichever route deletes a ticket — the cleanup tool, the posts
 		// screen, the rollback after a failed submit — its uploads go with it.
 		add_action( 'before_delete_post', array( $this, 'delete_ticket_attachments' ) );
+
+		// Any nav-menu item pointing at the ticket page carries the live count.
+		add_filter( 'nav_menu_link_attributes', array( $this, 'menu_link_attributes' ), 10, 2 );
+		add_filter( 'nav_menu_item_title', array( $this, 'menu_item_title' ), 10, 2 );
 		add_action( 'wp_ajax_wpep_ticket_unread', array( $this, 'ajax_unread' ) );
 		add_action( 'wp_ajax_wpep_ticket_read', array( $this, 'ajax_mark_read' ) );
 		add_action( 'wp_ajax_wpep_ticket_user_search', array( $this, 'ajax_user_search' ) );
@@ -3122,6 +3126,24 @@ final class Tickets {
 				'order'          => 'DESC',
 			)
 		);
+		/*
+		 * The counts are taken before the filter is applied.
+		 *
+		 * They used to be computed from $items after it had been narrowed, so
+		 * selecting "پاسخ داده شده" left every other chip reading 0 and "همه"
+		 * reading the answered count — the filter row stopped describing the
+		 * tickets the moment it was used, which is the one moment it matters.
+		 */
+		$status_counts = array( 'all' => count( $items ), 'waiting' => 0, 'reviewing' => 0, 'answered' => 0, 'closed' => 0 );
+
+		foreach ( $items as $filter_item ) {
+			$filter_status = $this->canonical_status( $this->status( (int) $filter_item->ID ) );
+
+			if ( isset( $status_counts[ $filter_status ] ) ) {
+				++$status_counts[ $filter_status ];
+			}
+		}
+
 		if ( 'all' !== $filter ) {
 			$items = array_values( array_filter( $items, fn( $item ) => $this->canonical_status( $this->status( $item->ID ) ) === $filter ) );
 		}
@@ -3138,18 +3160,40 @@ final class Tickets {
 		$kicker = isset( $overrides['kicker'] ) ? (string) $overrides['kicker'] : __( 'پشتیبانی جارچی', 'wp-event-publisher' );
 		$title = isset( $overrides['title'] ) ? (string) $overrides['title'] : __( 'تیکت‌های من', 'wp-event-publisher' );
 		$description = isset( $overrides['description'] ) ? (string) $overrides['description'] : __( 'سریع پیام بده، تصویر بفرست و پاسخ را همینجا دریافت کن.', 'wp-event-publisher' );
-		$out .= '<div class="jarchi-ticket-head"><div><span class="jarchi-ticket-kicker">' . esc_html( $kicker ) . '</span><h2>' . esc_html( $title ) . '</h2><p>' . esc_html( $description ) . '</p></div><div class="jarchi-ticket-head-actions"><button type="button" class="jarchi-ticket-notify-enable" data-jarchi-enable-notifications hidden><span class="dashicons dashicons-bell"></span>' . esc_html__( 'فعال‌سازی اعلان', 'wp-event-publisher' ) . '</button><span class="jarchi-ticket-unread" data-jarchi-ticket-unread>' . esc_html( (string) $this->unread_count() ) . '</span></div></div>';
-		$status_counts = array( 'all' => count( $items ), 'waiting' => 0, 'reviewing' => 0, 'answered' => 0, 'closed' => 0 );
-		foreach ( $items as $filter_item ) {
-			$filter_status = $this->canonical_status( $this->status( (int) $filter_item->ID ) );
-			if ( isset( $status_counts[ $filter_status ] ) ) { $status_counts[ $filter_status ]++; }
-		}
+		/*
+		 * The count is rendered with its visibility already decided. It used to
+		 * ship without the class that reveals it and wait for the first poll,
+		 * so the page loaded with no badge and one appeared ten seconds later
+		 * for no reason the reader could see.
+		 */
+		$wpep_unread = $this->unread_count();
+
+		$out .= '<div class="jarchi-ticket-head">'
+			. '<div class="jarchi-ticket-head__text">'
+			. '<span class="jarchi-ticket-kicker">' . esc_html( $kicker ) . '</span>'
+			. '<h2>' . esc_html( $title ) . '</h2>'
+			. '<p>' . esc_html( $description ) . '</p>'
+			. '</div>'
+			. '<div class="jarchi-ticket-head-actions">'
+			. '<button type="button" class="jarchi-ticket-notify-enable" data-jarchi-enable-notifications hidden>'
+			. $this->icon( 'bell' )
+			. '<span>' . esc_html__( 'فعال‌سازی اعلان', 'wp-event-publisher' ) . '</span>'
+			. '</button>'
+			// A link, not a label. "The number should bring me the tickets" —
+			// so it goes to the list, and the list is the thing it counts.
+			. '<a class="jarchi-ticket-unread' . ( $wpep_unread > 0 ? ' is-visible' : '' ) . '" data-jarchi-ticket-unread'
+			. ' href="' . esc_url( $this->ticket_page_url() ) . '"'
+			. ' aria-label="' . esc_attr__( 'پیام‌های خوانده‌نشده', 'wp-event-publisher' ) . '"'
+			. ' title="' . esc_attr__( 'پیام‌های خوانده‌نشده', 'wp-event-publisher' ) . '">'
+			. esc_html( $wpep_unread > 99 ? '99+' : (string) $wpep_unread )
+			. '</a>'
+			. '</div></div>';
 		$filter_labels = array(
-			'all'       => array( 'label' => 'همه', 'icon' => 'dashicons-list-view', 'class' => 'is-all' ),
-			'waiting'   => array( 'label' => 'در انتظار پاسخ', 'icon' => 'dashicons-clock', 'class' => 'is-waiting' ),
-			'reviewing' => array( 'label' => 'در حال بررسی', 'icon' => 'dashicons-search', 'class' => 'is-reviewing' ),
-			'answered'  => array( 'label' => 'پاسخ داده شده', 'icon' => 'dashicons-yes-alt', 'class' => 'is-answered' ),
-			'closed'    => array( 'label' => 'بسته شده', 'icon' => 'dashicons-lock', 'class' => 'is-closed' ),
+			'all'       => array( 'label' => 'همه', 'icon' => 'list', 'class' => 'is-all' ),
+			'waiting'   => array( 'label' => 'در انتظار پاسخ', 'icon' => 'clock', 'class' => 'is-waiting' ),
+			'reviewing' => array( 'label' => 'در حال بررسی', 'icon' => 'search', 'class' => 'is-reviewing' ),
+			'answered'  => array( 'label' => 'پاسخ داده شده', 'icon' => 'check', 'class' => 'is-answered' ),
+			'closed'    => array( 'label' => 'بسته شده', 'icon' => 'lock', 'class' => 'is-closed' ),
 		);
 		$out .= '<nav class="jarchi-ticket-filters" aria-label="' . esc_attr__( 'فیلتر تیکت‌ها', 'wp-event-publisher' ) . '">';
 		foreach ( $filter_labels as $key => $data ) {
@@ -3157,13 +3201,13 @@ final class Tickets {
 			if ( 'all' !== $key ) {
 				$url = add_query_arg( 'ticket_status', $key, $url );
 			}
-			$out .= '<a class="jarchi-ticket-filter ' . esc_attr( $data['class'] ) . ( $filter === $key ? ' is-active' : '' ) . '" href="' . esc_url( $url ) . '" aria-current="' . ( $filter === $key ? 'page' : 'false' ) . '"><span class="jarchi-ticket-filter__icon dashicons ' . esc_attr( $data['icon'] ) . '" aria-hidden="true"></span><span class="jarchi-ticket-filter__label">' . esc_html( $data['label'] ) . '</span><span class="jarchi-ticket-filter__count">' . esc_html( (string) ( $status_counts[ $key ] ?? 0 ) ) . '</span></a>';
+			$out .= '<a class="jarchi-ticket-filter ' . esc_attr( $data['class'] ) . ( $filter === $key ? ' is-active' : '' ) . '" href="' . esc_url( $url ) . '" aria-current="' . ( $filter === $key ? 'page' : 'false' ) . '"><span class="jarchi-ticket-filter__icon">' . $this->icon( $data['icon'] ) . '</span><span class="jarchi-ticket-filter__label">' . esc_html( $data['label'] ) . '</span><span class="jarchi-ticket-filter__count">' . esc_html( (string) ( $status_counts[ $key ] ?? 0 ) ) . '</span></a>';
 		}
 		$out .= '</nav>';
 		$out .= '<div class="jarchi-ticket-layout' . ( $ticket ? ' has-open-thread' : '' ) . '">';
 		$out .= '<aside class="jarchi-ticket-list">';
 		$new_button = isset( $overrides['new_button_text'] ) ? (string) $overrides['new_button_text'] : __( 'تیکت جدید', 'wp-event-publisher' );
-		$out .= '<button type="button" class="jarchi-ticket-new" data-jarchi-ticket-new><span class="dashicons dashicons-plus-alt2"></span>' . esc_html( $new_button ) . '</button>';
+		$out .= '<button type="button" class="jarchi-ticket-new" data-jarchi-ticket-new>' . $this->icon( 'plus' ) . '' . esc_html( $new_button ) . '</button>';
 		if ( empty( $items ) ) {
 			$empty_text = isset( $overrides['empty_list_text'] ) ? (string) $overrides['empty_list_text'] : __( 'هنوز تیکتی ثبت نکرده‌اید.', 'wp-event-publisher' );
 			$out .= '<div class="jarchi-ticket-empty">' . esc_html( $empty_text ) . '</div>';
@@ -3207,8 +3251,8 @@ final class Tickets {
 		$message_label = isset( $overrides['message_label'] ) ? (string) $overrides['message_label'] : __( 'پیام', 'wp-event-publisher' );
 		$submit_text = isset( $overrides['submit_text'] ) ? (string) $overrides['submit_text'] : __( 'ثبت تیکت', 'wp-event-publisher' );
 		$upload_note = isset( $overrides['upload_note'] ) ? (string) $overrides['upload_note'] : __( 'حداکثر ۴ تصویر، هر تصویر تا ۸ مگابایت.', 'wp-event-publisher' );
-		$out = '<div class="jarchi-ticket-form-card"><span class="jarchi-ticket-form-icon dashicons dashicons-sos"></span><h3>' . esc_html( $form_title ) . '</h3><p>' . esc_html( $form_description ) . '</p>';
-		$advanced=$this->advanced_settings(); if(!empty($advanced['faq'])){ $out.='<div class="jarchi-ticket-faq" data-jarchi-faq><div class="jarchi-ticket-faq__head"><span class="dashicons dashicons-editor-help"></span><strong>قبل از ارسال تیکت</strong></div><input class="jarchi-ticket-faq__search" type="search" placeholder="جستجو بین سوالات متداول…" data-jarchi-faq-search>'; $out.='<div class="jarchi-ticket-faq__items">'; foreach($advanced['faq'] as $faq){ $title=(string)($faq['title']??''); $out.='<div class="jarchi-ticket-faq__item" data-jarchi-faq-item data-search="'.esc_attr(strtolower(wp_strip_all_tags($title))).'"><details><summary>'.esc_html($title).'</summary><div>'.wp_kses_post($faq['body']??'').'</div></details></div>'; } $out.='</div><div class="jarchi-ticket-faq__help">اگر پاسخ سوالتان را اینجا پیدا کردید، نیازی به ثبت تیکت جدید نیست.</div></div>'; }
+		$out = '<div class="jarchi-ticket-form-card"><span class="jarchi-ticket-form-icon">' . $this->icon( 'support' ) . '</span><h3>' . esc_html( $form_title ) . '</h3><p>' . esc_html( $form_description ) . '</p>';
+		$advanced=$this->advanced_settings(); if(!empty($advanced['faq'])){ $out.='<div class="jarchi-ticket-faq" data-jarchi-faq><div class="jarchi-ticket-faq__head">'.$this->icon('help').'<strong>قبل از ارسال تیکت</strong></div><input class="jarchi-ticket-faq__search" type="search" placeholder="جستجو بین سوالات متداول…" data-jarchi-faq-search>'; $out.='<div class="jarchi-ticket-faq__items">'; foreach($advanced['faq'] as $faq){ $title=(string)($faq['title']??''); $out.='<div class="jarchi-ticket-faq__item" data-jarchi-faq-item data-search="'.esc_attr(strtolower(wp_strip_all_tags($title))).'"><details><summary>'.esc_html($title).'</summary><div>'.wp_kses_post($faq['body']??'').'</div></details></div>'; } $out.='</div><div class="jarchi-ticket-faq__help">اگر پاسخ سوالتان را اینجا پیدا کردید، نیازی به ثبت تیکت جدید نیست.</div></div>'; }
 		$out .= '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" enctype="multipart/form-data">';
 		$out .= '<input type="hidden" name="action" value="wpep_ticket_submit" /><input type="hidden" name="_wpnonce" value="' . esc_attr( wp_create_nonce( self::NONCE ) ) . '" />';
 		$out .= '<label>' . esc_html( $subject_label ) . '<input type="text" name="title" required maxlength="180" /></label>';
@@ -3230,7 +3274,7 @@ final class Tickets {
 			(int) round( $policy['max_bytes'] / MB_IN_BYTES )
 		);
 		$out .= '<div class="jarchi-ticket-upload"><input type="file" name="attachments[]" accept="' . esc_attr( implode( ',', (array) $policy['mime'] ) ) . '" multiple /><small>' . esc_html( $note ) . '</small></div>';
-		$out .= '<button type="submit" class="jarchi-ticket-submit"><span class="dashicons dashicons-saved"></span>' . esc_html__( 'ثبت تیکت', 'wp-event-publisher' ) . '</button></form></div>';
+		$out .= '<button type="submit" class="jarchi-ticket-submit">' . $this->icon( 'send' ) . '' . esc_html__( 'ثبت تیکت', 'wp-event-publisher' ) . '</button></form></div>';
 		return $out;
 	}
 
@@ -3245,7 +3289,7 @@ final class Tickets {
 		 * is why the screen felt like a dead end on mobile.
 		 */
 		$out = '<a class="jarchi-ticket-back-link" href="' . esc_url( remove_query_arg( 'jarchi_ticket', $this->ticket_page_url() ) ) . '">'
-			. '<span class="dashicons dashicons-arrow-right-alt2" aria-hidden="true"></span>'
+			. '' . $this->icon( 'forward' ) . ''
 			. esc_html__( 'همهٔ تیکت‌ها', 'wp-event-publisher' )
 			. '</a>';
 
@@ -3288,14 +3332,14 @@ final class Tickets {
 		$wpep_answerable = $this->replies_allowed( (int) $ticket->ID );
 
 		if ( $wpep_open && $wpep_answerable ) {
-			$out .= '<form class="jarchi-ticket-reply-form" method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" enctype="multipart/form-data"><input type="hidden" name="action" value="wpep_ticket_reply" /><input type="hidden" name="ticket_id" value="' . esc_attr( (string) $ticket->ID ) . '" /><input type="hidden" name="_wpnonce" value="' . esc_attr( wp_create_nonce( self::NONCE ) ) . '" /><textarea name="message" rows="4" placeholder="' . esc_attr( isset( $overrides['reply_placeholder'] ) ? (string) $overrides['reply_placeholder'] : __( 'پاسخ خود را بنویسید…', 'wp-event-publisher' ) ) . '"></textarea><div class="jarchi-ticket-reply-actions"><label class="jarchi-ticket-file"><span class="dashicons dashicons-paperclip"></span><input type="file" name="attachments[]" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,audio/mpeg,audio/wav,audio/ogg,audio/webm" multiple /><span>' . esc_html( isset( $overrides['attach_text'] ) ? (string) $overrides['attach_text'] : __( 'افزودن تصویر', 'wp-event-publisher' ) ) . '</span></label><button type="submit" class="jarchi-ticket-submit">' . esc_html( isset( $overrides['reply_text'] ) ? (string) $overrides['reply_text'] : __( 'ارسال پاسخ', 'wp-event-publisher' ) ) . '</button></div></form>';
+			$out .= '<form class="jarchi-ticket-reply-form" method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" enctype="multipart/form-data"><input type="hidden" name="action" value="wpep_ticket_reply" /><input type="hidden" name="ticket_id" value="' . esc_attr( (string) $ticket->ID ) . '" /><input type="hidden" name="_wpnonce" value="' . esc_attr( wp_create_nonce( self::NONCE ) ) . '" /><textarea name="message" rows="4" placeholder="' . esc_attr( isset( $overrides['reply_placeholder'] ) ? (string) $overrides['reply_placeholder'] : __( 'پاسخ خود را بنویسید…', 'wp-event-publisher' ) ) . '"></textarea><div class="jarchi-ticket-reply-actions"><label class="jarchi-ticket-file">' . $this->icon( 'clip' ) . '<input type="file" name="attachments[]" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,audio/mpeg,audio/wav,audio/ogg,audio/webm" multiple /><span>' . esc_html( isset( $overrides['attach_text'] ) ? (string) $overrides['attach_text'] : __( 'افزودن تصویر', 'wp-event-publisher' ) ) . '</span></label><button type="submit" class="jarchi-ticket-submit">' . esc_html( isset( $overrides['reply_text'] ) ? (string) $overrides['reply_text'] : __( 'ارسال پاسخ', 'wp-event-publisher' ) ) . '</button></div></form>';
 		} else {
 			$wpep_note = ! $wpep_answerable
 				? __( 'این پیام یک اطلاع‌رسانی است و نیازی به پاسخ ندارد.', 'wp-event-publisher' )
 				: __( 'این گفتگو بسته شده است.', 'wp-event-publisher' );
 
 			$out .= '<div class="jarchi-ticket-locked">'
-				. '<span class="dashicons dashicons-' . ( $wpep_answerable ? 'lock' : 'megaphone' ) . '" aria-hidden="true"></span>'
+				. '' . $this->icon( $wpep_answerable ? 'lock' : 'megaphone' ) . ''
 				. '<p>' . esc_html( $wpep_note ) . '</p>'
 				. '<button type="button" class="jarchi-ticket-submit" data-jarchi-ticket-new>' . esc_html__( 'تیکت جدید', 'wp-event-publisher' ) . '</button>'
 				. '</div>';
@@ -3307,6 +3351,209 @@ final class Tickets {
 			$out .= '</div><textarea name="rating_comment" rows="3" placeholder="نظر شما درباره پاسخ پشتیبان…"></textarea><button type="submit" class="jarchi-ticket-submit">ثبت امتیاز</button></form>';
 		}
 		return $out;
+	}
+
+	/**
+	 * Accepts a colour in any form a page builder actually produces.
+	 *
+	 * Every Elementor colour control was being run through
+	 * sanitize_hex_color(), which accepts `#RGB` and `#RRGGBB` and nothing
+	 * else. Elementor's picker returns four other things routinely:
+	 *
+	 *   rgba(232, 79, 1, 0.6)        — whenever the alpha slider is touched
+	 *   #E84F01AA                    — eight-digit hex, same reason
+	 *   hsl(20 97% 46%)              — the picker's other tab
+	 *   var(--e-global-color-primary) — what clicking a Global Colour returns,
+	 *                                   which is the top row of the picker and
+	 *                                   therefore the common case
+	 *
+	 * All four came back null, the override was dropped, and the default was
+	 * used — so the customer changed a colour, saw no change, and reasonably
+	 * concluded the plugin ignores Elementor. It did.
+	 *
+	 * This is a CSS value going into a declaration, so the danger is escaping
+	 * that declaration. Rather than trying to spot every way of doing that,
+	 * the value has to match one of the shapes above in full; anything else is
+	 * refused. A semicolon or a brace cannot occur inside any of them.
+	 *
+	 * @since 1.19.3
+	 *
+	 * @param mixed $value Raw control value.
+	 *
+	 * @return string The colour, or '' when it is not one.
+	 */
+	public static function sanitize_css_color( $value ): string {
+		if ( ! is_scalar( $value ) ) {
+			return '';
+		}
+
+		$value = trim( (string) $value );
+
+		if ( '' === $value || strlen( $value ) > 120 ) {
+			return '';
+		}
+
+		$patterns = array(
+			// #RGB, #RGBA, #RRGGBB, #RRGGBBAA.
+			'/^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i',
+			// rgb()/rgba()/hsl()/hsla(), comma or space separated, with or
+			// without a percentage, alpha as a number or a percentage.
+			'/^(?:rgba?|hsla?)\(\s*[0-9a-z.%,\/\s+-]{3,80}\)$/i',
+			// A custom property reference, with an optional fallback that must
+			// itself be a plain colour word or hex.
+			'/^var\(\s*--[a-z0-9_-]{1,60}\s*(?:,\s*(?:#[0-9a-f]{3,8}|[a-z]{3,20})\s*)?\)$/i',
+			// Named colours, and the keywords a picker may emit for "none".
+			'/^[a-z]{3,20}$/i',
+		);
+
+		foreach ( $patterns as $pattern ) {
+			if ( preg_match( $pattern, $value ) ) {
+				return $value;
+			}
+		}
+
+		return '';
+	}
+
+	/**
+	 * Whether one menu URL points at the ticket page.
+	 *
+	 * Compared on path alone. The menu may hold an absolute URL, a relative
+	 * one, a link with a trailing slash or without, and on a multilingual site
+	 * a different host entirely — matching the whole string would find none of
+	 * them.
+	 *
+	 * @since 1.19.3
+	 *
+	 * @param string $url Menu item URL.
+	 *
+	 * @return bool True when it is the ticket page.
+	 */
+	private function url_is_ticket_page( string $url ): bool {
+		if ( '' === $url || '#' === $url ) {
+			return false;
+		}
+
+		$target = (string) wp_parse_url( $this->ticket_page_url(), PHP_URL_PATH );
+		$given  = (string) wp_parse_url( $url, PHP_URL_PATH );
+
+		if ( '' === $target || '' === $given ) {
+			return false;
+		}
+
+		return untrailingslashit( $target ) === untrailingslashit( $given );
+	}
+
+	/**
+	 * Gives the ticket page's menu link somewhere to hang a badge.
+	 *
+	 * The badge is positioned against the anchor, and an anchor in a theme's
+	 * menu is `position: static` with no reason to be otherwise — so a class
+	 * is added rather than assuming.
+	 *
+	 * @since 1.19.3
+	 *
+	 * @param array<string,string> $atts Anchor attributes.
+	 * @param object               $item Menu item.
+	 *
+	 * @return array<string,string> Attributes.
+	 */
+	public function menu_link_attributes( $atts, $item = null ): array {
+		$atts = (array) $atts;
+
+		if ( ! is_user_logged_in() || ! is_object( $item ) || ! $this->url_is_ticket_page( (string) ( $item->url ?? '' ) ) ) {
+			return $atts;
+		}
+
+		$atts['class'] = trim( (string) ( $atts['class'] ?? '' ) . ' jarchi-has-ticket-badge' );
+
+		return $atts;
+	}
+
+	/**
+	 * Appends the live unread badge to the ticket page's menu item.
+	 *
+	 * The customer asked for the number beside the icon in the phone menu.
+	 * Rather than requiring a shortcode to be placed somewhere it may not fit,
+	 * whichever menu item already links to the ticket page gets it — and the
+	 * same `data-jarchi-ticket-badge` hook the polling script already paints,
+	 * so the menu count and the page count are the same number from the same
+	 * source, updated together.
+	 *
+	 * @since 1.19.3
+	 *
+	 * @param string $title Menu item title.
+	 * @param object $item  Menu item.
+	 *
+	 * @return string Title.
+	 */
+	public function menu_item_title( $title, $item = null ): string {
+		$title = (string) $title;
+
+		if ( ! is_user_logged_in() || ! is_object( $item ) || ! $this->url_is_ticket_page( (string) ( $item->url ?? '' ) ) ) {
+			return $title;
+		}
+
+		$this->enqueue_front_assets();
+
+		$count = $this->unread_count();
+
+		return $title . '<span class="jarchi-menu-ticket-badge' . ( $count > 0 ? ' is-visible' : '' ) . '"'
+			. ' data-jarchi-ticket-badge' . ( $count > 0 ? '' : ' hidden' ) . '>'
+			. esc_html( $count > 99 ? '99+' : (string) $count )
+			. '</span>';
+	}
+
+	/**
+	 * One inline SVG icon.
+	 *
+	 * Every icon on the customer-facing side used to be a Dashicon. Dashicons
+	 * is wp-admin's icon font: WordPress does not load it on the front end
+	 * unless a plugin asks, and this one never did. So `<span class="dashicons
+	 * dashicons-clock">` rendered as an empty inline box on every phone and
+	 * every desktop — the filter row showed a bare number with no label beside
+	 * it, and the buttons had a gap where the glyph should be.
+	 *
+	 * Enqueueing the font would fix the symptom and cost every visitor a
+	 * 60 KB download for six glyphs, on a stylesheet that optimiser plugins
+	 * routinely strip from the front end because it is supposed to be an admin
+	 * asset. Inline SVG has no stylesheet to lose, inherits currentColor, and
+	 * scales without a font file.
+	 *
+	 * @since 1.19.3
+	 *
+	 * @param string $name Icon name.
+	 *
+	 * @return string SVG markup, or '' when the name is unknown.
+	 */
+	public function icon( string $name ): string {
+		$paths = array(
+			// Filters.
+			'list'      => '<path d="M4 6h16M4 12h16M4 18h10"/>',
+			'clock'     => '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 1.8"/>',
+			'search'    => '<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/>',
+			'check'     => '<circle cx="12" cy="12" r="8.5"/><path d="m8.4 12.2 2.4 2.4 4.8-4.8"/>',
+			'lock'      => '<rect x="5" y="10.5" width="14" height="9" rx="2.2"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/>',
+			// Actions.
+			'plus'      => '<path d="M12 5v14M5 12h14"/>',
+			'bell'      => '<path d="M18 15.5V11a6 6 0 1 0-12 0v4.5L4.5 18h15z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/>',
+			'send'      => '<path d="M20 4 3.5 10.5l6.4 2.6 2.6 6.4z"/><path d="m20 4-10.1 9.1"/>',
+			'clip'      => '<path d="M18.5 11.5 12 18a4 4 0 0 1-5.7-5.7l7.2-7.2a2.7 2.7 0 0 1 3.8 3.8l-7.2 7.2a1.4 1.4 0 0 1-2-2l6.6-6.6"/>',
+			'back'      => '<path d="M19 12H5"/><path d="m11 6-6 6 6 6"/>',
+			'forward'   => '<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>',
+			'help'      => '<circle cx="12" cy="12" r="8.5"/><path d="M9.7 9.6A2.4 2.4 0 0 1 14.4 10c0 1.6-2.4 2-2.4 3.6"/><path d="M12 16.8h.01"/>',
+			'support'   => '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.4"/><path d="m6 6 3.6 3.6M18 6l-3.6 3.6M6 18l3.6-3.6M18 18l-3.6-3.6"/>',
+			'megaphone' => '<path d="M4 10v4a1.5 1.5 0 0 0 1.5 1.5H7l6 4V6l-6 4H5.5A1.5 1.5 0 0 0 4 11.5z"/><path d="M17 9.5a4 4 0 0 1 0 5"/>',
+			'chat'      => '<path d="M20 13.2A2.8 2.8 0 0 1 17.2 16H11l-3.7 2.4V16h-.5A2.8 2.8 0 0 1 4 13.2V6.8A2.8 2.8 0 0 1 6.8 4h10.4A2.8 2.8 0 0 1 20 6.8z"/>',
+		);
+
+		if ( ! isset( $paths[ $name ] ) ) {
+			return '';
+		}
+
+		return '<svg class="jarchi-ticket-i jarchi-ticket-i--' . esc_attr( $name ) . '" viewBox="0 0 24 24" fill="none"'
+			. ' stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"'
+			. ' aria-hidden="true" focusable="false">' . $paths[ $name ] . '</svg>';
 	}
 
 	public function enqueue_front_assets(): void {

@@ -106,6 +106,10 @@ class CustomerHub {
         $hub_css = WPEP_PLUGIN_DIR . 'assets/css/customer-hub.css';
         if ( is_readable( $hub_css ) ) {
             wp_enqueue_style( 'wpep-customer-hub', WPEP_PLUGIN_URL . 'assets/css/customer-hub.css', array( 'wpep-tickets' ), WPEP_VERSION . '.' . filemtime( $hub_css ) );
+            // The hub still draws its glyphs with Dashicons, which WordPress
+            // only loads in wp-admin. Without this the icons are empty boxes
+            // on the front end, which is exactly how they shipped.
+            wp_enqueue_style( 'dashicons' );
         }
 
         $announcements = wpep()->announcements()->active( 50 );
@@ -117,13 +121,13 @@ class CustomerHub {
         $title = $overrides['title'] ?? __( 'مرکز کاربری جارچی', 'wp-event-publisher' );
         $description = $overrides['description'] ?? __( 'اطلاعیه‌ها، تیکت‌ها و ارتباط با پشتیبانی را یکجا مدیریت کنید.', 'wp-event-publisher' );
 
-        $primary = sanitize_hex_color( $overrides['primary'] ?? '#E84F01' ) ?: '#E84F01';
-        $primary_hi = sanitize_hex_color( $overrides['primary_hi'] ?? '#FF8A1C' ) ?: '#FF8A1C';
-        $bg = sanitize_hex_color( $overrides['background'] ?? '#F6F7F9' ) ?: '#F6F7F9';
-        $surface = sanitize_hex_color( $overrides['surface'] ?? '#FFFFFF' ) ?: '#FFFFFF';
-        $text = sanitize_hex_color( $overrides['text'] ?? '#171717' ) ?: '#171717';
-        $muted = sanitize_hex_color( $overrides['muted'] ?? '#667085' ) ?: '#667085';
-        $border = sanitize_hex_color( $overrides['border'] ?? '#E6E8EC' ) ?: '#E6E8EC';
+        $primary = Tickets::sanitize_css_color( $overrides['primary'] ?? '#E84F01' ) ?: '#E84F01';
+        $primary_hi = Tickets::sanitize_css_color( $overrides['primary_hi'] ?? '#FF8A1C' ) ?: '#FF8A1C';
+        $bg = Tickets::sanitize_css_color( $overrides['background'] ?? '#F6F7F9' ) ?: '#F6F7F9';
+        $surface = Tickets::sanitize_css_color( $overrides['surface'] ?? '#FFFFFF' ) ?: '#FFFFFF';
+        $text = Tickets::sanitize_css_color( $overrides['text'] ?? '#171717' ) ?: '#171717';
+        $muted = Tickets::sanitize_css_color( $overrides['muted'] ?? '#667085' ) ?: '#667085';
+        $border = Tickets::sanitize_css_color( $overrides['border'] ?? '#E6E8EC' ) ?: '#E6E8EC';
         $radius = max( 12, min( 34, (float) ( $overrides['radius'] ?? 22 ) ) );
         $max_width = max( 760, min( 1600, (float) ( $overrides['max_width'] ?? 1240 ) ) );
         $shadow = ! array_key_exists( 'shadow', $overrides ) || ! empty( $overrides['shadow'] );

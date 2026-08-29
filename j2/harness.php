@@ -438,6 +438,7 @@ function esc_attr( $t ) { return htmlspecialchars( (string) $t, ENT_QUOTES ); }
 function esc_textarea( $t ) { return htmlspecialchars( (string) $t, ENT_QUOTES ); }
 function esc_js( $t ) { return str_replace( array( "'", "\r", "\n" ), array( "\\'", '', ' ' ), (string) $t ); }
 function esc_url( $u ) { return (string) $u; }
+function wp_parse_url( $url, $component = -1 ) { return parse_url( (string) $url, $component ); }
 
 function esc_url_raw( $u, $p = null ) {
 	// A passthrough would let a javascript: assertion pass while proving nothing.

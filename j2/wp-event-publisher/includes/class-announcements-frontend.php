@@ -152,6 +152,11 @@ class AnnouncementsFrontend {
 		// The announcement icon also carries ticket reply notifications. Load
 		// the polling script on pages where only the announcement icon is used.
 		if ( function_exists( 'wpep' ) && is_user_logged_in() ) {
+			// These panels still draw their glyphs with Dashicons, which is an
+			// admin stylesheet WordPress does not load on the front end. Left
+			// unrequested, every icon here is an empty box.
+			wp_enqueue_style( 'dashicons' );
+
 			$ticket_js = WPEP_PLUGIN_DIR . 'assets/js/tickets.js';
 			if ( is_readable( $ticket_js ) ) {
 				wp_enqueue_script( 'wpep-tickets', WPEP_PLUGIN_URL . 'assets/js/tickets.js', array(), WPEP_VERSION . '.' . filemtime( $ticket_js ), true );

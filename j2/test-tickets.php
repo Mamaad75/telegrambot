@@ -81,6 +81,38 @@ function wpep_owned( int $user_id ): array {
 	);
 }
 
+/**
+ * The callback method names registered on one filter.
+ *
+ * @param string $hook Filter name.
+ *
+ * @return string[] Method names.
+ */
+function wpep_filter_names( string $hook ): array {
+	$out = array();
+
+	foreach ( (array) ( $GLOBALS['filters'][ $hook ] ?? array() ) as $priority ) {
+		foreach ( (array) $priority as $entry ) {
+			$cb = is_array( $entry ) ? ( $entry['function'] ?? $entry ) : $entry;
+			$out[] = is_array( $cb ) ? (string) ( $cb[1] ?? '' ) : ( is_string( $cb ) ? $cb : 'closure' );
+		}
+	}
+
+	return $out;
+}
+
+/**
+ * Whether one method is registered on one filter.
+ *
+ * @param string $hook   Filter name.
+ * @param string $method Method name.
+ *
+ * @return bool True when hooked.
+ */
+function wpep_filter_has( string $hook, string $method ): bool {
+	return in_array( $method, wpep_filter_names( $hook ), true );
+}
+
 /* =====================================================================
  * 1. The store is real.
  * ================================================================== */
@@ -728,14 +760,477 @@ check( 'the badge refreshes every ten seconds', str_contains( $js, 'ACTIVE_INTER
 check( 'and stops while the tab is hidden', str_contains( $js, 'document.hidden' ) );
 
 /* =====================================================================
- * 7. The mobile layout exists at all.
+ * 7. The phone layout — which is the default, not an afterthought.
+ *
+ * The previous version of this section asserted that a particular breakpoint
+ * string appeared somewhere in the file, which a stylesheet can satisfy while
+ * being unusable on a phone — and did. These check the properties that make
+ * it work instead.
  * ================================================================== */
 
 $css = (string) file_get_contents( $GLOBALS['wpep_root'] . 'assets/css/tickets.css' );
 
-check( 'the ticket centre has a mobile breakpoint', (bool) preg_match( '/@media\s*\(\s*max-width:\s*860px\s*\)/', $css ) );
+// One column with no query around it: the phone gets the layout without
+// having to opt into it, and the second column is added for wide screens.
+check(
+	'the layout is a single column before any media query',
+	(bool) preg_match( '/\.jarchi-ticket-layout\s*\{[^}]*grid-template-columns:\s*1fr/s', $css )
+);
+
+check(
+	'and grows a second column on a wide screen',
+	(bool) preg_match( '/@media\s*\(\s*min-width:\s*900px\s*\)\s*\{[^@]*?\.jarchi-ticket-layout\s*\{[^}]*var\(--jt-list-width\)/s', $css )
+);
+
 check( 'the list steps aside for an open thread on a phone', str_contains( $css, '.jarchi-ticket-layout.has-open-thread .jarchi-ticket-list' ) );
 check( 'and there is a way back to the list', str_contains( $css, '.jarchi-ticket-back-link' ) );
+
+/*
+ * THE REPORTED DEFECT. On a 390px screen every filter showed a bare "0": the
+ * label was hidden by a rule at 420px, and the icon beside it was a Dashicon,
+ * which WordPress does not load on the front end. Two separate causes with
+ * one symptom, so both are checked.
+ */
+check(
+	'the filter label is never hidden at any width',
+	! preg_match( '/\.jarchi-ticket-filter__label\s*\{[^}]*display:\s*none/s', $css )
+);
+
+$markup = $tickets->render_center();
+
+foreach ( array( 'همه', 'در انتظار پاسخ', 'در حال بررسی', 'پاسخ داده شده', 'بسته شده' ) as $wpep_label ) {
+	check(
+		'the filter "' . $wpep_label . '" is rendered with its words',
+		str_contains( $markup, '<span class="jarchi-ticket-filter__label">' . $wpep_label . '</span>' )
+	);
+}
+
+check(
+	'every filter carries a real icon, not an empty dashicon span',
+	5 === substr_count( $markup, '<span class="jarchi-ticket-filter__icon"><svg' ),
+	(string) substr_count( $markup, '<span class="jarchi-ticket-filter__icon"><svg' )
+);
+
+check(
+	'no customer-facing markup depends on the admin icon font',
+	! str_contains( $markup, 'dashicons' )
+);
+
+// Icons inherit the surrounding colour, so one accent per filter tints both
+// the glyph and the chip without a second declaration.
+check( 'the icons are drawn with currentColor', str_contains( $tickets->icon( 'clock' ), 'stroke="currentColor"' ) );
+check( 'an unknown icon name yields nothing rather than a broken tag', '' === $tickets->icon( 'no-such-icon' ) );
+
+/*
+ * The count in the header is decided server-side, not ten seconds later. It
+ * used to render without the class that reveals it and wait for the first
+ * poll, so the page loaded with no badge and one appeared afterwards.
+ * Checked in both directions, because a badge that is always shown and a
+ * badge that is never shown would each satisfy only one of these.
+ */
+$wpep_count = $tickets->unread_count();
+
+check(
+	'the header badge state matches the count on first render — ' . $wpep_count . ' unread',
+	( $wpep_count > 0 ) === str_contains( $markup, 'jarchi-ticket-unread is-visible' ),
+	preg_match( '/class="jarchi-ticket-unread[^"]*"/', $markup, $wpep_m ) ? $wpep_m[0] : 'not found'
+);
+
+check(
+	'and it prints that number',
+	str_contains( $markup, '>' . (string) min( 99, $wpep_count ) . '</span>' )
+);
+
+// The other direction, with the flags cleared.
+foreach ( wpep_owned( get_current_user_id() ) as $wpep_own ) {
+	delete_post_meta( (int) $wpep_own->ID, '_jarchi_ticket_user_unread' );
+}
+
+$tickets->flush_unread_cache( get_current_user_id() );
+
+check(
+	'with nothing unread the badge is not revealed',
+	0 === $tickets->unread_count()
+	&& ! str_contains( $tickets->render_center(), 'jarchi-ticket-unread is-visible' ),
+	(string) $tickets->unread_count()
+);
+
+/* The tap targets a phone needs. */
+check( 'form fields are at least 46px tall', (bool) preg_match( '/min-height:\s*46px/', $css ) );
+check(
+	'and 16px, so iOS does not zoom the page when one is focused',
+	(bool) preg_match( '/\.jarchi-ticket-form-card input\[type=text\][^{]*\{[^}]*font-size:\s*16px/s', $css )
+);
+
+/*
+ * A fixed bottom app bar must not be able to sit on top of the last card —
+ * and the inset has to be on the container itself, not merely present
+ * somewhere in the stylesheet.
+ */
+check(
+	'the container reserves the safe-area inset at the bottom',
+	(bool) preg_match( '/\.jarchi-ticket-center\s*\{[^}]*padding-bottom:[^;]*env\(safe-area-inset-bottom/s', $css )
+);
+
+check(
+	'and the sticky reply box on a phone clears it too',
+	(bool) preg_match( '/\.jarchi-ticket-reply-form\s*\{[^}]*padding:[^;]*env\(safe-area-inset-bottom/s', $css )
+);
+
+/* =====================================================================
+ * 7b. The count in the site's own menu.
+ *
+ * The customer's phone build has its own bottom navigation, and what they
+ * asked for is the unread number beside the ticket entry in it. A shortcode
+ * they have to place somewhere does not answer that; whichever menu item
+ * already points at the ticket page should carry it.
+ * ================================================================== */
+
+$GLOBALS['posts'][1001] = new WP_Post( array( 'ID' => 1001, 'post_type' => 'page', 'post_title' => 'تیکت‌ها' ) );
+update_option( '_wpep_ticket_page_id', 1001 );
+
+$wpep_page_url = $tickets->ticket_page_url();
+
+/** One menu item, as WordPress hands it to the filters. */
+$wpep_item = (object) array( 'url' => $wpep_page_url, 'title' => 'تیکت ها' );
+$wpep_other = (object) array( 'url' => home_url( '/about/' ), 'title' => 'درباره ما' );
+
+$wpep_titled = $tickets->menu_item_title( 'تیکت ها', $wpep_item );
+
+check(
+	'the ticket page menu item gets a badge',
+	str_contains( $wpep_titled, 'jarchi-menu-ticket-badge' ) && str_contains( $wpep_titled, 'data-jarchi-ticket-badge' ),
+	$wpep_titled
+);
+
+check(
+	'and it starts with the title it was given',
+	str_starts_with( $wpep_titled, 'تیکت ها<' )
+);
+
+check(
+	'other menu items are left alone',
+	'درباره ما' === $tickets->menu_item_title( 'درباره ما', $wpep_other )
+);
+
+/*
+ * Registered, not merely callable. Calling the method directly proves it
+ * works; it does not prove WordPress will ever reach it — and a test that
+ * only calls it passes with the add_filter deleted.
+ */
+check(
+	'the title filter is actually hooked',
+	wpep_filter_has( 'nav_menu_item_title', 'menu_item_title' ),
+	implode( ', ', wpep_filter_names( 'nav_menu_item_title' ) )
+);
+
+check(
+	'and so is the attribute filter',
+	wpep_filter_has( 'nav_menu_link_attributes', 'menu_link_attributes' ),
+	implode( ', ', wpep_filter_names( 'nav_menu_link_attributes' ) )
+);
+
+check(
+	'the badged anchor gets a positioning context',
+	str_contains( (string) ( $tickets->menu_link_attributes( array(), $wpep_item )['class'] ?? '' ), 'jarchi-has-ticket-badge' )
+);
+
+check(
+	'and an unrelated anchor keeps the classes it had',
+	array( 'class' => 'menu-link' ) === $tickets->menu_link_attributes( array( 'class' => 'menu-link' ), $wpep_other )
+);
+
+/*
+ * A menu URL is rarely written the same way twice — with or without the
+ * trailing slash, absolute or relative. Matching the whole string finds none
+ * of them, so the comparison is on the path.
+ */
+check(
+	'a trailing slash does not stop the match',
+	str_contains( $tickets->menu_item_title( 'ت', (object) array( 'url' => untrailingslashit( $wpep_page_url ) ) ), 'jarchi-menu-ticket-badge' )
+);
+
+check(
+	'and neither does a relative link',
+	str_contains(
+		$tickets->menu_item_title( 'ت', (object) array( 'url' => (string) wp_parse_url( $wpep_page_url, PHP_URL_PATH ) ) ),
+		'jarchi-menu-ticket-badge'
+	)
+);
+
+check( 'an empty url is not treated as the ticket page', 'ت' === $tickets->menu_item_title( 'ت', (object) array( 'url' => '' ) ) );
+check( 'nor is a bare fragment', 'ت' === $tickets->menu_item_title( 'ت', (object) array( 'url' => '#' ) ) );
+
+// The menu badge and the page badge are painted by the same script from the
+// same attribute, so they can never disagree about the number.
+check(
+	'the menu badge uses the hook the poller already paints',
+	str_contains( $js, "[data-jarchi-ticket-badge]" )
+);
+
+/* =====================================================================
+ * 7d. The filter counts describe the tickets, not the current filter.
+ *
+ * They were computed from the list after it had been narrowed, so choosing a
+ * filter left every other chip reading zero — the row stopped describing
+ * anything at the one moment it is used.
+ * ================================================================== */
+
+$GLOBALS['users_store']['90'] = new WP_User_Stub( 90, 'counted' );
+$GLOBALS['current_user_id']   = 90;
+
+// Measured, not assumed: earlier sections leave tickets behind, and a fixture
+// count guessed from the loop below would be wrong for a reason that has
+// nothing to do with what is being tested.
+$wpep_base = count( wpep_owned( 90 ) );
+
+foreach ( array( 'waiting', 'waiting', 'answered', 'closed' ) as $wpep_i => $wpep_state ) {
+	$wpep_tid = 9200 + $wpep_i;
+
+	$GLOBALS['posts'][ $wpep_tid ] = new WP_Post(
+		array( 'ID' => $wpep_tid, 'post_type' => Tickets::POST_TYPE, 'post_title' => 'شمارش ' . $wpep_i, 'post_author' => 90 )
+	);
+
+	update_post_meta( $wpep_tid, '_jarchi_ticket_status', $wpep_state );
+}
+
+/**
+ * Reads one filter chip's count out of the rendered page.
+ *
+ * @param string $html  Rendered centre.
+ * @param string $class Chip class.
+ *
+ * @return int Count.
+ */
+function wpep_chip_count( string $html, string $class ): int {
+	return preg_match(
+		'/jarchi-ticket-filter ' . preg_quote( $class, '/' ) . '[^>]*>.*?jarchi-ticket-filter__count">(\d+)</s',
+		$html,
+		$m
+	) ? (int) $m[1] : -1;
+}
+
+$_GET = array();
+$wpep_all_view = $tickets->render_center();
+
+check( 'the "همه" chip counts every ticket', $wpep_base + 4 === wpep_chip_count( $wpep_all_view, 'is-all' ), wpep_chip_count( $wpep_all_view, 'is-all' ) . ' with ' . $wpep_base . ' pre-existing' );
+check( 'the waiting chip counts the waiting ones', 2 === wpep_chip_count( $wpep_all_view, 'is-waiting' ), (string) wpep_chip_count( $wpep_all_view, 'is-waiting' ) );
+check( 'the answered chip counts the answered one', 1 === wpep_chip_count( $wpep_all_view, 'is-answered' ), (string) wpep_chip_count( $wpep_all_view, 'is-answered' ) );
+
+// The step that used to break it: view one status, and read the row again.
+$_GET = array( 'ticket_status' => 'answered' );
+$wpep_filtered = $tickets->render_center();
+
+check(
+	'the counts survive selecting a filter — همه',
+	$wpep_base + 4 === wpep_chip_count( $wpep_filtered, 'is-all' ),
+	(string) wpep_chip_count( $wpep_filtered, 'is-all' )
+);
+
+check(
+	'and the other chips still show their own totals — در انتظار پاسخ',
+	2 === wpep_chip_count( $wpep_filtered, 'is-waiting' ),
+	(string) wpep_chip_count( $wpep_filtered, 'is-waiting' )
+);
+
+check(
+	'while the list itself is narrowed',
+	1 === substr_count( $wpep_filtered, 'class="jarchi-ticket-list-item' ),
+	(string) substr_count( $wpep_filtered, 'class="jarchi-ticket-list-item' )
+);
+
+$_GET = array();
+$GLOBALS['current_user_id'] = 1;
+
+/* =====================================================================
+ * 7e. The notification button reports what happened.
+ *
+ * Every branch of subscribe() returned false without a word, so the button
+ * was indistinguishable from a dead control — which is how it was reported.
+ * The iOS case is the common one on a phone: web push is unavailable until
+ * the site has been added to the Home Screen.
+ * ================================================================== */
+
+$wpep_push_js = (string) file_get_contents( $GLOBALS['wpep_root'] . 'assets/js/ticket-notifications.js' );
+
+check( 'a failure is shown to the reader, not only to the console', str_contains( $wpep_push_js, 'jarchi-ticket-toast' ) );
+check( 'iOS gets the Home Screen instruction rather than "unsupported"', str_contains( $wpep_push_js, 'ios-home-screen' ) );
+
+// And that the reason is shown rather than merely computed. The string can sit
+// in the support check while the branch that reaches it says nothing, which is
+// the state this started in.
+check(
+	'an unsupported context shows its reason instead of returning quietly',
+	(bool) preg_match( '/if \(!support\.ok\)\s*\{\s*toast\(/s', $wpep_push_js )
+);
+check( 'a blocked permission is named as blocked', str_contains( $wpep_push_js, 'cfg.i18n.blocked' ) );
+check( 'a site with no keys says so', str_contains( $wpep_push_js, 'unconfigured' ) );
+check( 'plain HTTP is named as the reason', str_contains( $wpep_push_js, 'insecure' ) );
+check( 'success is confirmed too', str_contains( $wpep_push_js, 'cfg.i18n.enabled' ) );
+
+check(
+	'the server response decides success, not the browser subscription',
+	str_contains( $wpep_push_js, 'stored.ok' )
+);
+
+check(
+	'no branch of subscribe returns silently',
+	! preg_match( '/if \(permission !== .granted.\) return false;/', $wpep_push_js )
+);
+
+check(
+	'the button is not offered where pressing it cannot work',
+	str_contains( $wpep_push_js, 'support.ok ||' )
+);
+
+check(
+	'and a deferred script still initialises when the DOM is already parsed',
+	str_contains( $wpep_push_js, "'loading' === document.readyState" )
+);
+
+/* Every message the script asks for exists on the PHP side. */
+$wpep_push_php = (string) file_get_contents( $GLOBALS['wpep_root'] . 'includes/class-ticket-notifications.php' );
+
+foreach ( array( 'enabled', 'blocked', 'dismissed', 'ios-home-screen', 'unsupported', 'insecure', 'unconfigured', 'saveFailed', 'failed' ) as $wpep_key ) {
+	check(
+		'the message "' . $wpep_key . '" is defined',
+		(bool) preg_match( "/'" . preg_quote( $wpep_key, '/' ) . "'\s*=>\s*__\(/", $wpep_push_php )
+	);
+}
+
+/* =====================================================================
+ * 7c. Elementor colour controls.
+ *
+ * THE REPORTED DEFECT: "I change the colours in Elementor and nothing
+ * happens." Every control was run through sanitize_hex_color(), which accepts
+ * #RGB and #RRGGBB and refuses everything else — including the value
+ * Elementor returns when the colour is picked from the Global Colours row at
+ * the top of the picker, which is what most people click. Refused meant the
+ * override was dropped and the default was used.
+ * ================================================================== */
+
+$wpep_accepted = array(
+	'#E84F01'                       => 'six-digit hex',
+	'#e84'                          => 'three-digit hex',
+	'#E84F01AA'                     => 'eight-digit hex, from the alpha slider',
+	'rgba(232, 79, 1, 0.6)'         => 'rgba, from the alpha slider',
+	'rgb(232,79,1)'                 => 'rgb',
+	'hsl(20 97% 46%)'               => 'hsl with space separators',
+	'var(--e-global-color-primary)' => 'an Elementor global colour',
+	'var(--brand, #E84F01)'         => 'a custom property with a fallback',
+	'transparent'                   => 'a keyword',
+);
+
+foreach ( $wpep_accepted as $wpep_value => $wpep_what ) {
+	check(
+		'a colour is kept when it is ' . $wpep_what,
+		$wpep_value === Tickets::sanitize_css_color( $wpep_value ),
+		Tickets::sanitize_css_color( $wpep_value )
+	);
+}
+
+/*
+ * The value lands inside a CSS declaration, so what must never get through is
+ * anything that can leave it. Checked by shape rather than by blocklist: none
+ * of the accepted forms can contain a brace, a semicolon or a tag.
+ */
+$wpep_refused = array(
+	'red; background: url(//evil.test/x)',
+	'#fff}body{display:none',
+	'</style><script>alert(1)</script>',
+	'url(javascript:alert(1))',
+	'expression(alert(1))',
+	'var(--x); color: red',
+	'rgba(0,0,0,1);}',
+	'#zzzzzz',
+	'',
+	'   ',
+	str_repeat( 'a', 200 ),
+);
+
+foreach ( $wpep_refused as $wpep_bad ) {
+	check(
+		'refused: ' . substr( str_replace( "\n", ' ', $wpep_bad ), 0, 34 ),
+		'' === Tickets::sanitize_css_color( $wpep_bad ),
+		Tickets::sanitize_css_color( $wpep_bad )
+	);
+}
+
+check( 'a non-string is refused rather than cast', '' === Tickets::sanitize_css_color( array( '#fff' ) ) );
+
+/*
+ * And the colour has to reach the markup. A sanitiser that accepts the value
+ * is only half of it: the widget passes overrides into render_center(), which
+ * writes them onto the root element as custom properties.
+ */
+$wpep_styled = $tickets->render_center(
+	array(
+		'primary'    => 'var(--e-global-color-primary)',
+		'background' => 'rgba(10, 20, 30, 0.9)',
+		'text'       => '#123456',
+	)
+);
+
+check( 'a global colour reaches the rendered root', str_contains( $wpep_styled, '--jt-primary:var(--e-global-color-primary)' ) );
+check( 'an rgba background reaches it too', str_contains( $wpep_styled, '--jt-bg:rgba(10, 20, 30, 0.9)' ) );
+check( 'and a plain hex still works', str_contains( $wpep_styled, '--jt-text:#123456' ) );
+
+/*
+ * The stylesheet must not hard-code the colours it is supposed to read from
+ * those properties. A rule like `.elementor-widget-… { background: #F6F7F9
+ * !important }` outranks anything one widget instance can set, which is the
+ * other half of "changing the colour does nothing".
+ */
+/*
+ * And the widget has to use it. The sanitiser being correct proves nothing if
+ * the widget still calls sanitize_hex_color() — which is the actual defect,
+ * and which a test exercising render_center() directly cannot see, because
+ * that path never reaches the widget's sanitising at all.
+ */
+$wpep_widget = (string) file_get_contents( $GLOBALS['wpep_root'] . 'includes/class-ticket-center-elementor-widget.php' );
+
+check(
+	'the Elementor widget sanitises colours with the shared rule',
+	str_contains( $wpep_widget, 'Tickets::sanitize_css_color(' )
+);
+
+/**
+ * Source with the comments removed.
+ *
+ * The comment explaining why sanitize_hex_color() was wrong contains the name
+ * sanitize_hex_color, so a plain search finds the explanation and reports the
+ * bug it describes.
+ *
+ * @param string $file Path under includes/.
+ *
+ * @return string Code.
+ */
+function wpep_code_of( string $file ): string {
+	$src = (string) file_get_contents( $GLOBALS['wpep_root'] . 'includes/' . $file );
+	$out = '';
+
+	foreach ( token_get_all( $src ) as $token ) {
+		if ( is_array( $token ) && in_array( $token[0], array( T_COMMENT, T_DOC_COMMENT ), true ) ) {
+			continue;
+		}
+
+		$out .= is_array( $token ) ? $token[1] : $token;
+	}
+
+	return $out;
+}
+
+foreach ( array( 'class-ticket-center-elementor-widget.php', 'class-ticket-icon-elementor-widget.php', 'class-customer-hub.php' ) as $wpep_file ) {
+	check(
+		'no control in ' . $wpep_file . ' still runs through sanitize_hex_color()',
+		! str_contains( wpep_code_of( $wpep_file ), 'sanitize_hex_color(' )
+	);
+}
+
+check(
+	'no Elementor rule hard-codes a colour over the instance tokens',
+	! preg_match( '/\.elementor-widget-jarchi_ticket_center[^{]*\{[^}]*(?:background|color)\s*:\s*#[0-9a-f]{3,8}\s*!important/i', $css )
+);
 
 /* =====================================================================
  * 8. Notifications actually leave the site.

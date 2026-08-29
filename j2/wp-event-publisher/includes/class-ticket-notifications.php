@@ -109,11 +109,28 @@ final class TicketNotifications {
 			'restNonce' => wp_create_nonce( 'wp_rest' ),
 			'pageUrl' => esc_url_raw( wpep()->tickets()->ticket_page_url() ),
 			'sound' => ! empty( $this->settings()['sound'] ),
+			/*
+			 * One message per outcome, including the ones that used to be
+			 * silent. A button that reports nothing when it fails is
+			 * indistinguishable from a button that does nothing, which is
+			 * exactly how this was reported.
+			 */
 			'i18n' => array(
-				'enable' => __( 'فعال‌سازی اعلان‌های تیکت', 'wp-event-publisher' ),
-				'blocked' => __( 'اعلان‌های مرورگر مسدود هستند. از تنظیمات مرورگر اجازه دهید.', 'wp-event-publisher' ),
-				'newTicket' => __( 'تیکت جدید برای شما ثبت شد', 'wp-event-publisher' ),
-				'newReply' => __( 'پاسخ جدید برای تیکت شما', 'wp-event-publisher' ),
+				'enable'          => __( 'فعال‌سازی اعلان‌های تیکت', 'wp-event-publisher' ),
+				'enabled'         => __( 'اعلان‌ها فعال شد. از این پس پاسخ تیکت‌ها را همین‌جا دریافت می‌کنید.', 'wp-event-publisher' ),
+				'blocked'         => __( 'اعلان‌ها را قبلاً برای این سایت مسدود کرده‌اید. از تنظیمات مرورگر (بخش Notifications) دوباره اجازه دهید.', 'wp-event-publisher' ),
+				'dismissed'       => __( 'اجازهٔ اعلان داده نشد. هر وقت خواستید دوباره همین دکمه را بزنید.', 'wp-event-publisher' ),
+				// iOS refuses web push outside a Home Screen install. This is
+				// not a browser limitation the reader can wait out; it is a
+				// step they can take, so it is spelled out.
+				'ios-home-screen' => __( 'در آیفون و آیپد ابتدا باید این سایت را به صفحهٔ اصلی اضافه کنید: دکمهٔ Share ← Add to Home Screen. سپس از همان آیکن وارد شوید و این دکمه را بزنید.', 'wp-event-publisher' ),
+				'unsupported'     => __( 'مرورگر شما از اعلان فوری پشتیبانی نمی‌کند. اعلان‌ها همچنان با ایمیل و پیامک ارسال می‌شود.', 'wp-event-publisher' ),
+				'insecure'        => __( 'اعلان فقط روی HTTPS کار می‌کند. لطفاً به مدیر سایت اطلاع دهید.', 'wp-event-publisher' ),
+				'unconfigured'    => __( 'اعلان فوری هنوز روی سایت تنظیم نشده است. لطفاً به مدیر سایت اطلاع دهید.', 'wp-event-publisher' ),
+				'saveFailed'      => __( 'اشتراک اعلان روی سرور ذخیره نشد. کمی بعد دوباره تلاش کنید.', 'wp-event-publisher' ),
+				'failed'          => __( 'فعال‌سازی اعلان انجام نشد. کمی بعد دوباره تلاش کنید.', 'wp-event-publisher' ),
+				'newTicket'       => __( 'تیکت جدید برای شما ثبت شد', 'wp-event-publisher' ),
+				'newReply'        => __( 'پاسخ جدید برای تیکت شما', 'wp-event-publisher' ),
 			),
 		) );
 	}

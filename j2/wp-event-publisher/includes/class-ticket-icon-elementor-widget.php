@@ -56,25 +56,25 @@ class TicketIconElementorWidget extends \Elementor\Widget_Base {
         }
         $style = sprintf(
             'color:%1$s !important;background:%2$s !important;border:1px solid %3$s !important;width:%4$spx !important;height:%4$spx !important;border-radius:%5$spx !important;--jarchi-ticket-badge-bg:%6$s;--jarchi-ticket-badge-text:%7$s;--jarchi-ticket-badge-border:%8$s;--jarchi-ticket-icon-size:%9$spx;%10$s',
-            esc_attr( sanitize_hex_color( $settings['icon_color'] ?? '#E84F01' ) ?: '#E84F01' ),
-            esc_attr( sanitize_hex_color( $settings['icon_bg'] ?? '#FFF4EA' ) ?: '#FFF4EA' ),
-            esc_attr( sanitize_hex_color( $settings['icon_border'] ?? '#FFD7BE' ) ?: '#FFD7BE' ),
+            esc_attr( Tickets::sanitize_css_color( $settings['icon_color'] ?? '#E84F01' ) ?: '#E84F01' ),
+            esc_attr( Tickets::sanitize_css_color( $settings['icon_bg'] ?? '#FFF4EA' ) ?: '#FFF4EA' ),
+            esc_attr( Tickets::sanitize_css_color( $settings['icon_border'] ?? '#FFD7BE' ) ?: '#FFD7BE' ),
             max( 28, (float) ( $settings['size']['size'] ?? 48 ) ),
             max( 6, (float) ( $settings['radius']['size'] ?? 14 ) ),
-            esc_attr( sanitize_hex_color( $settings['badge_bg'] ?? '#D92D20' ) ?: '#D92D20' ),
-            esc_attr( sanitize_hex_color( $settings['badge_text'] ?? '#FFFFFF' ) ?: '#FFFFFF' ),
-            esc_attr( sanitize_hex_color( $settings['badge_border'] ?? '#FFFFFF' ) ?: '#FFFFFF' ),
+            esc_attr( Tickets::sanitize_css_color( $settings['badge_bg'] ?? '#D92D20' ) ?: '#D92D20' ),
+            esc_attr( Tickets::sanitize_css_color( $settings['badge_text'] ?? '#FFFFFF' ) ?: '#FFFFFF' ),
+            esc_attr( Tickets::sanitize_css_color( $settings['badge_border'] ?? '#FFFFFF' ) ?: '#FFFFFF' ),
             max( 14, (float) ( $settings['icon_size']['size'] ?? 24 ) ),
             ( 'yes' === ( $settings['shadow'] ?? 'yes' ) ? 'box-shadow:0 10px 24px rgba(232,79,1,.14);' : 'box-shadow:none;' )
         );
         $badge_style = sprintf('width:%1$spx;min-width:%1$spx;height:%1$spx;line-height:%1$spx;', max( 14, (float) ( $settings['badge_size']['size'] ?? 18 ) ) );
         $badge = ( 'yes' === ( $settings['show_badge'] ?? 'yes' ) ) ? '<span class="jarchi-ticket-icon__badge' . ( $count ? ' is-visible' : '' ) . '" data-jarchi-ticket-badge style="' . esc_attr( $badge_style ) . '">' . esc_html( (string) min( 99, $count ) ) . '</span>' : '';
         $widget_id = 'jarchi-ticket-icon-widget-' . preg_replace( '/[^a-zA-Z0-9_-]/', '', $this->get_id() );
-        $icon_color = sanitize_hex_color( $settings['icon_color'] ?? '#E84F01' ) ?: '#E84F01';
+        $icon_color = Tickets::sanitize_css_color( $settings['icon_color'] ?? '#E84F01' ) ?: '#E84F01';
         $icon_size  = max( 14, (float) ( $settings['icon_size']['size'] ?? 24 ) );
         $icon_css = '.' . $widget_id . ' .jarchi-ticket-icon__elementor-inner *{color:' . esc_attr( $icon_color ) . '!important;fill:currentColor!important;stroke:currentColor!important;width:' . esc_attr( $icon_size ) . 'px!important;height:' . esc_attr( $icon_size ) . 'px!important;}';
         $icon_css .= '.' . $widget_id . ' .jarchi-ticket-icon__elementor-inner svg{display:block!important;}';
-        $icon_css .= '.' . $widget_id . ' .jarchi-ticket-icon__badge{background:' . esc_attr( sanitize_hex_color( $settings['badge_bg'] ?? '#D92D20' ) ?: '#D92D20' ) . '!important;color:' . esc_attr( sanitize_hex_color( $settings['badge_text'] ?? '#FFFFFF' ) ?: '#FFFFFF' ) . '!important;border-color:' . esc_attr( sanitize_hex_color( $settings['badge_border'] ?? '#FFFFFF' ) ?: '#FFFFFF' ) . '!important;}';
+        $icon_css .= '.' . $widget_id . ' .jarchi-ticket-icon__badge{background:' . esc_attr( Tickets::sanitize_css_color( $settings['badge_bg'] ?? '#D92D20' ) ?: '#D92D20' ) . '!important;color:' . esc_attr( Tickets::sanitize_css_color( $settings['badge_text'] ?? '#FFFFFF' ) ?: '#FFFFFF' ) . '!important;border-color:' . esc_attr( Tickets::sanitize_css_color( $settings['badge_border'] ?? '#FFFFFF' ) ?: '#FFFFFF' ) . '!important;}';
         if ( wp_style_is( 'wpep-tickets', 'enqueued' ) ) {
             wp_add_inline_style( 'wpep-tickets', $icon_css );
         } else {

@@ -171,10 +171,17 @@ class TicketCenterElementorWidget extends \Elementor\Widget_Base {
             }
         }
 
+        /*
+         * Tickets::sanitize_css_color(), not sanitize_hex_color(). The latter
+         * accepts only #RGB and #RRGGBB, so every colour picked from
+         * Elementor's Global Colours row — or through the alpha slider — came
+         * back null and was silently replaced by the default. From the
+         * customer's side that is a colour control that does nothing.
+         */
         foreach ( array( 'primary','primary_hi','surface','background','text','muted','border','field_bg','field_text','button_text','badge_bg','badge_text','soft_bg','message_bg','user_message_bg' ) as $key ) {
             if ( isset( $settings[ $key ] ) && '' !== (string) $settings[ $key ] ) {
-                $color = sanitize_hex_color( (string) $settings[ $key ] );
-                if ( $color ) {
+                $color = Tickets::sanitize_css_color( $settings[ $key ] );
+                if ( '' !== $color ) {
                     $overrides[ $key ] = $color;
                 }
             }
@@ -191,7 +198,7 @@ class TicketCenterElementorWidget extends \Elementor\Widget_Base {
         $overrides['show_list'] = 'yes' === ( $settings['show_list'] ?? 'yes' );
         $overrides['shadow'] = 'yes' === ( $settings['shadow'] ?? 'yes' );
         foreach ( array( 'filter_all','filter_waiting','filter_reviewing','filter_answered','filter_closed' ) as $key ) {
-            if ( isset( $settings[ $key ] ) ) { $color = sanitize_hex_color( (string) $settings[ $key ] ); if ( $color ) { $overrides[ $key ] = $color; } }
+            if ( isset( $settings[ $key ] ) ) { $color = Tickets::sanitize_css_color( $settings[ $key ] ); if ( '' !== $color ) { $overrides[ $key ] = $color; } }
         }
 
         $widget_id = 'jarchi-ticket-widget-' . preg_replace( '/[^a-zA-Z0-9_-]/', '', $this->get_id() );
@@ -231,7 +238,21 @@ class TicketCenterElementorWidget extends \Elementor\Widget_Base {
 
         // Make the root itself carry the critical design tokens. This keeps Elementor's live editor isolated from parent section/theme CSS.
         $root_style = 'background:'.esc_attr( $overrides['background'] ?? '#F6F7F9' ).'!important;color:'.esc_attr( $overrides['text'] ?? '#171717' ).'!important;--jt-primary:'.esc_attr( $overrides['primary'] ?? '#E84F01' ).';--jt-primary-hi:'.esc_attr( $overrides['primary_hi'] ?? '#FF8A1C' ).';--jt-surface:'.esc_attr( $overrides['surface'] ?? '#FFFFFF' ).';--jt-bg:'.esc_attr( $overrides['background'] ?? '#F6F7F9' ).';--jt-text:'.esc_attr( $overrides['text'] ?? '#171717' ).';--jt-muted:'.esc_attr( $overrides['muted'] ?? '#68717C' ).';--jt-border:'.esc_attr( $overrides['border'] ?? '#E5E7EB' ).';--jt-field-bg:'.esc_attr( $overrides['field_bg'] ?? '#FFFFFF' ).';--jt-field-text:'.esc_attr( $overrides['field_text'] ?? '#171717' ).';--jt-button-text:'.esc_attr( $overrides['button_text'] ?? '#FFFFFF' ).';--jt-soft-bg:'.esc_attr( $overrides['soft_bg'] ?? '#FFF4EA' ).';--jt-message-bg:'.esc_attr( $overrides['message_bg'] ?? '#F6F7F9' ).';--jt-user-message-bg:'.esc_attr( $overrides['user_message_bg'] ?? '#FFF5EC' ).';';
-        $html = preg_replace( '/(<div id="jarchi-tickets"[^>]*style=")[^"]*(")/', '$1'.$root_style.'$2', $html, 1 );
+        /*
+         * The replacement is escaped, not interpolated. preg_replace() reads
+         * `$1` and `\1` in the replacement as backreferences, so a colour
+         * value that happened to contain one would be substituted away — and
+         * now that these values may be `var(--e-global-color-...)` rather than
+         * plain hex, assuming they never can is no longer safe.
+         */
+        $html = preg_replace_callback(
+            '/(<div id="jarchi-tickets"[^>]*style=")[^"]*(")/',
+            static function ( array $m ) use ( $root_style ): string {
+                return $m[1] . $root_style . $m[2];
+            },
+            $html,
+            1
+        );
 
         $html .= '<style class="jarchi-elementor-ticket-style">' . $css . '</style>';
 
