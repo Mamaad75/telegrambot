@@ -2,7 +2,7 @@
   "name": "myshop-accounting",
   "productName": "MyShopAccounting",
   "version": "1.0.0",
-  "description": "نرم‌افزار حسابداری فروشگاهی ویندوز - حسابداری دوطرفه، انبار، فاکتور، چک و گزارش‌ها",
+  "description": "نرم‌افزار حسابداری فروشگاهی ویندوز — حسابداری دوطرفه، انبار، فاکتور، چک و گزارش‌ها",
   "main": "src/main/main.js",
   "author": {
     "name": "MyShop",
@@ -12,12 +12,16 @@
   "private": true,
   "scripts": {
     "start": "electron .",
-    "test": "node tests/run-tests.js",
+    "test": "node tests/run.js",
+    "test:ui": "electron tests/smoke.js",
+    "icon": "electron tools/make-icon.js",
     "rebuild": "electron-builder install-app-deps",
-    "postinstall": "electron-builder install-app-deps || echo \"skip rebuild\"",
-    "dist:win": "electron-builder --win --x64 --publish never",
+    "postinstall": "electron-builder install-app-deps",
+    "dist:win": "electron-builder --win nsis portable --x64 --publish never",
+    "dist:setup": "electron-builder --win nsis --x64 --publish never",
     "dist:portable": "electron-builder --win portable --x64 --publish never",
-    "pack": "electron-builder --dir"
+    "pack": "electron-builder --dir",
+    "rebuild:node": "npx prebuild-install -r node --prefix node_modules/better-sqlite3 || npm rebuild better-sqlite3 --build-from-source"
   },
   "dependencies": {
     "better-sqlite3": "^11.10.0",
@@ -26,5 +30,73 @@
   "devDependencies": {
     "electron": "^33.4.11",
     "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "ir.myshop.accounting",
+    "productName": "MyShopAccounting",
+    "copyright": "Copyright © 2025 MyShop Accounting",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "package.json",
+      "!**/*.{map,ts,flow}",
+      "!**/{.eslintrc,.editorconfig,.nycrc,.prettierrc,tsconfig.json}",
+      "!**/node_modules/better-sqlite3/{deps,src}/**",
+      "!**/node_modules/better-sqlite3/build/Release/{obj,obj.target}/**",
+      "!**/node_modules/better-sqlite3/build/Release/*.pdb"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "**/node_modules/better-sqlite3/**"
+    ],
+    "npmRebuild": true,
+    "buildDependenciesFromSource": false,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "artifactName": "MyShopAccounting-Setup.${ext}",
+      "legalTrademarks": "MyShop Accounting"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "حسابداری فروشگاه",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "menuCategory": false,
+      "artifactName": "MyShopAccounting-Setup.${ext}",
+      "uninstallDisplayName": "MyShopAccounting ${version}"
+    },
+    "portable": {
+      "artifactName": "MyShopAccounting-Portable.${ext}",
+      "requestExecutionLevel": "user"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Office",
+      "icon": "build/icon.png"
+    }
   }
 }
