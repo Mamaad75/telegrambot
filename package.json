@@ -14,6 +14,8 @@
     "start": "electron .",
     "test": "node tests/run.js",
     "test:ui": "electron tests/smoke.js",
+    "test:import": "electron tests/import-test.js",
+    "catalog": "electron tools/build-catalog.js",
     "icon": "electron tools/make-icon.js",
     "rebuild": "electron-builder install-app-deps",
     "postinstall": "electron-builder install-app-deps",
@@ -25,7 +27,8 @@
   },
   "dependencies": {
     "better-sqlite3": "^11.10.0",
-    "exceljs": "^4.4.0"
+    "exceljs": "^4.4.0",
+    "pdf-parse": "^1.1.1"
   },
   "devDependencies": {
     "electron": "^33.4.11",

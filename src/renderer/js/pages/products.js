@@ -134,6 +134,7 @@
         '<label class="checkbox" style="margin-bottom:7px"><input type="checkbox" id="low"> فقط رو به اتمام</label>' +
         '<span class="spacer"></span>' +
         '<button class="btn" id="add">+ کالای جدید</button>' +
+        '<button class="btn secondary" id="importBtn">📥 درون‌ریزی از PDF / اکسل</button>' +
         '<button class="btn secondary" id="cats">دسته‌بندی‌ها</button>' +
         '<button class="btn secondary sm" data-export-excel>خروجی اکسل</button>' +
         '<button class="btn secondary sm" data-export-print>چاپ</button>' +
@@ -192,6 +193,10 @@
       root.querySelector('#low').addEventListener('change', function () { state.lowStock = this.checked; load(); });
       root.querySelector('#more').addEventListener('click', function () { state.offset += state.limit; load(true); });
       root.querySelector('#add').addEventListener('click', async function () { if (await productForm(null)) load(); });
+      root.querySelector('#importBtn').addEventListener('click', async function () {
+        const r = await w.ImportWizard();
+        if (r && (r.created || r.updated)) load();
+      });
       root.querySelector('#cats').addEventListener('click', async function () {
         await categoriesModal();
         const c = await API.call('products.categories', {});

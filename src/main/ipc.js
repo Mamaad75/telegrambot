@@ -24,6 +24,7 @@ const reports = require('../services/reports.js');
 const journal = require('../services/journal.js');
 const backup = require('../services/backup.js');
 const excel = require('../services/excel.js');
+const importer = require('../services/importer.js');
 const templates = require('../print/templates.js');
 const printing = require('./printing.js');
 const paths = require('./paths.js');
@@ -240,6 +241,47 @@ const handlers = {
     });
     if (res.canceled || !res.filePath) return { canceled: true };
     return await excel.exportTable(res.filePath, p.sheet || 'گزارش', p.columns, p.rows, p.totals);
+  },
+
+  /* --------- درون‌ریزی کالا از PDF / اکسل --------- */
+  'import.pickFile': async function (p, event) {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const res = await dialog.showOpenDialog(win, {
+      title: 'انتخاب فایل لیست کالا',
+      filters: [
+        { name: 'فایل‌های پشتیبانی‌شده', extensions: ['pdf', 'xlsx', 'xlsm', 'xls', 'csv'] },
+        { name: 'PDF', extensions: ['pdf'] },
+        { name: 'Excel', extensions: ['xlsx', 'xlsm', 'xls'] },
+        { name: 'CSV', extensions: ['csv'] }
+      ],
+      properties: ['openFile']
+    });
+    if (res.canceled || !res.filePaths.length) return null;
+    return res.filePaths[0];
+  },
+  'import.builtins': function () {
+    return importer.builtins();
+  },
+  'import.preview': async function (p) {
+    const file = p.builtin ? importer.builtinPath(p.builtin) : p.file;
+    return await importer.preview(db(), file, p.options || {});
+  },
+  'import.commit': function (p) {
+    const r = importer.commit(db(), p.rows || [], p.options || {});
+    db().prepare('INSERT INTO activity_log (action, ref_type, detail) VALUES (?,?,?)')
+      .run('درون‌ریزی کالا', 'import',
+        'ثبت ' + r.created + ' / به‌روزرسانی ' + r.updated + ' / رد ' + r.skipped);
+    return r;
+  },
+  'import.template': async function (p, event) {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const res = await dialog.showSaveDialog(win, {
+      title: 'ذخیره فایل نمونه درون‌ریزی',
+      defaultPath: path.join(paths.get().exportDir, 'نمونه-ورود-کالا.xlsx'),
+      filters: [{ name: 'Excel', extensions: ['xlsx'] }]
+    });
+    if (res.canceled || !res.filePath) return { canceled: true };
+    return await importer.template(res.filePath);
   },
 
   /* --------- پشتیبان‌گیری --------- */

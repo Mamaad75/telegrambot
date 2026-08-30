@@ -228,6 +228,44 @@ async function main() {
     await shot(win, 'page-' + r.replace(/\//g, '-'));
   }
 
+  /* ---------- ۵.۱) پنجره درون‌ریزی کالا از PDF/اکسل ---------- */
+  {
+    const before = problems.length;
+    await run(win, 'window.App.go("products"); return true;');
+    await wait(900);
+    const hasBtn = await run(win, "return !!document.getElementById('importBtn');");
+    if (!hasBtn) problems.push('دکمه درون‌ریزی در صفحه کالاها نیست.');
+    else {
+      await run(win, "document.getElementById('importBtn').click(); return true;");
+      await wait(900);
+      const st = await run(win, `
+        const bd = document.querySelector('.modal-backdrop');
+        if (!bd) return { open: false };
+        return {
+          open: true,
+          pick: !!bd.querySelector('#pick'),
+          tpl: !!bd.querySelector('#tpl'),
+          title: (bd.querySelector('.modal-head h3') || {}).textContent || '',
+          catalogs: bd.querySelectorAll('[data-builtin]').length,
+          err: !!bd.querySelector('.alert.error')
+        };
+      `);
+      if (!st.open) problems.push('پنجره درون‌ریزی باز نشد.');
+      else {
+        if (!st.pick) problems.push('دکمه انتخاب فایل در پنجره درون‌ریزی نیست.');
+        if (!st.tpl) problems.push('دکمه فایل نمونه اکسل در پنجره درون‌ریزی نیست.');
+        if (st.err) problems.push('پنجره درون‌ریزی با خطا رندر شد.');
+        if (st.catalogs < 1) problems.push('کاتالوگ همراه برنامه در پنجره درون‌ریزی نمایش داده نشد.');
+        await shot(win, 'import-wizard');
+      }
+      await run(win, "const b=document.querySelector('.modal-backdrop'); if(b){const x=b.querySelector('[data-close]'); if(x) x.click(); else b.remove();} return true;");
+      await wait(400);
+      const stillOpen = await run(win, "return !!document.querySelector('.modal-backdrop');");
+      if (stillOpen) problems.push('پنجره درون‌ریزی بسته نشد.');
+    }
+    if (problems.length === before) notes.push('پنجره درون‌ریزی کالا از PDF/اکسل: سالم');
+  }
+
   /* ---------- ۶) بررسی زیربخش‌های گزارش‌ها ---------- */
   await run(win, 'window.App.go("reports"); return true;');
   await wait(1200);
