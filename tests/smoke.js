@@ -327,15 +327,52 @@ async function main() {
     const db = connection.get();
     const inv = salesSvc.getByNumber(db, seed.invoice2);
     const st = settingsSvc.all(db);
-    const htmlA4 = templates.invoiceA4({ settings: st, invoice: inv, type: 'sale' });
+    const htmlA4 = templates.invoiceSheet({ settings: st, invoice: inv, type: 'sale', paper: 'a4' });
+    const htmlA5 = templates.invoiceSheet({ settings: st, invoice: inv, type: 'sale', paper: 'a5' });
     const htmlTh = templates.invoiceThermal({ settings: st, invoice: inv, type: 'sale' });
     const pdfA4 = path.join(SHOT_DIR, 'invoice-a4.pdf');
+    const pdfA5 = path.join(SHOT_DIR, 'invoice-a5.pdf');
     const pdfTh = path.join(SHOT_DIR, 'invoice-thermal.pdf');
-    await printing.toPdf(htmlA4, pdfA4);
+    await printing.toPdf(htmlA4, pdfA4, { pageSize: 'A4' });
+    await printing.toPdf(htmlA5, pdfA5, { pageSize: 'A5' });
     await printing.toPdf(htmlTh, pdfTh, { thermal: true });
     const sizeA4 = fs.statSync(pdfA4).size;
-    notes.push('PDF فاکتور A4 ساخته شد (' + sizeA4 + ' بایت) و فیش حرارتی (' + fs.statSync(pdfTh).size + ' بایت)');
+    notes.push('PDF فاکتور A4 ساخته شد (' + sizeA4 + ' بایت)، A5 (' + fs.statSync(pdfA5).size +
+      ' بایت) و فیش حرارتی (' + fs.statSync(pdfTh).size + ' بایت)');
     if (sizeA4 < 3000) problems.push('فایل PDF فاکتور بیش از حد کوچک است.');
+    if (fs.statSync(pdfA5).size < 3000) problems.push('فایل PDF فاکتور A5 بیش از حد کوچک است.');
+
+    // ابعاد واقعی صفحه PDF را از MediaBox می‌خوانیم (واحد: point، هر اینچ ۷۲ point)
+    function pageMm(file) {
+      const txt = fs.readFileSync(file, 'latin1');
+      const m = txt.match(/MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)/);
+      if (!m) return null;
+      return { w: Math.round(parseFloat(m[1]) / 72 * 25.4), h: Math.round(parseFloat(m[2]) / 72 * 25.4) };
+    }
+    const dimA4 = pageMm(pdfA4);
+    const dimA5 = pageMm(pdfA5);
+    if (!dimA4 || Math.abs(dimA4.w - 210) > 2 || Math.abs(dimA4.h - 297) > 2) {
+      problems.push('اندازه صفحه PDF فاکتور A4 درست نیست: ' + JSON.stringify(dimA4));
+    }
+    if (!dimA5 || Math.abs(dimA5.w - 148) > 2 || Math.abs(dimA5.h - 210) > 2) {
+      problems.push('اندازه صفحه PDF فاکتور A5 درست نیست: ' + JSON.stringify(dimA5));
+    }
+    if (dimA4 && dimA5) {
+      notes.push('ابعاد صفحه: A4 = ' + dimA4.w + '×' + dimA4.h + ' میلی‌متر، A5 = ' + dimA5.w + '×' + dimA5.h + ' میلی‌متر');
+    }
+
+    // فاکتور معمولی باید در یک برگ A5 جا شود
+    function pageCount(file) {
+      const txt = fs.readFileSync(file, 'latin1');
+      return (txt.match(/\/Type\s*\/Page[^s]/g) || []).length;
+    }
+    const pagesA5 = pageCount(pdfA5);
+    if (pagesA5 > 1) problems.push('فاکتور در یک برگ A5 جا نشد (' + pagesA5 + ' صفحه).');
+    else notes.push('فاکتور ' + inv.items.length + ' ردیفی در یک برگ A5 جا شد');
+
+    // اندازه پیش‌فرض برنامه باید A5 باشد
+    if (st.print_size !== 'a5') problems.push('اندازه پیش‌فرض چاپ A5 نیست: ' + st.print_size);
+    else notes.push('اندازه پیش‌فرض چاپ فاکتور: A5');
 
     // پیش‌نمایش چاپ برای اسکرین‌شات
     const pw = printing.preview(htmlA4, { title: 'پیش‌نمایش', defaultName: inv.invoice_no });

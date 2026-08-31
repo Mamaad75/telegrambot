@@ -114,7 +114,7 @@
     income_prefix: 'IN',
     transfer_prefix: 'TR',
     number_padding: '5',
-    print_size: 'a4',
+    print_size: 'a5',
     auto_backup: '1',
     auto_backup_days: '1',
     backup_dir: '',

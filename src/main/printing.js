@@ -11,6 +11,14 @@ const logger = require('./logger.js');
 
 const openWindows = new Set();
 
+/** اندازه کاغذ برای printToPDF: فیش حرارتی ۸۰ میلی‌متری، وگرنه A4/A5 */
+function pageSizeOf(opt) {
+  const o = opt || {};
+  if (o.thermal) return { width: 80000, height: 297000 };
+  const p = String(o.pageSize || 'A4').toUpperCase();
+  return p === 'A5' ? 'A5' : 'A4';
+}
+
 function tempFile(html) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'shopacc-print-'));
   const file = path.join(dir, 'document.html');
@@ -43,7 +51,12 @@ function preview(html, opt) {
       sandbox: false
     }
   });
-  win.__printMeta = { defaultName: options.defaultName || 'document', landscape: !!options.landscape, thermal: !!options.thermal };
+  win.__printMeta = {
+    defaultName: options.defaultName || 'document',
+    landscape: !!options.landscape,
+    thermal: !!options.thermal,
+    pageSize: options.pageSize || 'A4'
+  };
   openWindows.add(win);
   win.loadFile(file);
   win.on('closed', function () {
@@ -61,13 +74,18 @@ function printDirect(html, opt) {
     const win = new BrowserWindow({ show: false, webPreferences: { offscreen: false } });
     win.loadFile(file);
     win.webContents.once('did-finish-load', function () {
-      win.webContents.print({
+      const printOpts = {
         silent: !!options.silent,
         printBackground: true,
         deviceName: options.deviceName || undefined,
         landscape: !!options.landscape,
         margins: { marginType: 'default' }
-      }, function (success, reason) {
+      };
+      // ویندوز اندازه کاغذ را از خود سند می‌گیرد؛ برای A5 صریح اعلام می‌کنیم
+      if (!options.thermal && String(options.pageSize || '').toUpperCase() === 'A5') {
+        printOpts.pageSize = 'A5';
+      }
+      win.webContents.print(printOpts, function (success, reason) {
         if (!success) logger.warn('چاپ انجام نشد: ' + reason);
         win.destroy();
         cleanup(file);
@@ -87,7 +105,7 @@ async function toPdf(html, filePath, opt) {
     const data = await win.webContents.printToPDF({
       printBackground: true,
       landscape: !!options.landscape,
-      pageSize: options.thermal ? { width: 80000, height: 297000 } : 'A4',
+      pageSize: pageSizeOf(options),
       margins: options.thermal ? { top: 0, bottom: 0, left: 0, right: 0 } : undefined
     });
     fs.writeFileSync(filePath, data);
@@ -110,15 +128,18 @@ async function savePdfFromWindow(win, exportDir) {
   const data = await win.webContents.printToPDF({
     printBackground: true,
     landscape: !!meta.landscape,
-    pageSize: meta.thermal ? { width: 80000, height: 297000 } : 'A4'
+    pageSize: pageSizeOf(meta)
   });
   fs.writeFileSync(res.filePath, data);
   return { ok: true, file: res.filePath };
 }
 
 function printFromWindow(win) {
+  const meta = win.__printMeta || {};
   return new Promise(function (resolve) {
-    win.webContents.print({ silent: false, printBackground: true }, function (success, reason) {
+    const opts = { silent: false, printBackground: true };
+    if (!meta.thermal && String(meta.pageSize || '').toUpperCase() === 'A5') opts.pageSize = 'A5';
+    win.webContents.print(opts, function (success, reason) {
       resolve({ ok: !!success, reason: reason || null });
     });
   });

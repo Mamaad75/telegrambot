@@ -65,7 +65,73 @@ const BASE_CSS = `
   .signs div { flex: 1; border-top: 1px solid #999; padding-top: 5px; text-align: center; }
   .footer { margin-top: 14px; text-align: center; font-size: 10px; color: #777; border-top: 1px solid #ddd; padding-top: 6px; }
   .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 10.5px; background: #e6eefa; color: #1f3a5f; }
+  /* ستون‌های جدول اقلام فاکتور — ستون «شرح کالا» بقیه فضا را می‌گیرد */
+  table.items { table-layout: fixed; }
+  table.items .c-idx { width: 32px; }
+  table.items .c-code { width: 70px; }
+  table.items .c-name { width: auto; }
+  table.items .c-unit { width: 52px; }
+  table.items .c-qty { width: 60px; }
+  table.items .c-price { width: 95px; }
+  table.items .c-disc { width: 85px; }
+  table.items .c-total { width: 105px; }
+  table.items td.name { word-break: break-word; }
 `;
+
+/* اندازه‌های کاغذ فاکتور. A5 نصف A4 است، پس همه‌چیز فشرده‌تر می‌شود تا در یک برگ جا شود. */
+const PAPER = {
+  a4: { label: 'A4', pageSize: 'A4', width: 900 },
+  a5: { label: 'A5', pageSize: 'A5', width: 700 }
+};
+
+const A5_CSS = `
+  @page { size: A5; margin: 6mm; }
+  body { font-size: 10px; line-height: 1.5; }
+  .sheet { padding: 4mm; max-width: 148mm; }
+  .head { padding-bottom: 5px; }
+  .shop img { max-height: 42px; max-width: 84px; }
+  .shop-name { font-size: 13px; }
+  .shop-meta { font-size: 8.5px; }
+  .doc-title h2 { font-size: 12px; }
+  .doc-meta { font-size: 8.5px; margin-top: 2px; }
+  .doc-meta b { min-width: 56px; }
+  .party { margin-top: 6px; padding: 4px 6px; font-size: 9px; }
+  .party span { margin-left: 10px; }
+  table { margin-top: 6px; }
+  th, td { padding: 2.5px 3px; }
+  th { font-size: 8.5px; }
+  td { font-size: 9px; }
+  .totals { margin-top: 6px; }
+  .totals table { width: 258px; }
+  .totals td { padding: 2.5px 5px; font-size: 9px; white-space: nowrap; }
+  .totals td.label { width: 50%; white-space: normal; }
+  .totals tr.grand td { font-size: 10.5px; }
+  .words { margin-top: 5px; font-size: 9px; padding: 3px 5px; }
+  .payments { margin-top: 6px; font-size: 9px; }
+  .note { margin-top: 5px; font-size: 8.5px; }
+  .signs { margin-top: 12px; font-size: 9px; gap: 12px; }
+  .signs div { padding-top: 3px; }
+  .footer { margin-top: 8px; font-size: 8px; padding-top: 4px; }
+  /* A5 نصف عرض A4 است، پس ستون‌های عددی باید باریک‌تر شوند تا «شرح کالا» جا بماند */
+  table.items .c-idx { width: 20px; }
+  table.items .c-code { width: 46px; }
+  table.items .c-unit { width: 30px; }
+  table.items .c-qty { width: 34px; }
+  table.items .c-price { width: 66px; }
+  table.items .c-disc { width: 48px; }
+  table.items .c-total { width: 72px; }
+`;
+
+/** نام اندازه کاغذ را به شکل معتبر برمی‌گرداند (پیش‌فرض A5) */
+function paperKey(p) {
+  const k = String(p || '').toLowerCase();
+  return Object.prototype.hasOwnProperty.call(PAPER, k) ? k : 'a5';
+}
+
+/** CSS فاکتور برای اندازه کاغذ خواسته‌شده */
+function invoiceCss(paper) {
+  return paperKey(paper) === 'a5' ? BASE_CSS + A5_CSS : BASE_CSS;
+}
 
 const THERMAL_CSS = `
   @page { size: 80mm auto; margin: 3mm; }
@@ -116,8 +182,11 @@ function money(n, currency) {
   return Fmt.money(n) + (currency ? ' ' + currency : '');
 }
 
-/** فاکتور A4 (فروش یا خرید) */
-function invoiceA4(data) {
+/**
+ * فاکتور کاغذی (فروش یا خرید).
+ * data.paper: 'a5' (پیش‌فرض) یا 'a4'
+ */
+function invoiceSheet(data) {
   const shop = data.settings || {};
   const cur = shop.currency || 'تومان';
   const isSale = data.type === 'sale';
@@ -169,10 +238,10 @@ function invoiceA4(data) {
     (partyAddress ? '<div><b>نشانی:</b> ' + esc(partyAddress) + '</div>' : '') +
     '</div>' +
 
-    '<table><thead><tr>' +
-    '<th style="width:32px">ردیف</th><th style="width:70px">کد</th><th>شرح کالا</th>' +
-    '<th style="width:52px">واحد</th><th style="width:60px">تعداد</th>' +
-    '<th style="width:95px">قیمت واحد</th><th style="width:85px">تخفیف</th><th style="width:105px">مبلغ کل</th>' +
+    '<table class="items"><thead><tr>' +
+    '<th class="c-idx">ردیف</th><th class="c-code">کد</th><th class="c-name">شرح کالا</th>' +
+    '<th class="c-unit">واحد</th><th class="c-qty">تعداد</th>' +
+    '<th class="c-price">قیمت واحد</th><th class="c-disc">تخفیف</th><th class="c-total">مبلغ کل</th>' +
     '</tr></thead><tbody>' + rows + '</tbody></table>' +
 
     '<div class="totals"><table>' +
@@ -195,7 +264,7 @@ function invoiceA4(data) {
     '<div class="footer">' + esc(shop.shop_name || '') + ' — چاپ ' + esc(Jalali.longDate(Jalali.todayIso())) + '</div>' +
     '</div>';
 
-  return page(title + ' ' + inv.invoice_no, BASE_CSS, body);
+  return page(title + ' ' + inv.invoice_no, invoiceCss(data.paper), body);
 }
 
 /** فیش حرارتی ۸۰ میلی‌متری */
@@ -324,7 +393,10 @@ function checkSheet(data) {
 }
 
 module.exports = {
-  invoiceA4: invoiceA4,
+  invoiceSheet: invoiceSheet,
+  invoiceA4: invoiceSheet,   // نام قدیمی، برای سازگاری
+  PAPER: PAPER,
+  paperKey: paperKey,
   invoiceThermal: invoiceThermal,
   statement: statement,
   genericReport: genericReport,

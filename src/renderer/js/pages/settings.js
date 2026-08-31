@@ -56,8 +56,11 @@
 
         '<div class="card"><div class="card-head"><h3>🖨 چاپ و یادآوری</h3></div><div class="card-body">' +
         '<div class="field"><label>اندازه پیش‌فرض چاپ فاکتور</label><select name="print_size">' +
+        '<option value="a5"' + (s.print_size === 'a5' ? ' selected' : '') + '>A5 (نصف کاغذ A4)</option>' +
         '<option value="a4"' + (s.print_size === 'a4' ? ' selected' : '') + '>A4 (کاغذ معمولی)</option>' +
         '<option value="thermal"' + (s.print_size === 'thermal' ? ' selected' : '') + '>فیش حرارتی ۸۰ میلی‌متری</option></select></div>' +
+        '<div class="hint">این اندازه هنگام زدن دکمه «چاپ فاکتور» استفاده می‌شود. ' +
+        'در همان پنجره فاکتور هم می‌توانید هر بار اندازه دیگری را انتخاب کنید.</div>' +
         '<div class="field"><label>یادآوری چک چند روز قبل از سررسید</label>' +
         '<input type="text" name="check_reminder_days" class="num" value="' + U.esc(s.check_reminder_days) + '"></div>' +
         '<div class="alert info">هنگام اجرای برنامه، چک‌های نزدیک سررسید و سررسید گذشته به شما یادآوری می‌شود.</div>' +

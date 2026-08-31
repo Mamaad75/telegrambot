@@ -60,8 +60,9 @@
           ' سند برگشت به مبلغ ' + U.moneyc(inv.returned_total) + ' ثبت شده است.</div>' : '') +
         (inv.note ? '<div class="alert info">' + U.esc(inv.note) + '</div>' : ''),
       buttons: [
-        { label: '🖨 چاپ فاکتور', cls: 'btn', onClick: function () { API.safe('print.invoice', { id: id, type: 'sale' }); return false; } },
-        { label: 'چاپ فیش حرارتی', cls: 'secondary', onClick: function () { API.safe('print.invoice', { id: id, type: 'sale', size: 'thermal' }); return false; } },
+        { label: '🖨 چاپ A5', cls: 'btn', onClick: function () { API.safe('print.invoice', { id: id, type: 'sale', size: 'a5' }); return false; } },
+        { label: 'چاپ A4', cls: 'secondary', onClick: function () { API.safe('print.invoice', { id: id, type: 'sale', size: 'a4' }); return false; } },
+        { label: 'فیش حرارتی', cls: 'secondary', onClick: function () { API.safe('print.invoice', { id: id, type: 'sale', size: 'thermal' }); return false; } },
         { label: 'ثبت دریافت', cls: 'success', value: 'pay', right: true },
         { label: 'ویرایش', cls: 'secondary', value: 'edit' },
         { label: 'حذف', cls: 'danger', value: 'delete' },

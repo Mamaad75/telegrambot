@@ -36,6 +36,16 @@ function db() { return connection.get(); }
 
 function shopSettings() { return settings.all(db()); }
 
+/**
+ * اندازه چاپ فاکتور را تعیین می‌کند: خواسته صفحه، وگرنه تنظیمات، وگرنه A5.
+ * خروجی: { thermal, paper } که paper یکی از 'a5' یا 'a4' است.
+ */
+function invoicePrintSize(p, st) {
+  const want = String((p && p.size) || (st && st.print_size) || 'a5').toLowerCase();
+  if (want === 'thermal') return { thermal: true, paper: 'a5' };
+  return { thermal: false, paper: templates.paperKey(want) };
+}
+
 /* ------------------------------ فهرست کانال‌ها ------------------------------ */
 const handlers = {
   /* --------- عمومی --------- */
@@ -326,16 +336,19 @@ const handlers = {
     const inv = type === 'sale' ? sales.get(db(), p.id) : purchases.get(db(), p.id);
     if (!inv) throw new Error('فاکتور یافت نشد.');
     const st = shopSettings();
-    const thermal = (p.size || st.print_size) === 'thermal';
-    const html = thermal
+    const size = invoicePrintSize(p, st);
+    const paper = templates.PAPER[size.paper];
+    const html = size.thermal
       ? templates.invoiceThermal({ settings: st, invoice: inv, type: type })
-      : templates.invoiceA4({ settings: st, invoice: inv, type: type });
+      : templates.invoiceSheet({ settings: st, invoice: inv, type: type, paper: size.paper });
     printing.preview(html, {
-      title: 'پیش‌نمایش ' + (type === 'sale' ? 'فاکتور فروش' : 'فاکتور خرید') + ' ' + inv.invoice_no,
+      title: 'پیش‌نمایش ' + (type === 'sale' ? 'فاکتور فروش' : 'فاکتور خرید') + ' ' + inv.invoice_no +
+        (size.thermal ? '' : ' — ' + paper.label),
       defaultName: inv.invoice_no,
       parent: BrowserWindow.fromWebContents(event.sender),
-      thermal: thermal,
-      width: thermal ? 420 : 900
+      thermal: size.thermal,
+      pageSize: size.thermal ? null : paper.pageSize,
+      width: size.thermal ? 420 : paper.width
     });
     return true;
   },
@@ -372,11 +385,15 @@ const handlers = {
     const inv = type === 'sale' ? sales.get(db(), p.id) : purchases.get(db(), p.id);
     if (!inv) throw new Error('فاکتور یافت نشد.');
     const st = shopSettings();
-    const thermal = (p.size || st.print_size) === 'thermal';
-    const html = thermal
+    const size = invoicePrintSize(p, st);
+    const html = size.thermal
       ? templates.invoiceThermal({ settings: st, invoice: inv, type: type })
-      : templates.invoiceA4({ settings: st, invoice: inv, type: type });
-    return printing.printDirect(html, { silent: !!p.silent });
+      : templates.invoiceSheet({ settings: st, invoice: inv, type: type, paper: size.paper });
+    return printing.printDirect(html, {
+      silent: !!p.silent,
+      thermal: size.thermal,
+      pageSize: size.thermal ? null : templates.PAPER[size.paper].pageSize
+    });
   }
 };
 

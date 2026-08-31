@@ -53,7 +53,8 @@
           ' سند برگشت به مبلغ ' + U.moneyc(inv.returned_total) + ' ثبت شده است.</div>' : '') +
         (inv.note ? '<div class="alert info">' + U.esc(inv.note) + '</div>' : ''),
       buttons: [
-        { label: '🖨 چاپ', cls: 'btn', onClick: function () { API.safe('print.invoice', { id: id, type: 'purchase' }); return false; } },
+        { label: '🖨 چاپ A5', cls: 'btn', onClick: function () { API.safe('print.invoice', { id: id, type: 'purchase', size: 'a5' }); return false; } },
+        { label: 'چاپ A4', cls: 'secondary', onClick: function () { API.safe('print.invoice', { id: id, type: 'purchase', size: 'a4' }); return false; } },
         { label: 'ثبت پرداخت', cls: 'success', value: 'pay', right: true },
         { label: 'ویرایش', cls: 'secondary', value: 'edit' },
         { label: 'حذف', cls: 'danger', value: 'delete' },
