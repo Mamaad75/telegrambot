@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Particle Hero — پلی‌گراند توسعه</title>
+  <link rel="stylesheet" href="/wordpress-plugin/particle-hero/assets/css/particle-hero.css" />
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #01030a;
+      color: #e8f1ff;
+      font-family: system-ui, "Segoe UI", Tahoma, sans-serif;
+    }
+    .section {
+      min-height: 100vh;
+      padding: clamp(32px, 8vw, 120px);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 1rem;
+      border-top: 1px solid rgba(120, 170, 255, 0.12);
+    }
+    .section h2 { font-size: clamp(1.6rem, 3vw, 2.6rem); margin: 0; }
+    .section p { max-width: 60ch; line-height: 1.9; color: rgba(210, 228, 255, 0.65); }
+    .hero { height: 100svh; min-height: 560px; }
+
+    /* dev-only tuning panel */
+    .panel {
+      position: fixed; inset-block-start: 12px; inset-inline-end: 12px; z-index: 50;
+      width: 250px; padding: 14px; border-radius: 14px;
+      background: rgba(6, 14, 32, 0.82); border: 1px solid rgba(120, 170, 255, 0.22);
+      backdrop-filter: blur(10px); font-size: 12px; line-height: 1.9;
+    }
+    .panel h3 { margin: 0 0 8px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.6; }
+    .panel label { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .panel input[type="range"] { inline-size: 120px; }
+    .panel button {
+      inline-size: 100%; margin-block-start: 8px; padding: 7px; border-radius: 8px; cursor: pointer;
+      border: 1px solid rgba(120, 170, 255, 0.3); background: rgba(40, 90, 180, 0.25); color: inherit;
+    }
+    .panel code { color: #ffb066; }
+  </style>
+</head>
+<body>
+
+  <div class="particle-hero hero" data-particle-hero data-particle-hero-eager id="hero">
+    <div class="particle-hero__content">
+      <h1 class="particle-hero__title">آینده، ذره به ذره ساخته می‌شود</h1>
+      <p class="particle-hero__subtitle">
+        یک تجربه‌ی سه‌بعدی تعاملی که مستقیماً روی GPU اجرا می‌شود — بدون مدل سنگین، بدون افت سرعت.
+      </p>
+      <a class="particle-hero__cta" href="#next">شروع کنید</a>
+    </div>
+  </div>
+
+  <section class="section" id="next">
+    <h2>اسکرول کنید تا شخصیت متلاشی و دوباره بازسازی شود</h2>
+    <p>
+      مقدار انحلال یک تابع خالص از موقعیت اسکرول است، بنابراین برگشت به بالا بدون هیچ کد اضافه‌ای
+      شخصیت را دوباره می‌سازد.
+    </p>
+  </section>
+
+  <section class="section">
+    <h2>پرفورمنس</h2>
+    <p>وقتی هیرو از دید خارج می‌شود حلقه‌ی رندر کاملاً متوقف می‌شود؛ مصرف GPU دقیقاً صفر است.</p>
+  </section>
+
+  <aside class="panel">
+    <h3>Tuning</h3>
+    <label>Size <input id="c-size" type="range" min="0.4" max="4" step="0.05" value="1.55" /></label>
+    <label>Drift <input id="c-drift" type="range" min="0" max="0.4" step="0.005" value="0.085" /></label>
+    <label>Bloom <input id="c-bloom" type="range" min="0" max="3" step="0.05" value="1.15" /></label>
+    <label>Push <input id="c-push" type="range" min="0" max="2" step="0.05" value="0.45" /></label>
+    <label>Dissolve <input id="c-dissolve" type="range" min="0" max="1" step="0.01" value="0" /></label>
+    <button id="c-replay">Replay formation</button>
+    <div>tier: <code id="c-tier">—</code> · fps: <code id="c-fps">—</code></div>
+  </aside>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

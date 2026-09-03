@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Particle Hero — پیش‌نمایش خروجی وردپرس</title>
+  <!-- Exactly what the plugin enqueues on the front end. -->
+  <link rel="stylesheet" href="../wordpress-plugin/particle-hero/assets/css/particle-hero.css" />
+  <style>
+    body { margin: 0; background: #01030a; color: #dce9ff; font-family: system-ui, Tahoma, sans-serif; }
+    .after { min-height: 100vh; padding: clamp(28px, 7vw, 100px); line-height: 2; }
+    .after h2 { font-size: clamp(1.5rem, 3vw, 2.4rem); }
+    .after p { max-width: 60ch; color: rgba(200, 222, 255, 0.6); }
+  </style>
+</head>
+<body>
+
+<!--
+  This block is a verbatim copy of what Particle_Hero_Renderer::render() emits.
+  Open this file to sanity check the shipped bundle without a WordPress install.
+-->
+<div class="particle-hero particle-hero--align-right"
+     style="--ph-height:100vh;--ph-height-mobile:620px;"
+     data-particle-hero='{"quality":"auto","seed":1337,"scale":1,"cameraDistance":7.2,"characterOffsetY":0.05,"transparent":false,"backgroundGlow":0.85,"pauseWhenOffscreen":true,"colors":{"deep":"#062a63","mid":"#2f7dff","hot":"#9ce7ff","core":"#ff7a1a","coreEdge":"#ffd08a","bgTop":"#050a1c","bgBottom":"#01030a","bgGlow":"#0a3a7a"},"formation":{"duration":5.2,"delay":0.25,"stagger":0.55,"arc":1.35},"motion":{"drift":0.085,"autoRotate":0.045,"sway":0.055},"pointer":{"enabled":true,"radius":1.5,"push":0.45,"parallax":0.28},"scroll":{"enabled":true,"distance":2.6,"parallax":0.35},"particles":{"size":1.55},"post":{"bloom":true,"bloomStrength":1.15,"exposure":1.18,"vignette":0.55}}'
+     data-particle-hero-eager>
+  <div class="particle-hero__content">
+    <h2 class="particle-hero__title">آینده، ذره به ذره ساخته می‌شود</h2>
+    <p class="particle-hero__subtitle">هیرو تعاملی سه‌بعدی، مستقیماً روی GPU — بدون مدل سنگین، بدون افت سرعت.</p>
+    <a class="particle-hero__cta" href="#after">شروع کنید</a>
+  </div>
+</div>
+
+<section class="after" id="after">
+  <h2>اسکرول کنید</h2>
+  <p>شخصیت به‌آرامی متلاشی می‌شود و با بازگشت به بالا دوباره ساخته می‌شود.</p>
+</section>
+
+<script defer src="../wordpress-plugin/particle-hero/assets/js/particle-hero.min.js"></script>
+</body>
+</html>
