@@ -492,7 +492,8 @@ export default async function leadRoutes(app: FastifyInstance) {
     const { async: runAsync = true, force } = z.object({ async: z.boolean().optional(), force: z.boolean().optional() }).parse(req.body ?? {});
 
     if (runAsync) {
-      const jobId = await enqueue('discover_website', { leadId: id, force });
+      // Chained: discovery decides whether an audit is even possible, then scoring runs.
+      const jobId = await enqueue('discover_website', { leadId: id, force, chain: { force } });
       if (jobId) return { queued: true, jobId };
     }
     const result = await discoverWebsiteForLead(id, { force });
@@ -504,8 +505,9 @@ export default async function leadRoutes(app: FastifyInstance) {
     const { async: runAsync = true, force } = z.object({ async: z.boolean().optional(), force: z.boolean().optional() }).parse(req.body ?? {});
 
     if (runAsync) {
-      const jobId = await enqueue('audit_website', { leadId: id, force });
-      await enqueue('calculate_score', { leadId: id, notifyIfHot: true }, { delay: 3000 });
+      // The audit job enqueues scoring when it finishes: a real crawl takes tens of
+      // seconds, so a fixed delay here would score the lead against stale data.
+      const jobId = await enqueue('audit_website', { leadId: id, force, chain: { force } });
       if (jobId) return { queued: true, jobId };
     }
     const result = await auditLeadWebsite(id, { force });
@@ -579,7 +581,7 @@ export default async function leadRoutes(app: FastifyInstance) {
         break;
       }
       case 'audit':
-        for (const leadId of body.leadIds) await enqueue('audit_website', { leadId });
+        for (const leadId of body.leadIds) await enqueue('audit_website', { leadId, chain: {} });
         break;
       case 'analyze':
         for (const leadId of body.leadIds) await enqueue('analyze_lead', { leadId });

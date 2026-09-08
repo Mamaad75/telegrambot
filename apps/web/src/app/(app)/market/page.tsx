@@ -81,6 +81,9 @@ export default function MarketPage() {
 
   const [tab, setTab] = useState('demand');
   const [city, setCity] = useState('');
+  // Demo market signals are excluded by default, exactly like demo leads, so seeded data
+  // can never be mistaken for real demand.
+  const [includeDemo, setIncludeDemo] = useState(false);
   const [overview, setOverview] = useState<Overview | null>(null);
   const [keywords, setKeywords] = useState<KeywordRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,8 +97,12 @@ export default function MarketPage() {
     setError(null);
     try {
       const [overviewData, keywordData] = await Promise.all([
-        api.get<Overview>('/api/market/overview', { city: city || undefined }),
-        api.get<{ items: KeywordRow[] }>('/api/market/keywords', { city: city || undefined, pageSize: 100 }),
+        api.get<Overview>('/api/market/overview', { city: city || undefined, includeDemo: includeDemo || undefined }),
+        api.get<{ items: KeywordRow[] }>('/api/market/keywords', {
+          city: city || undefined,
+          includeDemo: includeDemo || undefined,
+          pageSize: 100,
+        }),
       ]);
       setOverview(overviewData);
       setKeywords(keywordData.items);
@@ -104,7 +111,7 @@ export default function MarketPage() {
     } finally {
       setLoading(false);
     }
-  }, [city]);
+  }, [city, includeDemo]);
 
   useEffect(() => {
     void load();
@@ -130,6 +137,7 @@ export default function MarketPage() {
       const data = await api.get<{ items: Opportunity[] }>('/api/market/opportunities', {
         serviceKey,
         city: city || undefined,
+        includeDemo: includeDemo || undefined,
         limit: 30,
       });
       setOpportunities(data.items);
@@ -156,6 +164,10 @@ export default function MarketPage() {
                 </option>
               ))}
             </select>
+            <label className="flex items-center gap-1.5 text-xs text-muted">
+              <input type="checkbox" checked={includeDemo} onChange={(e) => setIncludeDemo(e.target.checked)} />
+              نمایش داده نمونه
+            </label>
             {session.can('market:import') && (
               <>
                 <button type="button" className="btn-ghost btn-sm" onClick={() => setImportOpen(true)}>

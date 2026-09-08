@@ -26,7 +26,9 @@ export default async function marketRoutes(app: FastifyInstance) {
 
     const signals = await prisma.marketSignal.findMany({
       where: { ...(query.city ? { city: query.city } : {}), ...(query.includeDemo ? {} : { isDemo: false }) },
-      orderBy: [{ score: 'desc' }],
+      // Signals with an actual score come first: Postgres would otherwise sort the
+      // NULL-scored "insufficient data" rows above the ones worth reading.
+      orderBy: [{ score: { sort: 'desc', nulls: 'last' } }],
       take: 100,
     });
 

@@ -11,7 +11,7 @@ import { notify, notifyHotLead } from '../services/notification-service';
 import { recalculateLead, regenerateSalesBrief } from '../services/scoring-service';
 import { syncKeywordProviders } from '../services/market-service';
 import { auditLeadWebsite, discoverWebsiteForLead } from '../services/website-service';
-import { QUEUE, type JobName, type JobPayloads, type QueueName } from './queues';
+import { QUEUE, enqueue, type JobName, type JobPayloads, type QueueName } from './queues';
 
 /**
  * Queue workers.
@@ -62,29 +62,50 @@ const handlers: { [N in JobName]: Handler<N> } = {
     return { leadId, possibleDuplicates: duplicates.map((d) => ({ id: d.lead.id, rule: d.rule })) };
   },
 
-  discover_website: async ({ leadId, force }) => {
+  discover_website: async ({ leadId, force, runId, chain }) => {
     const result = await discoverWebsiteForLead(leadId, { force });
+
+    if (chain) {
+      // A lead with no website has nothing to audit — that absence is already the
+      // strongest signal we have, so go straight to scoring.
+      if (result.url) {
+        await enqueue('audit_website', { leadId, force: chain.force, runId, chain });
+      } else {
+        await enqueue('calculate_score', { leadId, runId, notifyIfHot: true, chain });
+      }
+    }
+
     return { leadId, status: result.status, url: result.url };
   },
 
   // Crawling and auditing are the same operation for us: the crawl feeds the audit.
-  crawl_website: async ({ leadId, force }) => {
+  crawl_website: async ({ leadId, force, runId, chain }) => {
     const result = await auditLeadWebsite(leadId, { force });
+    if (chain) await enqueue('calculate_score', { leadId, runId, notifyIfHot: true, chain });
     return { leadId, auditId: result.audit?.id ?? null, skipped: result.skipped };
   },
 
-  audit_website: async ({ leadId, force }) => {
+  audit_website: async ({ leadId, force, runId, chain }) => {
     const result = await auditLeadWebsite(leadId, { force });
+    // Scoring runs only now that the crawl has actually finished.
+    if (chain) await enqueue('calculate_score', { leadId, runId, notifyIfHot: true, chain });
     return { leadId, auditId: result.audit?.id ?? null, skipped: result.skipped };
   },
 
-  calculate_score: async ({ leadId, runId, notifyIfHot }) => {
+  calculate_score: async ({ leadId, runId, notifyIfHot, chain }) => {
     const result = await recalculateLead(leadId, { regenerateBrief: true });
     if (!result) return { leadId, scored: false };
 
     if (notifyIfHot && result.score.temperature === 'HOT') {
       await notifyHotLead(leadId).catch(() => undefined);
     }
+
+    // The rules-based brief already exists at this point; AI only refines it, and only
+    // for leads that cleared the score threshold.
+    if (chain?.withAi) {
+      await enqueue('analyze_lead', { leadId, runId, force: chain.force });
+    }
+
     if (runId) await recordRunProgress(runId, leadId).catch(() => undefined);
 
     return { leadId, score: result.score.score, temperature: result.score.temperature };
@@ -266,6 +287,18 @@ export function startWorkers(): Worker[] {
     worker.on('failed', (job, err) => {
       // eslint-disable-next-line no-console
       console.error(`[worker:${queue}] job ${job?.name}#${job?.id} failed:`, err?.message);
+
+      // A job that has exhausted its retries breaks the chain, which would leave the
+      // campaign run waiting for a lead that will never arrive. Count it and move on, so
+      // the run can still reach a terminal state.
+      if (!job) return;
+      const attemptsAllowed = job.opts?.attempts ?? 1;
+      if (job.attemptsMade < attemptsAllowed) return;
+
+      const data = job.data as { runId?: string; leadId?: string } | undefined;
+      if (data?.runId && data?.leadId) {
+        void recordRunProgress(data.runId, data.leadId).catch(() => undefined);
+      }
     });
     worker.on('error', (err) => {
       // eslint-disable-next-line no-console

@@ -32,16 +32,27 @@ export type QueueName = (typeof QUEUE)[keyof typeof QUEUE];
 /*  Job payloads                                                               */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * When present, the job enqueues the next stage of the enrichment pipeline once it has
+ * finished. Chaining on completion rather than on a guessed delay is what keeps scoring
+ * from running against a crawl that has not finished yet — a real website audit takes
+ * tens of seconds, and no fixed delay is right for every site.
+ */
+export interface PipelineChain {
+  withAi?: boolean;
+  force?: boolean;
+}
+
 export interface JobPayloads {
   discover_businesses: { campaignId: string; runId: string };
   market_analysis: { city?: string | null; lookbackDays?: number; syncProviders?: boolean };
 
   normalize_lead: { leadId: string };
   deduplicate_lead: { leadId: string };
-  discover_website: { leadId: string; force?: boolean; runId?: string };
-  crawl_website: { leadId: string; force?: boolean; runId?: string };
-  audit_website: { leadId: string; force?: boolean; runId?: string };
-  calculate_score: { leadId: string; runId?: string; notifyIfHot?: boolean };
+  discover_website: { leadId: string; force?: boolean; runId?: string; chain?: PipelineChain };
+  crawl_website: { leadId: string; force?: boolean; runId?: string; chain?: PipelineChain };
+  audit_website: { leadId: string; force?: boolean; runId?: string; chain?: PipelineChain };
+  calculate_score: { leadId: string; runId?: string; notifyIfHot?: boolean; chain?: PipelineChain };
 
   analyze_lead: { leadId: string; force?: boolean; runId?: string };
   generate_sales_brief: { leadId: string; runId?: string };
@@ -128,22 +139,24 @@ export async function enqueue<N extends JobName>(
 }
 
 /**
- * Enqueue the standard enrichment chain for one lead.
- * Each step is a separate job so a failure in one does not lose the others.
+ * Start the enrichment pipeline for one lead.
+ *
+ * Only the first stage is enqueued; each stage enqueues the next when it completes, so a
+ * slow crawl can never be overtaken by the scoring job. Each stage is still a separate job
+ * with its own retry policy, so a failure in one does not lose the work already done.
+ *
+ * `delayMs` staggers the *start* of each lead's pipeline, which is what keeps a campaign
+ * from hitting one host — or one provider — all at once.
  */
 export async function enqueueLeadPipeline(
   leadId: string,
   opts: { runId?: string; withAi?: boolean; force?: boolean; delayMs?: number } = {},
 ): Promise<void> {
-  const delay = opts.delayMs ?? 0;
-  await enqueue('discover_website', { leadId, force: opts.force, runId: opts.runId }, { delay });
-  await enqueue('audit_website', { leadId, force: opts.force, runId: opts.runId }, { delay: delay + 2000 });
-  await enqueue('calculate_score', { leadId, runId: opts.runId, notifyIfHot: true }, { delay: delay + 4000 });
-  if (opts.withAi) {
-    await enqueue('analyze_lead', { leadId, runId: opts.runId }, { delay: delay + 6000 });
-  } else {
-    await enqueue('generate_sales_brief', { leadId, runId: opts.runId }, { delay: delay + 6000 });
-  }
+  await enqueue(
+    'discover_website',
+    { leadId, force: opts.force, runId: opts.runId, chain: { withAi: opts.withAi, force: opts.force } },
+    { delay: opts.delayMs ?? 0 },
+  );
 }
 
 export async function queueHealth(): Promise<Array<{ name: string; waiting: number; active: number; failed: number; delayed: number; completed: number }>> {

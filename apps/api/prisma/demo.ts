@@ -551,7 +551,7 @@ async function main() {
     },
   });
 
-  await prisma.campaignRun.create({
+  const run = await prisma.campaignRun.create({
     data: {
       campaignId: campaign.id,
       status: 'COMPLETED',
@@ -560,9 +560,6 @@ async function main() {
       collected: 26,
       unique: DEMO_LEADS.length,
       merged: 6,
-      qualified: 12,
-      rejected: 8,
-      errors: 0,
       startedAt: new Date(Date.now() - 3600_000),
       finishedAt: new Date(Date.now() - 3400_000),
       log: [
@@ -753,6 +750,30 @@ async function main() {
     })),
     { isDemo: true },
   );
+
+  // Fill in the run's temperature counters from the leads that were actually scored, so
+  // the campaign card cannot show "12 qualified, 0 hot" and look broken.
+  const temperatures = await prisma.lead.groupBy({
+    by: ['leadTemperature'],
+    where: { campaignId: campaign.id },
+    _count: true,
+  });
+  const countFor = (t: string) => temperatures.find((row) => row.leadTemperature === t)?._count ?? 0;
+  const qualified = await prisma.lead.count({
+    where: { campaignId: campaign.id, leadScore: { gte: campaign.minLeadScore ?? 0 } },
+  });
+
+  await prisma.campaignRun.update({
+    where: { id: run.id },
+    data: {
+      hot: countFor('HOT'),
+      warm: countFor('WARM'),
+      medium: countFor('MEDIUM'),
+      low: countFor('LOW'),
+      qualified,
+      rejected: Math.max(0, DEMO_LEADS.length - qualified),
+    },
+  });
 
   const signals = await computeMarketSignals({ city: 'اراک', includeDemo: true });
 

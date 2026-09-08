@@ -55,4 +55,18 @@ describe('robots.txt compliance', () => {
     const rules = parseRobots('', UA);
     expect(isPathAllowed(rules, '/anything')).toBe(true);
   });
+
+  it('ignores a block that names a different agent', () => {
+    const rules = parseRobots('User-agent: SomeOtherBot\nDisallow: /\n', UA);
+    expect(isPathAllowed(rules, '/anything')).toBe(true);
+  });
+
+  it('applies every directive in a group that lists several agents', () => {
+    const rules = parseRobots(
+      'User-agent: SomeOtherBot\nUser-agent: BaimarLeadIntelligenceBot\nDisallow: /private/\n',
+      UA,
+    );
+    expect(isPathAllowed(rules, '/private/x')).toBe(false);
+    expect(isPathAllowed(rules, '/public')).toBe(true);
+  });
 });

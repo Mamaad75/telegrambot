@@ -105,7 +105,11 @@ export async function exportLeadsCsv(where: Prisma.LeadWhereInput, opts: { limit
 }
 
 export async function exportMarketCsv(): Promise<string> {
-  const signals = await prisma.marketSignal.findMany({ where: { isDemo: false }, orderBy: [{ score: 'desc' }], take: 2000 });
+  const signals = await prisma.marketSignal.findMany({
+    where: { isDemo: false },
+    orderBy: [{ score: { sort: 'desc', nulls: 'last' } }],
+    take: 2000,
+  });
   const rows = signals.map((s) => ({
     service: s.serviceKey ?? '',
     city: s.city ?? '',

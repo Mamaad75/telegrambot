@@ -133,16 +133,25 @@ export async function fetchRobots(origin: string, userAgent: string): Promise<Ro
       maxBytes: 512_000,
       providerKey: 'website_crawler',
     });
+
     if (res.status === 401 || res.status === 403) {
+      // RFC 9309 classes 4xx as "unavailable" and permits crawling. We are deliberately
+      // stricter for 401/403 specifically: a site that gates even robots.txt behind
+      // authentication is signalling that anonymous clients are unwelcome.
+      rules = { ...EMPTY, blockAll: true, disallow: ['/'], fetched: true };
+    } else if (res.status >= 500) {
+      // RFC 9309 §2.3.1.4: an "unreachable" status means assume complete disallow.
       rules = { ...EMPTY, blockAll: true, disallow: ['/'], fetched: true };
     } else if (res.ok && res.body.trim()) {
       rules = parseRobots(res.body, userAgent);
     } else {
-      // 404 or empty: no restrictions published.
+      // 404, 410 or empty body: no restrictions published.
       rules = { ...EMPTY, fetched: true };
     }
   } catch {
-    // Network failure: treat as "no rules published" and rely on our own throttling.
+    // Network failure reaching robots.txt: treat as "no rules published" and rely on our
+    // own per-host throttling. Refusing to crawl on a transient DNS blip would make the
+    // audit unreliable in a way the user could not diagnose.
     rules = { ...EMPTY, fetched: false };
   }
 
