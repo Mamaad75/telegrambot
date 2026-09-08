@@ -2,6 +2,7 @@ import {
   BUSINESS_VALUE_LABELS,
   TEMPERATURE_LABELS,
   normalizeText,
+  toPersianDigits,
   type SalesBriefContent,
 } from '@baimar/shared';
 import type { AIAnalysis, Lead, Service, WebsiteAudit } from '@prisma/client';
@@ -71,6 +72,9 @@ export function buildSalesBrief(input: BriefInput): SalesBriefContent {
 }
 
 /* -------------------------------------------------------------------------- */
+
+/** Persian digits everywhere in generated copy, so the brief reads as one language. */
+const fa = (value: number | string): string => toPersianDigits(String(value));
 
 interface ObservedProblem {
   textFa: string;
@@ -173,7 +177,7 @@ function buildWhyContact(
   }
 
   if (primary) parts.push(`فرصت اصلی: ${primary.nameFa}`);
-  if (score) parts.push(`امتیاز سرنخ ${score.score} از ۱۰۰ (${TEMPERATURE_LABELS[score.temperature].fa})`);
+  if (score) parts.push(`امتیاز سرنخ ${fa(score.score)} از ۱۰۰ (${TEMPERATURE_LABELS[score.temperature].fa})`);
 
   return `${parts.join('. ')}.`;
 }
@@ -184,7 +188,7 @@ function describePresence(lead: Lead): string | null {
   else if (lead.websiteDomain) bits.push(`وب‌سایت: ${lead.websiteDomain}`);
   if (lead.instagramUrl) bits.push('اینستاگرام فعال');
   if (typeof lead.reviewCount === 'number' && lead.reviewCount > 0) {
-    bits.push(`${lead.reviewCount} نظر عمومی${lead.reviewRating ? ` با میانگین ${lead.reviewRating.toFixed(1)}` : ''}`);
+    bits.push(`${fa(lead.reviewCount)} نظر عمومی${lead.reviewRating ? ` با میانگین ${fa(lead.reviewRating.toFixed(1))}` : ''}`);
   }
   return bits.length ? bits.join('، ') : null;
 }
@@ -218,7 +222,7 @@ function buildOpenings(
     signals.ACTIVE_INSTAGRAM?.value
       ? 'صفحه اینستاگرام فعال شما'
       : typeof lead.reviewCount === 'number' && lead.reviewCount >= 20
-        ? `${lead.reviewCount} نظر ثبت‌شده مشتریان شما`
+        ? `${fa(lead.reviewCount)} نظر ثبت‌شده مشتریان شما`
         : null;
   if (asset && primary) {
     openings.push({
@@ -232,7 +236,7 @@ function buildOpenings(
     const weakest = weakestArea(audit);
     openings.push({
       style: 'AUDIT',
-      textFa: `سلام، از بایمر تماس می‌گیرم. ما یک بررسی فنی کوتاه روی وب‌سایت ${audit.finalUrl ?? lead.websiteDomain} انجام دادیم؛ امتیاز کلی ${audit.overallScore} از ۱۰۰ شد${weakest ? ` و ضعیف‌ترین بخش ${weakest} بود` : ''}. گزارش را رایگان برایتان می‌فرستم، اگر مایل باشید.`,
+      textFa: `سلام، از بایمر تماس می‌گیرم. ما یک بررسی فنی کوتاه روی وب‌سایت ${audit.finalUrl ?? lead.websiteDomain} انجام دادیم؛ امتیاز کلی ${fa(audit.overallScore)} از ۱۰۰ شد${weakest ? ` و ضعیف‌ترین بخش ${weakest} بود` : ''}. گزارش را رایگان برایتان می‌فرستم، اگر مایل باشید.`,
     });
   }
 

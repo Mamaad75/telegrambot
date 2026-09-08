@@ -62,7 +62,9 @@ export function normalizeText(input: string): string {
   return collapseWhitespace(
     normalizePersianLetters(normalizeDigits(input))
       .toLowerCase()
-      .replace(/[«»"'`؛,.\-_/\\()[\]{}!?:؟•|+*#@~^&=<>]/g, ' '),
+      // Includes Persian punctuation (، ؛ ؟ ٪ ٫ ٬ ـ) — without the Persian comma,
+      // "اراک،" and "اراک" compare as different tokens and address matching fails.
+      .replace(/[«»"'`،؛؟٪٫٬,.\-_/\\()[\]{}!?:•|+*#@~^&=<>]/g, ' '),
   );
 }
 

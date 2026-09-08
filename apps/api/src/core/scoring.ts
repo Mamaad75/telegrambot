@@ -1,4 +1,5 @@
 import {
+  toPersianDigits,
   DEFAULT_GROUP_CAPS,
   SCORING_SIGNAL_META,
   SIGNAL_GROUPS,
@@ -92,8 +93,8 @@ export function scoreLead(signals: SignalMap, config: ScoringConfig): ScoreResul
 
   const positives = contributions.filter((c) => c.points > 0).slice(0, 3).map((c) => c.labelFa);
   const summary = positives.length
-    ? `${score}/100 — ${positives.join('، ')}`
-    : `${score}/100 — سیگنال فروش قابل توجهی یافت نشد`;
+    ? `${toPersianDigits(String(score))}/۱۰۰ — ${positives.join('، ')}`
+    : `${toPersianDigits(String(score))}/۱۰۰ — سیگنال فروش قابل توجهی یافت نشد`;
 
   return {
     score,

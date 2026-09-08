@@ -1,0 +1,136 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Vazirmatn — SIL Open Font License 1.1, free for commercial use.
+ * Loaded from a CDN with a full system fallback stack, so the dashboard stays legible in
+ * Persian even on a machine with no outbound access.
+ */
+@import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
+
+:root {
+  --bg: 250 250 249;
+  --surface: 255 255 255;
+  --surface-2: 245 245 244;
+  --border: 231 229 228;
+  --fg: 28 25 23;
+  --muted: 87 83 78;
+  --subtle: 120 113 108;
+  --accent: 161 122 51;
+  --accent-fg: 255 255 255;
+  --hot: 220 38 38;
+  --warm: 217 119 6;
+  --medium: 37 99 235;
+  --cool: 120 113 108;
+  --success: 22 128 96;
+  --danger: 190 40 40;
+  --warning: 202 138 4;
+  --info: 30 100 190;
+}
+
+.dark {
+  --bg: 12 12 13;
+  --surface: 23 23 24;
+  --surface-2: 31 31 33;
+  --border: 47 47 50;
+  --fg: 243 242 240;
+  --muted: 168 165 160;
+  --subtle: 130 127 122;
+  --accent: 212 175 96;
+  --accent-fg: 24 20 12;
+  --hot: 248 113 113;
+  --warm: 251 191 36;
+  --medium: 96 165 250;
+  --cool: 148 145 140;
+  --success: 52 199 149;
+  --danger: 248 113 113;
+  --warning: 250 204 21;
+  --info: 96 165 250;
+}
+
+* {
+  border-color: rgb(var(--border));
+}
+
+html {
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  background-color: rgb(var(--bg));
+  color: rgb(var(--fg));
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Persian numerals read better with tabular figures in tables. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Thin, unobtrusive scrollbars that follow the theme. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--border));
+  border-radius: 999px;
+  border: 3px solid rgb(var(--bg));
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--subtle));
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-border bg-surface shadow-card;
+  }
+  .card-pad {
+    @apply p-5;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium
+           transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-accent text-accent-fg hover:brightness-110;
+  }
+  .btn-ghost {
+    @apply btn border border-border bg-transparent text-fg hover:bg-surface-2;
+  }
+  .btn-danger {
+    @apply btn bg-danger/10 text-danger hover:bg-danger/20;
+  }
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+  .input {
+    @apply w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-fg
+           placeholder:text-subtle focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/40;
+  }
+  .label {
+    @apply mb-1.5 block text-xs font-medium text-muted;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-xs font-medium;
+  }
+  .table-head {
+    @apply sticky top-0 z-10 bg-surface-2/95 text-xs font-medium text-muted backdrop-blur;
+  }
+  .skeleton {
+    @apply relative overflow-hidden rounded-lg bg-surface-2;
+  }
+  .skeleton::after {
+    content: '';
+    @apply absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-l from-transparent via-white/5 to-transparent;
+  }
+}

@@ -39,7 +39,6 @@ export async function buildApp(): Promise<FastifyInstance> {
     trustProxy: env.TRUST_PROXY,
     // Large CSV uploads arrive as JSON string bodies; 24 MB covers a very large sheet.
     bodyLimit: 24 * 1024 * 1024,
-    disableRequestLogging: env.NODE_ENV === 'production',
     genReqId: () => `req_${Math.random().toString(36).slice(2, 12)}`,
   });
 

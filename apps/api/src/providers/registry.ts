@@ -43,6 +43,24 @@ import type {
 
 let instances: AnyProvider[] | null = null;
 
+/**
+ * Additional adapters registered at runtime.
+ *
+ * Used by the end-to-end tests to inject a deterministic lead source, and available for
+ * future adapters that ship outside this file.
+ */
+let registered: AnyProvider[] = [];
+
+export function registerProvider(provider: AnyProvider): void {
+  registered = [...registered.filter((p) => p.descriptor.key !== provider.descriptor.key), provider];
+  instances = null;
+}
+
+export function unregisterProvider(key: string): void {
+  registered = registered.filter((p) => p.descriptor.key !== key);
+  instances = null;
+}
+
 function buildInstances(): AnyProvider[] {
   const e = loadEnv();
 
@@ -118,6 +136,8 @@ function buildInstances(): AnyProvider[] {
     new TelegramProvider(),
     new EmailProvider(),
     new InAppProvider(),
+
+    ...registered,
   ];
 }
 
@@ -129,6 +149,7 @@ export function allProviders(): AnyProvider[] {
 /** Test helper — forces adapters to be rebuilt from the current environment. */
 export function resetProviderRegistry(): void {
   instances = null;
+  registered = [];
 }
 
 export function findProvider(key: string): AnyProvider | null {
