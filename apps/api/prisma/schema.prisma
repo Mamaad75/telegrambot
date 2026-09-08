@@ -1,0 +1,1232 @@
+// Baimar Lead Intelligence — data model
+//
+// Design notes:
+//  * Every externally-sourced fact keeps a reference to where it came from
+//    (LeadSourceReference), so the UI can always answer "who says so?".
+//  * Derived numbers (scores) are stored with their contributing reasons, never bare.
+//  * Nullable is the default for anything a provider may not supply — the product rule is
+//    "show Unknown", never "invent a value".
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/**
+ * --------------------------------------------------------------------------
+ */
+/**
+ * Enums
+ */
+/**
+ * --------------------------------------------------------------------------
+ */
+
+enum Role {
+  ADMIN
+  SALES_MANAGER
+  SALESPERSON
+}
+
+enum WebsiteStatus {
+  UNKNOWN
+  NO_WEBSITE
+  NOT_VERIFIED
+  ACTIVE
+  PARKED
+  BROKEN
+  SOCIAL_ONLY
+}
+
+enum LeadTemperature {
+  LOW
+  MEDIUM
+  WARM
+  HOT
+}
+
+enum BusinessValueTier {
+  UNKNOWN
+  LOW
+  MEDIUM
+  HIGH
+  VERY_HIGH
+}
+
+enum ContactStatus {
+  NEW
+  RESEARCHED
+  READY_TO_CALL
+  CONTACTED
+  NO_ANSWER
+  CALLBACK
+  INTERESTED
+  MEETING
+  PROPOSAL
+  NEGOTIATION
+  WON
+  LOST
+  NOT_INTERESTED
+}
+
+enum CampaignStatus {
+  DRAFT
+  READY
+  RUNNING
+  PAUSED
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum RunStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum ProviderKind {
+  LEAD_SOURCE
+  SEARCH
+  BUSINESS_DATA
+  WEBSITE
+  AI
+  KEYWORD_INSIGHT
+  NOTIFICATION
+}
+
+enum ProviderState {
+  CONFIGURED
+  NOT_CONFIGURED
+  DISABLED
+  ERROR
+}
+
+enum WebsiteFilter {
+  ANY
+  NO_WEBSITE
+  HAS_WEBSITE
+}
+
+enum ActivityType {
+  CALL
+  NOTE
+  STATUS_CHANGE
+  ASSIGNMENT
+  EMAIL
+  MEETING
+  PROPOSAL_SENT
+  FOLLOW_UP
+  SYSTEM
+}
+
+enum CallOutcome {
+  ANSWERED
+  NO_ANSWER
+  BUSY
+  WRONG_NUMBER
+  CALLBACK_REQUESTED
+  NOT_INTERESTED
+  INTERESTED
+  MEETING_SET
+}
+
+enum TaskStatus {
+  OPEN
+  DONE
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum NotificationEvent {
+  HOT_LEAD
+  LEAD_ASSIGNED
+  FOLLOW_UP_DUE
+  CAMPAIGN_COMPLETED
+  AI_ANALYSIS_COMPLETED
+  PROVIDER_FAILURE
+  DAILY_SUMMARY
+}
+
+enum NotificationChannel {
+  IN_APP
+  TELEGRAM
+  EMAIL
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+enum MarketSignalStrength {
+  INSUFFICIENT_DATA
+  LOW
+  MEDIUM
+  HIGH
+  VERY_HIGH
+}
+
+enum KeywordSource {
+  GOOGLE_ADS
+  SEARCH_CONSOLE
+  MANUAL_IMPORT
+  SITE_ANALYTICS
+  PROVIDER
+}
+
+enum DataOrigin {
+  PUBLIC_BUSINESS_RESEARCH
+  FIRST_PARTY_BAIMAR
+  ADVERTISING_CAMPAIGN
+  AGGREGATE_SEARCH_SIGNAL
+  AI_INFERENCE
+  MANUAL_ENTRY
+}
+
+enum Confidence {
+  FACT
+  CALCULATED
+  ESTIMATED
+  AI_INSIGHT
+  UNKNOWN
+}
+
+enum ImportStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+/**
+ * --------------------------------------------------------------------------
+ */
+/**
+ * Identity & access
+ */
+/**
+ * --------------------------------------------------------------------------
+ */
+
+model User {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  name           String
+  passwordHash   String
+  role           Role      @default(SALESPERSON)
+  isActive       Boolean   @default(true)
+  phone          String?
+  telegramChatId String?
+  locale         String    @default("fa")
+  theme          String    @default("dark")
+  lastLoginAt    DateTime?
+  failedLogins   Int       @default(0)
+  lockedUntil    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  refreshTokens RefreshToken[]
+  assignedLeads Lead[]          @relation("LeadAssignee")
+  createdLeads  Lead[]          @relation("LeadCreator")
+  activities    SalesActivity[]
+  calls         Call[]
+  notes         Note[]
+  tasksAssigned Task[]          @relation("TaskAssignee")
+  tasksCreated  Task[]          @relation("TaskCreator")
+  followUps     FollowUp[]
+  campaigns     Campaign[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+  importBatches ImportBatch[]
+
+  @@index([role])
+  @@index([isActive])
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  userAgent String?
+  ip        String?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+/**
+ * --------------------------------------------------------------------------
+ */
+/**
+ * Leads
+ */
+/**
+ * --------------------------------------------------------------------------
+ */
+
+model Lead {
+  id                     String  @id @default(cuid())
+  businessName           String
+  normalizedBusinessName String
+  /// Order-insensitive token key used for fuzzy deduplication.
+  nameKey                String
+  businessType           String?
+  category               String?
+  subcategory            String?
+
+  country   String  @default("IR")
+  province  String?
+  city      String?
+  area      String?
+  address   String?
+  latitude  Float?
+  longitude Float?
+
+  /// Exactly as the source provided it — never overwritten.
+  originalPhone   String?
+  /// E.164 canonical form, null when the number could not be understood.
+  normalizedPhone String?
+  mobile          String?
+  extraPhones     String[] @default([])
+  email           String?
+
+  website          String?
+  websiteStatus    WebsiteStatus @default(UNKNOWN)
+  websiteDomain    String?
+  websiteCheckedAt DateTime?
+
+  googleMapsUrl String?
+  instagramUrl  String?
+  telegramUrl   String?
+  linkedinUrl   String?
+  whatsappUrl   String?
+  facebookUrl   String?
+  aparatUrl     String?
+
+  description  String?
+  services     String[] @default([])
+  products     String[] @default([])
+  openingHours Json?
+
+  reviewCount  Int?
+  reviewRating Float?
+
+  businessSizeEstimate String?
+  businessValueScore   Int?
+  businessValueTier    BusinessValueTier @default(UNKNOWN)
+  businessValueReasons Json?
+
+  leadScore       Int?
+  leadTemperature LeadTemperature?
+  scoreBreakdown  Json?
+  scoredAt        DateTime?
+
+  recommendedService String?
+  secondaryServices  String[] @default([])
+  salesAngle         String?
+  painPoints         String[] @default([])
+  opportunities      String[] @default([])
+
+  decisionMakerName String?
+  decisionMakerRole String?
+
+  contactStatus  ContactStatus @default(NEW)
+  assignedToId   String?
+  createdById    String?
+  lastContactAt  DateTime?
+  nextFollowUpAt DateTime?
+  wonAt          DateTime?
+  lostAt         DateTime?
+  lostReason     String?
+
+  campaignId String?
+  /// Demo rows are always flagged and are excluded from production views by default.
+  isDemo     Boolean @default(false)
+  isArchived Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignedTo User?     @relation("LeadAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdBy  User?     @relation("LeadCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  campaign   Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  sourceReferences LeadSourceReference[]
+  websiteAudits    WebsiteAudit[]
+  socialSignals    SocialSignal[]
+  businessSignals  BusinessSignal[]
+  scores           LeadScore[]
+  aiAnalyses       AIAnalysis[]
+  salesBriefs      SalesBrief[]
+  activities       SalesActivity[]
+  calls            Call[]
+  notes            Note[]
+  tasks            Task[]
+  followUps        FollowUp[]
+  notifications    Notification[]
+  opportunities_   Opportunity[]
+
+  @@index([normalizedPhone])
+  @@index([websiteDomain])
+  @@index([nameKey])
+  @@index([city])
+  @@index([province])
+  @@index([category])
+  @@index([leadScore])
+  @@index([leadTemperature])
+  @@index([contactStatus])
+  @@index([assignedToId])
+  @@index([campaignId])
+  @@index([nextFollowUpAt])
+  @@index([websiteStatus])
+  @@index([isDemo])
+  @@index([createdAt])
+}
+
+/// Catalogue of places leads can come from (one row per provider adapter, plus CSV/manual).
+model LeadSource {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  displayName String
+  kind        String
+  description String?
+  isEnabled   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  references LeadSourceReference[]
+}
+
+/// A single observation of a business from one source. Multiple references collapse into
+/// one Lead during deduplication, but each reference is retained for transparency.
+model LeadSourceReference {
+  id           String     @id @default(cuid())
+  leadId       String
+  leadSourceId String?
+  providerKey  String
+  externalId   String?
+  sourceUrl    String?
+  /// Which lead fields this source contributed, so the UI can attribute each value.
+  fields       String[]   @default([])
+  origin       DataOrigin @default(PUBLIC_BUSINESS_RESEARCH)
+  confidence   Confidence @default(FACT)
+  raw          Json?
+  fetchedAt    DateTime   @default(now())
+
+  lead       Lead        @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadSource LeadSource? @relation(fields: [leadSourceId], references: [id], onDelete: SetNull)
+
+  @@unique([providerKey, externalId, leadId])
+  @@index([leadId])
+  @@index([providerKey])
+}
+
+/**
+ * --------------------------------------------------------------------------
+ */
+/**
+ * Campaigns
+ */
+/**
+ * --------------------------------------------------------------------------
+ */
+
+model Campaign {
+  id            String         @id @default(cuid())
+  name          String
+  description   String?
+  status        CampaignStatus @default(DRAFT)
+  country       String         @default("IR")
+  province      String?
+  city          String?
+  area          String?
+  categories    String[]       @default([])
+  keywords      String[]       @default([])
+  providers     String[]       @default([])
+  websiteFilter WebsiteFilter  @default(ANY)
+  minLeadScore  Int?
+  maxResults    Int            @default(200)
+  /// When true the pipeline runs AI analysis on qualified leads (costs money).
+  enableAi      Boolean        @default(true)
+  /// Only leads at or above this score get AI analysis.
+  aiMinScore    Int            @default(65)
+  createdById   String?
+  isDemo        Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  lastRunAt     DateTime?
+
+  createdBy User?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  runs      CampaignRun[]
+  leads     Lead[]
+
+  @@index([status])
+  @@index([createdById])
+}
+
+model CampaignRun {
+  id         String    @id @default(cuid())
+  campaignId String
+  status     RunStatus @default(QUEUED)
+  stage      String?
+  progress   Int       @default(0)
+
+  collected Int @default(0)
+  unique    Int @default(0)
+  merged    Int @default(0)
+  qualified Int @default(0)
+  hot       Int @default(0)
+  warm      Int @default(0)
+  medium    Int @default(0)
+  low       Int @default(0)
+  rejected  Int @default(0)
+  errors    Int @default(0)
+
+  /// Per-stage log entries, appended as the pipeline advances.
+  log        Json?
+  error      String?
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@index([status])
+}
+
+/**
+ * --------------------------------------------------------------------------
+ */
+/**
+ * Website intelligence
+ */
+/**
+ * --------------------------------------------------------------------------
+ */
+
+model WebsiteAudit {
+  id            String   @id @default(cuid())
+  leadId        String
+  url           String
+  finalUrl      String?
+  reachable     Boolean  @default(false)
+  httpStatus    Int?
+  redirectChain String[] @default([])
+
+  /// Raw observations. Kept so scores can be recomputed without re-crawling.
+  raw Json
+
+  seoScore           Int?
+  mobileScore        Int?
+  performanceScore   Int?
+  uxScore            Int?
+  conversionScore    Int?
+  technicalScore     Int?
+  accessibilityScore Int?
+  overallScore       Int?
+
+  /// Measurement names that could not be taken (shown as "unavailable", never as zero).
+  unavailable  String[] @default([])
+  findings     Json?
+  technologies Json?
+
+  pagesCrawled Int  @default(0)
+  totalBytes   Int?
+  responseMs   Int?
+
+  hasSsl            Boolean?
+  hasViewport       Boolean?
+  hasContactForm    Boolean?
+  hasContactPage    Boolean?
+  hasAboutPage      Boolean?
+  hasBlog           Boolean?
+  hasEcommerce      Boolean?
+  hasBooking        Boolean?
+  hasAnalytics      Boolean?
+  hasFavicon        Boolean?
+  hasLogo           Boolean?
+  hasSitemap        Boolean?
+  hasRobots         Boolean?
+  hasStructuredData Boolean?
+  socialLinks       String[] @default([])
+  discoveredPhones  String[] @default([])
+  discoveredEmails  String[] @default([])
+
+  error     String?
+  createdAt DateTime @default(now())
+
+  lead  Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  pages WebsitePage[]
+
+  @@index([leadId])
+  @@index([createdAt])
+}
+
+model WebsitePage {
+  id               String   @id @default(cuid())
+  auditId          String
+  url              String
+  httpStatus       Int?
+  title            String?
+  metaDescription  String?
+  h1               String[] @default([])
+  h2               String[] @default([])
+  canonical        String?
+  wordCount        Int?
+  bytes            Int?
+  responseMs       Int?
+  hasForm          Boolean  @default(false)
+  imageCount       Int      @default(0)
+  imagesWithoutAlt Int      @default(0)
+  internalLinks    Int      @default(0)
+  externalLinks    Int      @default(0)
+  role             String?
+  fetchedAt        DateTime @default(now())
+
+  audit WebsiteAudit @relation(fields: [auditId], references: [id], onDelete: Cascade)
+
+  @@index([auditId])
+}
+
+model SocialSignal {
+  id         String     @id @default(cuid())
+  leadId     String
+  platform   String
+  handle     String?
+  url        String
+  /// Only publicly visible aggregate numbers, and only when the platform exposes them.
+  followers  Int?
+  postCount  Int?
+  lastPostAt DateTime?
+  isActive   Boolean?
+  confidence Confidence @default(FACT)
+  source     String?
+  sourceUrl  String?
+  observedAt DateTime   @default(now())
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@unique([leadId, platform, url])
+  @@index([leadId])
+}
+
+/// A single boolean/measured fact about the business used by the scoring engine.
+model BusinessSignal {
+  id         String     @id @default(cuid())
+  leadId     String
+  key        String
+  value      Boolean
+  weightHint Int?
+  evidence   String?
+  confidence Confidence @default(CALCULATED)
+  origin     DataOrigin @default(PUBLIC_BUSINESS_RESEARCH)
+  sourceUrl  String?
+  observedAt DateTime   @default(now())
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@unique([leadId, key])
+  @@index([leadId])
+  @@index([key])
+}
+
+/// Score history. The current value is denormalized onto Lead for fast filtering.
+model LeadScore {
+  id          String          @id @default(cuid())
+  leadId      String
+  score       Int
+  temperature LeadTemperature
+  breakdown   Json
+  configHash  String?
+  reason      String?
+  createdAt   DateTime        @default(now())
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@index([createdAt])
+}
+
+/**
+ * --------------------------------------------------------------------------
+ */
+/**
+ * AI & sales enablement
+ */
+/**
+ * --------------------------------------------------------------------------
+ */
+
+model AIAnalysis {
+  id       String @id @default(cuid())
+  leadId   String
+  provider String
+  model    String
+
+  businessSummary       String?
+  likelyCustomerProfile String?
+  mainDigitalProblems   String[] @default([])
+  businessOpportunities String[] @default([])
+  recommendedService    String?
+  secondaryServices     String[] @default([])
+  salesAngle            String?
+  whyContact            String?
+  recommendedOpening    String?
+  recommendedQuestions  String[] @default([])
+  likelyObjections      String[] @default([])
+  objectionStrategy     String?
+  recommendedNextStep   String?
+
+  /// Exactly what was sent to and returned by the model, for traceability.
+  inputSnapshot Json?
+  rawOutput     Json?
+  /// Hash of the input snapshot: identical input is served from cache, never re-billed.
+  inputHash     String?
+
+  promptTokens     Int?
+  completionTokens Int?
+  totalTokens      Int?
+  estimatedCostUsd Float?
+  latencyMs        Int?
+  error            String?
+  createdAt        DateTime @default(now())
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@index([inputHash])
+  @@index([createdAt])
+}
+
+model SalesBrief {
+  id           String   @id @default(cuid())
+  leadId       String
+  /// RULES when produced without AI, AI when fully generated, HYBRID when merged.
+  generatedBy  String   @default("RULES")
+  content      Json
+  aiAnalysisId String?
+  version      Int      @default(1)
+  isCurrent    Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@index([isCurrent])
+}
+
+model Service {
+  id                 String   @id @default(cuid())
+  key                String   @unique
+  nameFa             String
+  nameEn             String
+  descriptionFa      String?
+  basePriority       Int      @default(50)
+  isActive           Boolean  @default(true)
+  /// Deterministic rules evaluated by the opportunity engine.
+  rules              Json
+  salesAngles        String[] @default([])
+  commonObjections   String[] @default([])
+  objectionResponses String[] @default([])
+  discoveryQuestions String[] @default([])
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  opportunities Opportunity[]
+  keywords      KeywordService[]
+  marketSignals MarketSignal[]
+}
+
+/// Result of matching a lead against a service, combining lead signals and market demand.
+model Opportunity {
+  id          String   @id @default(cuid())
+  leadId      String
+  serviceId   String
+  serviceKey  String
+  score       Int
+  level       String
+  reasons     String[] @default([])
+  marketBoost Int      @default(0)
+  isPrimary   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  lead    Lead    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([leadId, serviceId])
+  @@index([leadId])
+  @@index([serviceKey])
+  @@index([score])
+}
+
+/**
+ * --------------------------------------------------------------------------
+ */
+/**
+ * CRM
+ */
+/**
+ * --------------------------------------------------------------------------
+ */
+
+model SalesActivity {
+  id        String       @id @default(cuid())
+  leadId    String
+  userId    String?
+  type      ActivityType
+  title     String
+  body      String?
+  metadata  Json?
+  createdAt DateTime     @default(now())
+
+  lead Lead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([leadId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Call {
+  id              String      @id @default(cuid())
+  leadId          String
+  userId          String?
+  phone           String?
+  outcome         CallOutcome
+  durationSeconds Int?
+  notes           String?
+  nextActionAt    DateTime?
+  createdAt       DateTime    @default(now())
+
+  lead Lead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([leadId])
+  @@index([createdAt])
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  leadId    String
+  userId    String?
+  body      String
+  isPinned  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lead Lead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([leadId])
+}
+
+model Task {
+  id           String       @id @default(cuid())
+  leadId       String?
+  title        String
+  description  String?
+  status       TaskStatus   @default(OPEN)
+  priority     TaskPriority @default(NORMAL)
+  dueAt        DateTime?
+  completedAt  DateTime?
+  assignedToId String?
+  createdById  String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  lead       Lead? @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  assignedTo User? @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdBy  User? @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([leadId])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([dueAt])
+}
+
+model FollowUp {
+  id             String    @id @default(cuid())
+  leadId         String
+  userId         String?
+  kind           String
+  dueAt          DateTime
+  completedAt    DateTime?
+  notes          String?
+  reminderSentAt DateTime?
+  createdAt      DateTime  @default(now())
+
+  lead Lead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([leadId])
+  @@index([dueAt])
+  @@index([completedAt])
+}
+
+/**
+ * --------------------------------------------------------------------------
+ */
+/**
+ * Market & search intent intelligence
+ */
+/**
+ * --------------------------------------------------------------------------
+ */
+
+/// A keyword we track. Metrics live on KeywordSignal so several sources can coexist.
+model Keyword {
+  id                String   @id @default(cuid())
+  keyword           String
+  normalizedKeyword String
+  language          String?  @default("fa")
+  isActive          Boolean  @default(true)
+  /// Demo rows are excluded from the market dashboard unless explicitly requested.
+  isDemo            Boolean  @default(false)
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  signals   KeywordSignal[]
+  trends    KeywordTrend[]
+  locations KeywordLocation[]
+  services  KeywordService[]
+
+  @@unique([normalizedKeyword, language])
+  @@index([normalizedKeyword])
+}
+
+/// One metric observation for a keyword, from one source, for one day/period.
+/// Every metric is nullable: no provider supplies all of them.
+model KeywordSignal {
+  id         String        @id @default(cuid())
+  keywordId  String
+  source     KeywordSource
+  sourceUrl  String?
+  origin     DataOrigin    @default(AGGREGATE_SEARCH_SIGNAL)
+  confidence Confidence    @default(FACT)
+
+  city     String?
+  province String?
+  country  String? @default("IR")
+
+  searchVolume     Int?
+  competition      String?
+  competitionIndex Int?
+  trend            String?
+  clicks           Int?
+  impressions      Int?
+  conversions      Float?
+  costMicros       BigInt?
+  ctr              Float?
+  averagePosition  Float?
+
+  date          DateTime?
+  periodStart   DateTime?
+  periodEnd     DateTime?
+  importBatchId String?
+  isDemo        Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+
+  keyword Keyword @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+
+  @@index([keywordId])
+  @@index([source])
+  @@index([city])
+  @@index([date])
+}
+
+model KeywordTrend {
+  id        String        @id @default(cuid())
+  keywordId String
+  period    String
+  value     Float
+  direction String?
+  source    KeywordSource
+  createdAt DateTime      @default(now())
+
+  keyword Keyword @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+
+  @@unique([keywordId, period, source])
+  @@index([keywordId])
+}
+
+model KeywordLocation {
+  id        String  @id @default(cuid())
+  keywordId String
+  city      String?
+  province  String?
+  country   String  @default("IR")
+
+  keyword Keyword @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+
+  @@unique([keywordId, city, province, country])
+  @@index([city])
+}
+
+model KeywordService {
+  id         String @id @default(cuid())
+  keywordId  String
+  serviceId  String
+  serviceKey String
+  weight     Float  @default(1)
+
+  keyword Keyword @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([keywordId, serviceId])
+  @@index([serviceKey])
+}
+
+/// Search terms that actually triggered Baimar's own ads, or that appear in
+/// Search Console for Baimar's own properties. First-party / advertising data only.
+model SearchTerm {
+  id               String        @id @default(cuid())
+  term             String
+  normalizedTerm   String
+  source           KeywordSource
+  origin           DataOrigin    @default(ADVERTISING_CAMPAIGN)
+  campaignName     String?
+  adGroupName      String?
+  matchType        String?
+  city             String?
+  province         String?
+  country          String?       @default("IR")
+  clicks           Int?
+  impressions      Int?
+  conversions      Float?
+  costMicros       BigInt?
+  ctr              Float?
+  averagePosition  Float?
+  averageCpcMicros BigInt?
+  date             DateTime?
+  periodStart      DateTime?
+  periodEnd        DateTime?
+  serviceKey       String?
+  importBatchId    String?
+  isDemo           Boolean       @default(false)
+  createdAt        DateTime      @default(now())
+
+  @@index([normalizedTerm])
+  @@index([source])
+  @@index([date])
+  @@index([serviceKey])
+  @@index([city])
+}
+
+/// Aggregated demand signal per service (and optionally per city) over a period.
+/// This is what the Market Demand dashboard renders.
+model MarketSignal {
+  id         String  @id @default(cuid())
+  serviceId  String?
+  serviceKey String?
+  city       String?
+  province   String?
+  country    String  @default("IR")
+
+  strength   MarketSignalStrength @default(INSUFFICIENT_DATA)
+  score      Float?
+  basis      String
+  confidence Confidence           @default(CALCULATED)
+  sources    KeywordSource[]      @default([])
+  sampleSize Int                  @default(0)
+
+  totalClicks      Int?
+  totalImpressions Int?
+  totalConversions Float?
+  totalCostMicros  BigInt?
+  averageVolume    Float?
+
+  periodStart DateTime?
+  periodEnd   DateTime?
+  isDemo      Boolean   @default(false)
+  computedAt  DateTime  @default(now())
+
+  service Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  @@unique([serviceKey, city, periodStart, periodEnd])
+  @@index([serviceKey])
+  @@index([city])
+  @@index([strength])
+}
+
+/**
+ * --------------------------------------------------------------------------
+ */
+/**
+ * Providers, jobs, settings, observability
+ */
+/**
+ * --------------------------------------------------------------------------
+ */
+
+model Provider {
+  id          String        @id @default(cuid())
+  key         String        @unique
+  kind        ProviderKind
+  displayName String
+  description String?
+  enabled     Boolean       @default(false)
+  state       ProviderState @default(NOT_CONFIGURED)
+  /// Non-secret settings. Secrets are stored encrypted in `secrets` and never returned.
+  config      Json?
+  secrets     Json?
+  priority    Int           @default(100)
+
+  rateLimitPerMinute Int?
+  rateLimitPerHour   Int?
+  rateLimitPerDay    Int?
+
+  lastError   String?
+  lastErrorAt DateTime?
+  lastUsedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  usage ProviderUsage[]
+
+  @@index([kind])
+  @@index([enabled])
+}
+
+/// Daily rollup of provider consumption, used by the cost dashboard.
+model ProviderUsage {
+  id               String       @id @default(cuid())
+  providerId       String?
+  providerKey      String
+  kind             ProviderKind
+  day              DateTime
+  requests         Int          @default(0)
+  failures         Int          @default(0)
+  promptTokens     Int          @default(0)
+  completionTokens Int          @default(0)
+  totalTokens      Int          @default(0)
+  estimatedCostUsd Float        @default(0)
+  bytesFetched     BigInt       @default(0)
+  updatedAt        DateTime     @updatedAt
+  createdAt        DateTime     @default(now())
+
+  provider Provider? @relation(fields: [providerId], references: [id], onDelete: SetNull)
+
+  @@unique([providerKey, day])
+  @@index([day])
+  @@index([kind])
+}
+
+model Notification {
+  id        String              @id @default(cuid())
+  userId    String?
+  leadId    String?
+  event     NotificationEvent
+  channel   NotificationChannel @default(IN_APP)
+  status    NotificationStatus  @default(PENDING)
+  title     String
+  body      String?
+  payload   Json?
+  readAt    DateTime?
+  sentAt    DateTime?
+  error     String?
+  createdAt DateTime            @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lead Lead? @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([readAt])
+  @@index([event])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  actorEmail String?
+  action     String
+  entityType String?
+  entityId   String?
+  before     Json?
+  after      Json?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+model SystemSetting {
+  key         String   @id
+  value       Json
+  description String?
+  /// Secret settings are never included in API responses.
+  isSecret    Boolean  @default(false)
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+}
+
+model ImportBatch {
+  id            String       @id @default(cuid())
+  kind          String
+  filename      String?
+  status        ImportStatus @default(PENDING)
+  totalRows     Int          @default(0)
+  importedRows  Int          @default(0)
+  mergedRows    Int          @default(0)
+  skippedRows   Int          @default(0)
+  errorRows     Int          @default(0)
+  columnMapping Json?
+  errors        Json?
+  createdById   String?
+  isDemo        Boolean      @default(false)
+  createdAt     DateTime     @default(now())
+  finishedAt    DateTime?
+
+  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([createdById])
+  @@index([status])
+}
+
+/// Structured log of every background job, so failures are visible in the admin UI.
+model JobLog {
+  id         String    @id @default(cuid())
+  jobName    String
+  jobId      String?
+  queue      String
+  status     String
+  attempt    Int       @default(1)
+  payload    Json?
+  result     Json?
+  error      String?
+  durationMs Int?
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  @@index([jobName])
+  @@index([status])
+  @@index([startedAt])
+}

@@ -1,0 +1,36 @@
+{
+  "name": "baimar-lead-intelligence",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Baimar Lead Intelligence — Lead, Market and Sales Intelligence platform",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "scripts": {
+    "build": "npm run build -w @baimar/shared && npm run build -w @baimar/api && npm run build -w @baimar/web",
+    "build:api": "npm run build -w @baimar/shared && npm run build -w @baimar/api",
+    "build:web": "npm run build -w @baimar/shared && npm run build -w @baimar/web",
+    "dev": "concurrently -n api,worker,web -c blue,magenta,green \"npm:dev:api\" \"npm:dev:worker\" \"npm:dev:web\"",
+    "dev:api": "npm run dev -w @baimar/api",
+    "dev:worker": "npm run dev:worker -w @baimar/api",
+    "dev:web": "npm run dev -w @baimar/web",
+    "db:generate": "npm run db:generate -w @baimar/api",
+    "db:migrate": "npm run db:migrate -w @baimar/api",
+    "db:deploy": "npm run db:deploy -w @baimar/api",
+    "db:seed": "npm run db:seed -w @baimar/api",
+    "db:demo": "npm run db:demo -w @baimar/api",
+    "db:reset": "npm run db:reset -w @baimar/api",
+    "test": "npm run test -w @baimar/api",
+    "test:e2e": "npm run test:e2e -w @baimar/api",
+    "typecheck": "npm run typecheck -w @baimar/shared && npm run typecheck -w @baimar/api && npm run typecheck -w @baimar/web",
+    "lint": "npm run typecheck"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "^5.7.3"
+  }
+}
