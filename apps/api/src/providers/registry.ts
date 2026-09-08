@@ -318,6 +318,12 @@ export async function callProvider<T>(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await recordProviderFailure(d.key, d.kind, message);
+
+    // Escalate to the administrators, at most once an hour per provider, so a silently
+    // broken integration is noticed rather than discovered weeks later.
+    const { notifyProviderFailure } = await import('../services/notification-service');
+    await notifyProviderFailure(d.key, `${d.displayName}: ${message}`).catch(() => undefined);
+
     if (err instanceof ProviderError) throw err;
     throw new ProviderError(d.key, message, { retryable: true });
   }

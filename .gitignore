@@ -141,3 +141,7 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Redis persistence files, if a local redis-server is started from the repo root
+dump.rdb
+**/dump.rdb

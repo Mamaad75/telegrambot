@@ -1,0 +1,146 @@
+# ---------------------------------------------------------------------------
+# Baimar Lead Intelligence — production stack
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Differences from the development stack:
+#   * a dedicated worker container, so a long crawl never competes with an HTTP
+#     request for CPU;
+#   * Nginx terminates TLS and is the only exposed port;
+#   * Postgres and Redis are not published to the host;
+#   * memory limits sized for a 2 CPU / 4 GB VPS.
+# ---------------------------------------------------------------------------
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-baimar}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB:-baimar}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy noeviction
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          memory: 320m
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      API_PORT: 4000
+      API_HOST: 0.0.0.0
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-baimar}?schema=public
+      REDIS_URL: redis://redis:6379
+      TRUST_PROXY: 'true'
+      # Workers run in their own container.
+      RUN_WORKERS_IN_API: 'false'
+    env_file:
+      - .env
+    expose:
+      - '4000'
+    deploy:
+      resources:
+        limits:
+          memory: 768m
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: always
+    command: ['node', 'apps/api/dist/worker.js']
+    depends_on:
+      api:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-baimar}?schema=public
+      REDIS_URL: redis://redis:6379
+      # The API container already ran them.
+      RUN_MIGRATIONS: 'false'
+      RUN_SEED: 'false'
+    env_file:
+      - .env
+    deploy:
+      resources:
+        limits:
+          memory: 768m
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?set NEXT_PUBLIC_API_URL to the public API URL}
+    restart: always
+    depends_on:
+      - api
+    expose:
+      - '3000'
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: always
+    depends_on:
+      - web
+      - api
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+      - nginx-cache:/var/cache/nginx
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+
+volumes:
+  postgres-data:
+  redis-data:
+  nginx-cache:

@@ -4,6 +4,7 @@ import { prisma } from './lib/prisma';
 import { syncProviders } from './providers/registry';
 import { closeQueues } from './queue/queues';
 import { startWorkers, stopWorkers } from './queue/worker';
+import { startSchedules, stopSchedules } from './schedules';
 import { seedDefaultsIfEmpty } from './bootstrap';
 
 /**
@@ -31,7 +32,10 @@ async function main(): Promise<void> {
 
   if (env.RUN_WORKERS_IN_API) {
     startWorkers();
-    app.log.info('queue workers started in the API process');
+    // The periodic tasks live with the workers: whichever process runs the queue also
+    // runs follow-up reminders, the daily summary and market re-aggregation.
+    startSchedules();
+    app.log.info('queue workers and scheduled tasks started in the API process');
   }
 
   await app.listen({ port: env.API_PORT, host: env.API_HOST });
@@ -41,6 +45,7 @@ async function main(): Promise<void> {
     app.log.info(`${signal} received, shutting down`);
     try {
       await app.close();
+      stopSchedules();
       await stopWorkers();
       await closeQueues();
       await prisma.$disconnect();
