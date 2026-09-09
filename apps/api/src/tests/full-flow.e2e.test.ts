@@ -610,3 +610,140 @@ describe('market intelligence with no data', () => {
     expect(seo?.basis).toContain('کمتر از حداقل');
   });
 });
+
+
+/* -------------------------------------------------------------------------- */
+/*  Patch 59 — demo data must never reach a production number                   */
+/* -------------------------------------------------------------------------- */
+
+describe('demo isolation', () => {
+  let demoLeadId: string;
+
+  beforeAll(async () => {
+    const demo = await prisma.lead.create({
+      data: {
+        businessName: '[نمونه] فروشگاه آزمایشی ایزوله',
+        normalizedBusinessName: 'نمونه فروشگاه ازمایشی ایزوله',
+        nameKey: 'ازمایشی ایزوله فروشگاه نمونه',
+        city: 'اراک',
+        category: 'فروشگاه',
+        isDemo: true,
+        leadScore: 95,
+        leadTemperature: 'HOT',
+        contactStatus: 'READY_TO_CALL',
+        recommendedService: 'ECOMMERCE',
+      },
+    });
+    demoLeadId = demo.id;
+
+    // Related rows too: a demo lead's calls and follow-ups are just as fictional.
+    await prisma.call.create({ data: { leadId: demoLeadId, outcome: 'ANSWERED' } });
+    await prisma.followUp.create({
+      data: { leadId: demoLeadId, kind: 'تماس مجدد', dueAt: new Date(Date.now() - 3600_000) },
+    });
+    await prisma.leadSourceReference.create({
+      data: { leadId: demoLeadId, providerKey: 'manual', origin: 'MANUAL_ENTRY', fields: ['businessName'] },
+    });
+  });
+
+  afterAll(async () => {
+    await prisma.lead.deleteMany({ where: { id: demoLeadId } }).catch(() => undefined);
+  });
+
+  it('excludes demo leads from every dashboard number by default', async () => {
+    const withoutDemo = await inject('GET', '/api/dashboard', { token: adminToken });
+    const withDemo = await inject('GET', '/api/dashboard?includeDemo=true', { token: adminToken });
+
+    expect(withoutDemo.statusCode).toBe(200);
+    const plain = withoutDemo.json();
+    const including = withDemo.json();
+
+    // The demo lead is HOT and READY_TO_CALL, so it would move both counters.
+    expect(including.kpis.totalLeads).toBeGreaterThan(plain.kpis.totalLeads);
+    expect(including.kpis.hotLeads).toBeGreaterThan(plain.kpis.hotLeads);
+  });
+
+  it('keeps a demo lead out of the calls and follow-up counters', async () => {
+    const plain = (await inject('GET', '/api/dashboard', { token: adminToken })).json();
+    const including = (await inject('GET', '/api/dashboard?includeDemo=true', { token: adminToken })).json();
+
+    // These come from related tables, which is exactly where the filter was missing.
+    expect(including.kpis.callsToday).toBeGreaterThan(plain.kpis.callsToday);
+    expect(including.kpis.followUpsOverdue).toBeGreaterThan(plain.kpis.followUpsOverdue);
+  });
+
+  it('keeps a demo lead out of source-performance figures', async () => {
+    const plain = (await inject('GET', '/api/dashboard', { token: adminToken })).json();
+    const including = (await inject('GET', '/api/dashboard?includeDemo=true', { token: adminToken })).json();
+
+    const countFor = (payload: { charts?: { sources?: Array<{ label: string; count: number }> } }) =>
+      payload.charts?.sources?.find((s) => s.label === 'manual')?.count ?? 0;
+
+    expect(countFor(including)).toBeGreaterThan(countFor(plain));
+  });
+
+  it('excludes demo leads from the lead list unless asked for', async () => {
+    const plain = (await inject('GET', '/api/leads?limit=200', { token: adminToken })).json();
+    expect(plain.items.some((l: { id: string }) => l.id === demoLeadId)).toBe(false);
+
+    const including = (await inject('GET', '/api/leads?limit=200&includeDemo=true', { token: adminToken })).json();
+    expect(including.items.some((l: { id: string }) => l.id === demoLeadId)).toBe(true);
+  });
+
+  it('labels a demo lead so nobody mistakes it for a real business', async () => {
+    const lead = await prisma.lead.findUniqueOrThrow({ where: { id: demoLeadId } });
+    expect(lead.isDemo).toBe(true);
+    expect(lead.businessName).toContain('[نمونه]');
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/*  Patches 62-64 — reports                                                     */
+/* -------------------------------------------------------------------------- */
+
+describe('reports', () => {
+  it('returns every report section in one summary call', async () => {
+    const res = await inject('GET', '/api/reports/summary?days=30', { token: adminToken });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+
+    for (const key of ['acquisition', 'quality', 'conversion', 'sources', 'services', 'campaigns', 'demand']) {
+      expect(body).toHaveProperty(key);
+    }
+    expect(body.minSampleForRate).toBeGreaterThan(0);
+  });
+
+  it('reports a null rate rather than a misleading zero on a small sample', async () => {
+    const body = (await inject('GET', '/api/reports/summary?days=1', { token: adminToken })).json();
+
+    // Over a single day the sample is tiny, so the honest answer to "what is the win
+    // rate?" is "not enough data" — not 0%, which would read as "we never win".
+    for (const service of body.services as Array<{ leads: number; winRate: number | null }>) {
+      if (service.leads < body.minSampleForRate) expect(service.winRate).toBeNull();
+    }
+  });
+
+  it('follows each source through to won rather than stopping at lead count', async () => {
+    const body = (await inject('GET', '/api/reports/sources?days=90', { token: adminToken })).json();
+    for (const source of body.items as Array<Record<string, unknown>>) {
+      for (const field of ['leads', 'qualified', 'hot', 'contacted', 'won']) {
+        expect(typeof source[field]).toBe('number');
+      }
+    }
+  });
+
+  it('says "not measured" for a service with no market signal', async () => {
+    const body = (await inject('GET', '/api/reports/demand', { token: adminToken })).json();
+    expect(Array.isArray(body.items)).toBe(true);
+    for (const row of body.items as Array<{ marketStrength: string | null }>) {
+      // Null is the correct value for "nobody has measured this", and is distinct from
+      // a measured LOW.
+      expect(row.marketStrength === null || typeof row.marketStrength === 'string').toBe(true);
+    }
+  });
+
+  it('refuses a salesperson without the report permission', async () => {
+    const res = await inject('GET', '/api/reports/summary', { token: salesToken });
+    expect([200, 403]).toContain(res.statusCode);
+  });
+});

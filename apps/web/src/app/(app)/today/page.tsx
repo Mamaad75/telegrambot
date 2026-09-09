@@ -16,7 +16,17 @@ interface TodayResponse {
     notes: string | null;
     lead: { id: string; businessName: string; city: string | null; normalizedPhone: string | null; leadScore: number | null; recommendedService: string | null };
   }>;
+  /** Follow-ups already past their due time — a promise that has been broken. */
+  overdue: TodayResponse['dueFollowUps'];
+  /** Follow-ups due later today. */
+  today: TodayResponse['dueFollowUps'];
+  /** Due within the next day, but after today ends. */
+  upcoming: TodayResponse['dueFollowUps'];
+  overdueCount: number;
   overdueTasks: Array<{ id: string; title: string; dueAt: string | null; lead: { id: string; businessName: string } | null }>;
+  meetingsToday: Array<{ id: string; businessName: string; city: string | null; normalizedPhone: string | null; nextFollowUpAt: string | null }>;
+  newLeads: Array<{ id: string; businessName: string; city: string | null; leadScore: number | null; leadTemperature: string | null; recommendedService: string | null }>;
+  recentlyAssigned: Array<{ id: string; businessName: string; city: string | null; leadScore: number | null; leadTemperature: string | null; normalizedPhone: string | null }>;
   readyToCall: Array<{
     id: string;
     businessName: string;
@@ -64,12 +74,42 @@ export default function TodayPage() {
   if (error) return <ErrorNote message={error} onRetry={load} />;
   if (!data) return null;
 
-  const nothingToDo = !data.dueFollowUps.length && !data.overdueTasks.length && !data.readyToCall.length;
+  const nothingToDo =
+    !data.dueFollowUps.length &&
+    !data.overdueTasks.length &&
+    !data.readyToCall.length &&
+    !data.meetingsToday?.length &&
+    !data.newLeads?.length;
 
   return (
     <>
       {toast.node}
       <PageHeader title="کارهای امروز" description="پیگیری‌های سررسیدشده، کارهای عقب‌افتاده و سرنخ‌هایی که آماده تماس هستند." />
+
+      {/* Priority strip: overdue first, because a broken promise costs more than a
+          missed opportunity. */}
+      {!nothingToDo && (
+        <div className="mb-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+          <div className={`rounded-xl border p-3 ${(data.overdueCount ?? 0) > 0 ? 'border-hot/40 bg-hot/5' : 'border-border bg-surface-2'}`}>
+            <p className="text-[11px] text-subtle">عقب‌افتاده</p>
+            <p className={`tnum mt-0.5 text-xl font-semibold ${(data.overdueCount ?? 0) > 0 ? 'text-hot' : ''}`}>
+              {fa(data.overdueCount ?? 0)}
+            </p>
+          </div>
+          <div className="rounded-xl border border-border bg-surface-2 p-3">
+            <p className="text-[11px] text-subtle">پیگیری امروز</p>
+            <p className="tnum mt-0.5 text-xl font-semibold">{fa(data.today?.length ?? 0)}</p>
+          </div>
+          <div className="rounded-xl border border-border bg-surface-2 p-3">
+            <p className="text-[11px] text-subtle">جلسه امروز</p>
+            <p className="tnum mt-0.5 text-xl font-semibold">{fa(data.meetingsToday?.length ?? 0)}</p>
+          </div>
+          <div className="rounded-xl border border-border bg-surface-2 p-3">
+            <p className="text-[11px] text-subtle">سرنخ جدید امروز</p>
+            <p className="tnum mt-0.5 text-xl font-semibold">{fa(data.newLeads?.length ?? 0)}</p>
+          </div>
+        </div>
+      )}
 
       {nothingToDo ? (
         <Card>
@@ -123,6 +163,60 @@ export default function TodayPage() {
                 </ul>
               )}
             </Card>
+
+            {(data.meetingsToday?.length ?? 0) > 0 && (
+              <Card title="جلسه‌های امروز" subtitle="قرارهایی که برای امروز تنظیم شده‌اند" padded={false}>
+                <ul className="divide-y divide-border">
+                  {data.meetingsToday.map((lead) => (
+                    <li key={lead.id} className="flex items-center justify-between gap-3 px-5 py-3">
+                      <div className="min-w-0">
+                        <Link href={`/leads/${lead.id}`} className="text-sm font-medium hover:text-accent">
+                          {lead.businessName}
+                        </Link>
+                        <p className="mt-0.5 text-[11px] text-subtle">
+                          {lead.city ?? '—'}
+                          {lead.nextFollowUpAt && <span> • {faDate(lead.nextFollowUpAt)}</span>}
+                        </p>
+                      </div>
+                      {lead.normalizedPhone && (
+                        <a href={`tel:${lead.normalizedPhone}`} className="btn-ghost btn-sm shrink-0" dir="ltr">
+                          {phone(lead.normalizedPhone)}
+                        </a>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            )}
+
+            {(data.recentlyAssigned?.length ?? 0) > 0 && (
+              <Card
+                title="تازه به شما واگذار شده"
+                subtitle="سرنخ‌هایی که در دو روز گذشته به شما سپرده شده و هنوز تماسی نگرفته‌اید"
+                padded={false}
+              >
+                <ul className="divide-y divide-border">
+                  {data.recentlyAssigned.map((lead) => (
+                    <li key={lead.id} className="flex items-center justify-between gap-3 px-5 py-3">
+                      <div className="min-w-0">
+                        <Link href={`/leads/${lead.id}`} className="text-sm font-medium hover:text-accent">
+                          {lead.businessName}
+                        </Link>
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <TemperatureBadge temperature={lead.leadTemperature as never} />
+                          <span className="text-[11px] text-subtle">{lead.city ?? '—'}</span>
+                        </div>
+                      </div>
+                      {lead.normalizedPhone && (
+                        <a href={`tel:${lead.normalizedPhone}`} className="btn-ghost btn-sm shrink-0" dir="ltr">
+                          {phone(lead.normalizedPhone)}
+                        </a>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            )}
 
             {data.overdueTasks.length > 0 && (
               <Card title="کارهای عقب‌افتاده" padded={false}>

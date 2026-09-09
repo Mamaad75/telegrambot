@@ -127,6 +127,95 @@ export function AuditTab({ data }: { data: LeadDetail }) {
           )}
         </Card>
 
+        {/*
+          Browser-only measurements.
+
+          This card exists to make the difference between "measured and good" and "not
+          measured at all" impossible to miss. When the browser layer is off — which is
+          the default on a small VPS — every value here reads "اندازه‌گیری نشد", and the
+          reason says why. Nothing is ever estimated from the HTTP audit to fill a gap.
+        */}
+        <Card
+          title="سنجه‌های مرورگر واقعی"
+          subtitle={
+            audit.browser?.status === 'OK'
+              ? `اندازه‌گیری‌شده با ${audit.browser.browserName ?? 'مرورگر'} — آزمایشگاهی، نه داده کاربران واقعی`
+              : 'لایهٔ مرورگر اجرا نشده است'
+          }
+        >
+          {audit.browser?.status === 'OK' ? (
+            <>
+              <ul className="space-y-2 text-xs">
+                {[
+                  { label: 'LCP (بزرگ‌ترین محتوا)', value: audit.browser.lcpMs, unit: 'میلی‌ثانیه' },
+                  { label: 'CLS (جابه‌جایی چیدمان)', value: audit.browser.cls, unit: '' },
+                  { label: 'INP (تأخیر تعامل)', value: audit.browser.inpMs, unit: 'میلی‌ثانیه' },
+                  { label: 'FCP (اولین محتوا)', value: audit.browser.fcpMs, unit: 'میلی‌ثانیه' },
+                  { label: 'TTFB', value: audit.browser.ttfbMs, unit: 'میلی‌ثانیه' },
+                ].map((m) => (
+                  <li key={m.label} className="flex items-center justify-between gap-3">
+                    <span className="text-muted">{m.label}</span>
+                    <span className="tnum">
+                      {m.value === null ? (
+                        <span className="text-subtle" title="مرورگر این سنجه را گزارش نکرد. این عدد صفر نیست.">
+                          اندازه‌گیری نشد
+                        </span>
+                      ) : (
+                        `${m.value.toLocaleString('fa-IR')} ${m.unit}`.trim()
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+
+              <ul className="mt-3 space-y-2 border-t border-border pt-3 text-xs">
+                <li className="flex items-center justify-between gap-3">
+                  <span className="text-muted">جا شدن در صفحهٔ موبایل</span>
+                  <span>
+                    {audit.browser.fitsMobileViewport === null ? (
+                      <span className="text-subtle">اندازه‌گیری نشد</span>
+                    ) : audit.browser.fitsMobileViewport ? (
+                      <span className="text-success">بله</span>
+                    ) : (
+                      <span className="text-danger">
+                        خیر — {(audit.browser.horizontalOverflowPx ?? 0).toLocaleString('fa-IR')} پیکسل سرریز افقی
+                      </span>
+                    )}
+                  </span>
+                </li>
+                <li className="flex items-center justify-between gap-3">
+                  <span className="text-muted">کوچک‌ترین اندازهٔ متن</span>
+                  <span className="tnum">
+                    {audit.browser.smallestFontPx === null ? (
+                      <span className="text-subtle">اندازه‌گیری نشد</span>
+                    ) : (
+                      `${audit.browser.smallestFontPx.toLocaleString('fa-IR')} پیکسل`
+                    )}
+                  </span>
+                </li>
+                <li className="flex items-center justify-between gap-3">
+                  <span className="text-muted">دکمه‌های کوچک‌تر از ۴۴ پیکسل</span>
+                  <span className="tnum">
+                    {audit.browser.smallTapTargets === null ? (
+                      <span className="text-subtle">اندازه‌گیری نشد</span>
+                    ) : (
+                      audit.browser.smallTapTargets.toLocaleString('fa-IR')
+                    )}
+                  </span>
+                </li>
+              </ul>
+            </>
+          ) : (
+            <div className="space-y-2 text-xs leading-6">
+              <p className="chip bg-surface-2 text-subtle">اندازه‌گیری نشد</p>
+              <p className="text-muted">
+                {audit.browser?.unavailableReason ??
+                  'لایهٔ مرورگر (Playwright) فعال نیست. سنجه‌های LCP، CLS و INP فقط با اجرای واقعی صفحه به دست می‌آیند و هرگز تخمین زده نمی‌شوند.'}
+              </p>
+            </div>
+          )}
+        </Card>
+
         <Card title="آنچه اندازه‌گیری نشد" subtitle="این موارد در امتیاز لحاظ نشده‌اند">
           <ul className="space-y-1.5 text-[11px] leading-6 text-subtle">
             {audit.unavailable.length === 0 ? (

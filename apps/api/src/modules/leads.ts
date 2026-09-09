@@ -16,6 +16,7 @@ import { assertLeadAccess, leadVisibilityFilter } from '../plugins/auth';
 import { enqueue, enqueueLeadPipeline } from '../queue/queues';
 import { exportLeadsCsv } from '../services/export-service';
 import { importLeadsCsv, previewImport } from '../services/import-service';
+import { applyBulkAction } from '../services/bulk-service';
 import { findPossibleDuplicates, ingestBusiness, mergeLeads, normalizeLead } from '../services/lead-service';
 import { recalculateLead, regenerateSalesBrief } from '../services/scoring-service';
 import { auditLeadWebsite, discoverWebsiteForLead } from '../services/website-service';
@@ -281,7 +282,10 @@ export default async function leadRoutes(app: FastifyInstance) {
         socialSignals: true,
         businessSignals: { orderBy: { key: 'asc' } },
         opportunities_: { orderBy: { score: 'desc' } },
-        websiteAudits: { orderBy: { createdAt: 'desc' }, take: 3, include: { pages: true } },
+        // The browser audit rides along with the HTTP audit. It is often a
+        // NOT_AVAILABLE row, and that is exactly what the UI needs in order to say
+        // "not measured" instead of leaving the reader to assume zero.
+        websiteAudits: { orderBy: { createdAt: 'desc' }, take: 3, include: { pages: true, browser: true } },
         aiAnalyses: { orderBy: { createdAt: 'desc' }, take: 3 },
         salesBriefs: { where: { isCurrent: true }, take: 1 },
         scores: { orderBy: { createdAt: 'desc' }, take: 10 },
@@ -557,61 +561,93 @@ export default async function leadRoutes(app: FastifyInstance) {
     followUpKind: z.string().max(120).optional(),
   });
 
+  /**
+   * Bulk actions.
+   *
+   * Anything beyond a handful of leads is handed to the worker rather than executed in
+   * the request: five hundred leads is five hundred writes plus five hundred enqueues,
+   * and doing that inline holds the connection open long enough to look like a failure
+   * even when it eventually succeeds. Small batches still run inline, because waiting
+   * for a background job to change three leads would feel broken in the other direction.
+   */
+  const INLINE_BULK_LIMIT = 25;
+
   app.post('/bulk', { onRequest: [app.requirePermission('lead:update')] }, async (req) => {
     const body = bulkSchema.parse(req.body);
     const user = req.user!;
 
-    switch (body.action) {
-      case 'assign': {
-        if (isRestrictedToAssigned(user.role)) throw badRequest('Only a manager can assign leads');
-        await prisma.lead.updateMany({ where: { id: { in: body.leadIds } }, data: { assignedToId: body.assignedToId ?? null } });
-        if (body.assignedToId) {
-          await enqueue('send_notification', {
-            event: 'LEAD_ASSIGNED',
-            title: `${body.leadIds.length} سرنخ به شما واگذار شد`,
-            userIds: [body.assignedToId],
-            url: '/leads?assignedToId=me',
-          });
-        }
-        break;
-      }
-      case 'status': {
-        if (!body.contactStatus) throw badRequest('contactStatus is required for this action');
-        await prisma.lead.updateMany({ where: { id: { in: body.leadIds } }, data: { contactStatus: body.contactStatus } });
-        break;
-      }
-      case 'audit':
-        for (const leadId of body.leadIds) await enqueue('audit_website', { leadId, chain: {} });
-        break;
-      case 'analyze':
-        for (const leadId of body.leadIds) await enqueue('analyze_lead', { leadId });
-        break;
-      case 'rescore':
-        for (const leadId of body.leadIds) await enqueue('calculate_score', { leadId });
-        break;
-      case 'follow_up': {
-        if (!body.followUpAt) throw badRequest('followUpAt is required for this action');
-        const dueAt = new Date(body.followUpAt);
-        await prisma.followUp.createMany({
-          data: body.leadIds.map((leadId) => ({ leadId, userId: user.id, kind: body.followUpKind ?? 'تماس مجدد', dueAt })),
-        });
-        await prisma.lead.updateMany({ where: { id: { in: body.leadIds } }, data: { nextFollowUpAt: dueAt } });
-        break;
-      }
-      case 'archive':
-        await prisma.lead.updateMany({ where: { id: { in: body.leadIds } }, data: { isArchived: true } });
-        break;
+    if (body.action === 'assign' && isRestrictedToAssigned(user.role)) {
+      throw badRequest('Only a manager can assign leads');
     }
+    if (body.action === 'status' && !body.contactStatus) {
+      throw badRequest('contactStatus is required for this action');
+    }
+    if (body.action === 'follow_up' && !body.followUpAt) {
+      throw badRequest('followUpAt is required for this action');
+    }
+
+    // Only leads this user is allowed to touch — a salesperson cannot bulk-edit the
+    // whole database by posting a list of ids.
+    const permitted = await prisma.lead.findMany({
+      where: { id: { in: body.leadIds }, ...leadVisibilityFilter(user) },
+      select: { id: true },
+    });
+    const leadIds = permitted.map((l) => l.id);
+    const refused = body.leadIds.length - leadIds.length;
+
+    if (leadIds.length === 0) {
+      return { ok: true, affected: 0, refused, queued: false };
+    }
+
+    const payload = {
+      leadIds,
+      action: body.action,
+      actorId: user.id,
+      actorEmail: user.email,
+      assignedToId: body.assignedToId ?? null,
+      contactStatus: body.contactStatus,
+      followUpAt: body.followUpAt,
+      followUpKind: body.followUpKind,
+    };
 
     await recordAudit({
       userId: user.id,
       actorEmail: user.email,
       action: `lead.bulk_${body.action}`,
-      after: { count: body.leadIds.length },
+      after: { count: leadIds.length, refused },
       ip: req.ip,
     });
 
-    return { ok: true, affected: body.leadIds.length };
+    const heavy = ['audit', 'analyze', 'rescore'].includes(body.action);
+    if (heavy || leadIds.length > INLINE_BULK_LIMIT) {
+      const jobId = await enqueue('bulk_lead_action', payload);
+      if (jobId) {
+        if (body.action === 'assign' && body.assignedToId) {
+          await enqueue('send_notification', {
+            event: 'LEAD_ASSIGNED',
+            title: `${leadIds.length} سرنخ به شما واگذار شد`,
+            userIds: [body.assignedToId],
+            url: '/leads?assignedToId=me',
+          });
+        }
+        return { ok: true, affected: leadIds.length, refused, queued: true, jobId };
+      }
+      // Redis is down. Rather than lose the request, fall through and apply inline —
+      // slower, but the user's action is not silently dropped.
+    }
+
+    const result = await applyBulkAction(payload);
+
+    if (body.action === 'assign' && body.assignedToId) {
+      await enqueue('send_notification', {
+        event: 'LEAD_ASSIGNED',
+        title: `${leadIds.length} سرنخ به شما واگذار شد`,
+        userIds: [body.assignedToId],
+        url: '/leads?assignedToId=me',
+      });
+    }
+
+    return { ok: true, affected: result.applied, failed: result.failed, refused, queued: false };
   });
 
   /* -------------------------------- Import -------------------------------- */

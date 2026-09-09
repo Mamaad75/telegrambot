@@ -10,6 +10,7 @@ import { executeCampaignRun, failRun, recordRunProgress } from '../services/camp
 import { normalizeLead } from '../services/lead-service';
 import { notify, notifyHotLead } from '../services/notification-service';
 import { recalculateLead, regenerateSalesBrief } from '../services/scoring-service';
+import { applyBulkAction } from '../services/bulk-service';
 import { syncKeywordProviders } from '../services/market-service';
 import { auditLeadWebsite, discoverWebsiteForLead } from '../services/website-service';
 import { QUEUE, enqueue, type JobName, type JobPayloads, type QueueName } from './queues';
@@ -179,6 +180,15 @@ const handlers: { [N in JobName]: Handler<N> } = {
 
     return { leadId, status: outcome.status, ...(outcome.status !== 'ok' ? { reason: outcome.reason } : { cached: outcome.cached }) };
   },
+
+  /**
+   * A bulk action over many leads, executed here rather than in the request.
+   *
+   * The logic lives in services/bulk-service so the inline path and this one can never
+   * drift apart — the version that silently skipped the audit trail on a bulk status
+   * change was exactly that kind of drift.
+   */
+  bulk_lead_action: async (payload) => applyBulkAction(payload),
 
   generate_sales_brief: async ({ leadId }) => {
     const lead = await prisma.lead.findUnique({ where: { id: leadId } });

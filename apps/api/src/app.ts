@@ -19,6 +19,7 @@ import crmRoutes from './modules/crm';
 import campaignRoutes from './modules/campaigns';
 import marketRoutes from './modules/market';
 import dashboardRoutes from './modules/dashboard';
+import reportRoutes from './modules/reports';
 import providerRoutes from './modules/providers';
 import settingsRoutes from './modules/settings';
 import serviceRoutes from './modules/services';
@@ -153,6 +154,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(campaignRoutes, { prefix: '/api/campaigns' });
   await app.register(marketRoutes, { prefix: '/api/market' });
   await app.register(dashboardRoutes, { prefix: '/api/dashboard' });
+  await app.register(reportRoutes, { prefix: '/api/reports' });
   await app.register(providerRoutes, { prefix: '/api/providers' });
   await app.register(settingsRoutes, { prefix: '/api/settings' });
   await app.register(serviceRoutes, { prefix: '/api/services' });

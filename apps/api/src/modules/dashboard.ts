@@ -59,14 +59,32 @@ export default async function dashboardRoutes(app: FastifyInstance) {
       prisma.lead.count({ where: { ...base, leadTemperature: 'HOT' } }),
       prisma.lead.count({ where: { ...base, leadTemperature: 'WARM' } }),
       prisma.lead.count({ where: { ...base, contactStatus: 'READY_TO_CALL' } }),
+      // Counts on related tables carry the same visibility rule as the lead counts.
+      // Without `lead: base` a demo lead's calls and follow-ups appeared in the real
+      // numbers, which is exactly the mixing of demo and production data the product
+      // must never do.
       prisma.call.count({
-        where: { createdAt: { gte: startOfToday }, ...(isRestrictedToAssigned(req.user!.role) ? { userId: req.user!.id } : {}) },
+        where: {
+          createdAt: { gte: startOfToday },
+          lead: base,
+          ...(isRestrictedToAssigned(req.user!.role) ? { userId: req.user!.id } : {}),
+        },
       }),
       prisma.followUp.count({
-        where: { completedAt: null, dueAt: { lte: new Date(Date.now() + 24 * 3600 * 1000) }, ...(isRestrictedToAssigned(req.user!.role) ? { userId: req.user!.id } : {}) },
+        where: {
+          completedAt: null,
+          dueAt: { lte: new Date(Date.now() + 24 * 3600 * 1000) },
+          lead: base,
+          ...(isRestrictedToAssigned(req.user!.role) ? { userId: req.user!.id } : {}),
+        },
       }),
       prisma.followUp.count({
-        where: { completedAt: null, dueAt: { lt: new Date() }, ...(isRestrictedToAssigned(req.user!.role) ? { userId: req.user!.id } : {}) },
+        where: {
+          completedAt: null,
+          dueAt: { lt: new Date() },
+          lead: base,
+          ...(isRestrictedToAssigned(req.user!.role) ? { userId: req.user!.id } : {}),
+        },
       }),
       prisma.lead.count({ where: { ...base, contactStatus: 'MEETING' } }),
       prisma.lead.count({ where: { ...base, contactStatus: { in: ['PROPOSAL', 'NEGOTIATION'] } } }),
@@ -79,7 +97,15 @@ export default async function dashboardRoutes(app: FastifyInstance) {
       prisma.lead.groupBy({ by: ['city'], where: { ...base, city: { not: null } }, _count: true, orderBy: { _count: { city: 'desc' } }, take: 10 }),
       prisma.lead.groupBy({ by: ['category'], where: { ...base, category: { not: null } }, _count: true, orderBy: { _count: { category: 'desc' } }, take: 10 }),
       prisma.lead.groupBy({ by: ['recommendedService'], where: { ...base, recommendedService: { not: null } }, _count: true, orderBy: { _count: { recommendedService: 'desc' } }, take: 10 }),
-      prisma.leadSourceReference.groupBy({ by: ['providerKey'], _count: true, orderBy: { _count: { providerKey: 'desc' } }, take: 10 }),
+      // Source performance had no filter at all, so demo leads inflated the "top
+      // sources" chart and made OpenStreetMap look more productive than it was.
+      prisma.leadSourceReference.groupBy({
+        by: ['providerKey'],
+        where: { lead: base },
+        _count: true,
+        orderBy: { _count: { providerKey: 'desc' } },
+        take: 10,
+      }),
       prisma.lead.findMany({
         where: { ...base, leadTemperature: 'HOT', contactStatus: { in: ['NEW', 'RESEARCHED', 'READY_TO_CALL'] } },
         orderBy: [{ leadScore: 'desc' }, { updatedAt: 'desc' }],
@@ -168,28 +194,44 @@ export default async function dashboardRoutes(app: FastifyInstance) {
     const visibility = leadVisibilityFilter(req.user!);
     const mine = isRestrictedToAssigned(req.user!.role) ? { userId: req.user!.id } : {};
 
-    const [dueFollowUps, overdueTasks, readyToCall] = await Promise.all([
+    const now = new Date();
+    const endOfToday = new Date(now);
+    endOfToday.setHours(23, 59, 59, 999);
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const leadScope: Prisma.LeadWhereInput = { isArchived: false, isDemo: false, ...visibility };
+
+    const [dueFollowUps, overdueTasks, readyToCall, overdueFollowUps, meetingsToday, newLeads, recentlyAssigned] =
+      await Promise.all([
       prisma.followUp.findMany({
-        where: { completedAt: null, dueAt: { lte: new Date(Date.now() + 24 * 3600 * 1000) }, ...mine },
+        // The working list stays a rolling 24 hours: a callback promised for tomorrow
+        // morning belongs in today's view, because that is when the salesperson plans
+        // for it. The overdue/today/upcoming split below is derived from this list
+        // rather than narrowing it — narrowing would simply hide the callback.
+        //
+        // Demo leads are excluded here as everywhere: a fictional callback in the
+        // salesperson's day is worse than none at all.
+        where: { completedAt: null, dueAt: { lte: new Date(now.getTime() + 24 * 3600 * 1000) }, lead: leadScope, ...mine },
         orderBy: { dueAt: 'asc' },
         take: 20,
         include: { lead: { select: { id: true, businessName: true, city: true, normalizedPhone: true, leadScore: true, recommendedService: true } } },
       }),
       prisma.task.findMany({
-        where: { status: 'OPEN', dueAt: { lt: new Date() }, ...(isRestrictedToAssigned(req.user!.role) ? { assignedToId: req.user!.id } : {}) },
+        where: { status: 'OPEN', dueAt: { lt: now }, ...(isRestrictedToAssigned(req.user!.role) ? { assignedToId: req.user!.id } : {}) },
         orderBy: { dueAt: 'asc' },
         take: 20,
         include: { lead: { select: { id: true, businessName: true } } },
       }),
       prisma.lead.findMany({
         where: {
-          isArchived: false,
-          isDemo: false,
-          ...visibility,
+          ...leadScope,
           contactStatus: { in: ['NEW', 'RESEARCHED', 'READY_TO_CALL'] },
           leadTemperature: { in: ['HOT', 'WARM'] },
         },
-        orderBy: [{ leadScore: 'desc' }],
+        // Hottest first: the day should start with the call most likely to be worth
+        // making, not with whatever happens to be newest.
+        orderBy: [{ leadTemperature: 'asc' }, { leadScore: { sort: 'desc', nulls: 'last' } }],
         take: 15,
         select: {
           id: true,
@@ -204,8 +246,67 @@ export default async function dashboardRoutes(app: FastifyInstance) {
           websiteStatus: true,
         },
       }),
+
+      // Overdue is its own bucket, not folded into "due": a callback promised last week
+      // is a different kind of problem from one promised for this afternoon.
+      prisma.followUp.count({ where: { completedAt: null, dueAt: { lt: now }, lead: leadScope, ...mine } }),
+
+      prisma.lead.findMany({
+        where: { ...leadScope, contactStatus: 'MEETING', nextFollowUpAt: { gte: startOfToday, lte: endOfToday } },
+        orderBy: { nextFollowUpAt: 'asc' },
+        take: 10,
+        select: { id: true, businessName: true, city: true, normalizedPhone: true, nextFollowUpAt: true },
+      }),
+
+      prisma.lead.findMany({
+        where: { ...leadScope, createdAt: { gte: startOfToday }, contactStatus: 'NEW' },
+        orderBy: { leadScore: { sort: 'desc', nulls: 'last' } },
+        take: 10,
+        select: { id: true, businessName: true, city: true, leadScore: true, leadTemperature: true, recommendedService: true },
+      }),
+
+      // Leads handed to this salesperson in the last two days, which they may not have
+      // noticed yet.
+      prisma.lead.findMany({
+        where: {
+          ...leadScope,
+          assignedToId: isRestrictedToAssigned(req.user!.role) ? req.user!.id : undefined,
+          updatedAt: { gte: new Date(now.getTime() - 2 * 24 * 3600 * 1000) },
+          contactStatus: { in: ['NEW', 'RESEARCHED', 'READY_TO_CALL'] },
+          NOT: { assignedToId: null },
+        },
+        orderBy: { updatedAt: 'desc' },
+        take: 10,
+        select: {
+          id: true,
+          businessName: true,
+          city: true,
+          leadScore: true,
+          leadTemperature: true,
+          normalizedPhone: true,
+          assignedToId: true,
+        },
+      }),
     ]);
 
-    return { dueFollowUps, overdueTasks, readyToCall };
+    // Split the due list so the UI can show the three buckets without re-deriving the
+    // boundaries: a promise already broken, one due before the day ends, and one that
+    // is merely coming.
+    const overdue = dueFollowUps.filter((f) => f.dueAt < now);
+    const today = dueFollowUps.filter((f) => f.dueAt >= now && f.dueAt <= endOfToday);
+    const upcoming = dueFollowUps.filter((f) => f.dueAt > endOfToday);
+
+    return {
+      dueFollowUps,
+      overdue,
+      today,
+      upcoming,
+      overdueCount: overdueFollowUps,
+      overdueTasks,
+      readyToCall,
+      meetingsToday,
+      newLeads,
+      recentlyAssigned,
+    };
   });
 }

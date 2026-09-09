@@ -55,6 +55,23 @@ export interface JobPayloads {
   calculate_score: { leadId: string; runId?: string; notifyIfHot?: boolean; chain?: PipelineChain };
 
   analyze_lead: { leadId: string; force?: boolean; runId?: string };
+  /**
+   * A bulk action over many leads, executed in the worker rather than in the request.
+   *
+   * Five hundred leads is five hundred database writes and five hundred enqueues; doing
+   * that inside an HTTP handler holds a connection open for as long as it takes and
+   * times out from the salesperson's point of view even when it eventually succeeds.
+   */
+  bulk_lead_action: {
+    leadIds: string[];
+    action: 'assign' | 'status' | 'audit' | 'analyze' | 'rescore' | 'follow_up' | 'archive';
+    actorId: string;
+    actorEmail: string;
+    assignedToId?: string | null;
+    contactStatus?: string;
+    followUpAt?: string;
+    followUpKind?: string;
+  };
   generate_sales_brief: { leadId: string; runId?: string };
 
   send_notification: {
@@ -79,6 +96,7 @@ const QUEUE_FOR_JOB: Record<JobName, QueueName> = {
   audit_website: QUEUE.lead,
   calculate_score: QUEUE.lead,
   analyze_lead: QUEUE.ai,
+  bulk_lead_action: QUEUE.lead,
   generate_sales_brief: QUEUE.ai,
   send_notification: QUEUE.notification,
 };
@@ -94,6 +112,9 @@ const DEFAULT_OPTIONS: Record<JobName, JobsOptions> = {
   audit_website: { attempts: 2, backoff: { type: 'exponential', delay: 20_000 } },
   calculate_score: { attempts: 3, backoff: { type: 'exponential', delay: 2000 } },
   analyze_lead: { attempts: 2, backoff: { type: 'exponential', delay: 30_000 } },
+  // One attempt: a partially applied bulk action re-run from the start would duplicate
+  // the part that already succeeded, and the per-lead work is individually retried.
+  bulk_lead_action: { attempts: 1 },
   generate_sales_brief: { attempts: 2, backoff: { type: 'exponential', delay: 5000 } },
   send_notification: { attempts: 3, backoff: { type: 'exponential', delay: 5000 } },
 };

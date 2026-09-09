@@ -50,9 +50,78 @@ const ORIGIN_LABELS: Record<string, string> = {
 
 export function SourcesTab({ data }: { data: LeadDetail }) {
   const references = data.lead.sourceReferences;
+  const match = data.lead.websiteMatchReasons;
+  const confidence = data.lead.websiteMatchConfidence;
 
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      {/*
+        Why we believe this website belongs to this business.
+
+        A wrong website is worse than no website: the salesperson would open the call
+        with a fact about a stranger's site. So the score is shown with the signals
+        behind it, and anything the system was not confident enough to attach is listed
+        separately as a suggestion for a human to confirm.
+      */}
+      {(confidence !== null || match) && (
+        <Card
+          title="اطمینان از تطبیق وب‌سایت"
+          subtitle={data.lead.websiteDomain ?? 'وب‌سایتی به این سرنخ متصل نشده است'}
+          className="xl:col-span-2"
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="rounded-xl bg-surface-2 px-4 py-2.5">
+              <p className="text-[11px] text-subtle">امتیاز اطمینان</p>
+              <p className="tnum mt-0.5 text-2xl font-semibold">
+                {confidence === null ? <span className="text-base text-subtle">محاسبه نشده</span> : `${confidence}٪`}
+              </p>
+            </div>
+            <div className="text-xs leading-6 text-muted">
+              {data.lead.websiteStatus === 'NOT_VERIFIED' && (
+                <p className="text-warning">این آدرس هنوز توسط انسان تأیید نشده است — پیش از استناد در تماس بررسی شود.</p>
+              )}
+              {data.lead.websiteMatchedBy && <p>روش کشف: {data.lead.websiteMatchedBy}</p>}
+              {data.lead.lastCrawledAt && <p>آخرین بررسی: {faDate(data.lead.lastCrawledAt)}</p>}
+            </div>
+          </div>
+
+          {(match?.signals?.length ?? 0) > 0 && (
+            <ul className="mt-4 space-y-1.5 border-t border-border pt-3">
+              {match!.signals!.map((signal) => (
+                <li key={signal.key} className="flex items-start justify-between gap-3 text-xs leading-6">
+                  <span className={signal.matched ? '' : 'text-subtle'}>
+                    {signal.labelFa}
+                    {signal.evidence && <span className="block text-[11px] text-muted">{signal.evidence}</span>}
+                  </span>
+                  <span className={`tnum shrink-0 ${signal.matched ? 'text-success' : 'text-subtle'}`}>
+                    {signal.points} / {signal.maxPoints}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {(match?.suggestions?.length ?? 0) > 0 && (
+            <div className="mt-4 border-t border-border pt-3">
+              <p className="mb-1.5 text-[11px] font-medium text-subtle">
+                نامزدهای با اطمینان پایین — متصل نشده‌اند، برای تأیید انسانی
+              </p>
+              <ul className="space-y-1.5">
+                {match!.suggestions!.map((s) => (
+                  <li key={s.url} className="text-xs leading-6">
+                    <a href={s.url} target="_blank" rel="noreferrer" className="text-accent hover:underline" dir="ltr">
+                      {s.domain}
+                    </a>
+                    <span className="tnum ms-2 text-subtle">{s.confidence}٪</span>
+                    {s.reasons.length > 0 && <span className="block text-[11px] text-muted">{s.reasons.join(' • ')}</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </Card>
+      )}
+
       <Card title="منابع اطلاعات" subtitle="هر منبع جداگانه نگهداری می‌شود تا قابل راستی‌آزمایی باشد">
         {references.length === 0 ? (
           <EmptyState title="منبعی ثبت نشده است" />

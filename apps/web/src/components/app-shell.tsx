@@ -39,6 +39,7 @@ const NAV: Array<{ section: string; items: NavItem[] }> = [
     items: [
       { href: '/campaigns', label: 'کمپین‌ها', icon: '◎', permission: 'campaign:read' },
       { href: '/market', label: 'هوشمندی بازار', icon: '↗', permission: 'market:read' },
+      { href: '/reports', label: 'گزارش‌ها', icon: '▤', permission: 'report:read' },
     ],
   },
   {

@@ -76,6 +76,17 @@ export interface LeadDetail {
     isDemo: boolean;
     createdAt: string;
     updatedAt: string;
+    /** 0-100 confidence that the attached website really belongs to this business. */
+    websiteMatchConfidence: number | null;
+    websiteMatchedBy: string | null;
+    websiteMatchReasons: {
+      signals?: Array<{ key: string; labelFa: string; points: number; maxPoints: number; matched: boolean; evidence: string }>;
+      reasons?: string[];
+      suggestions?: Array<{ url: string; domain: string; confidence: number; reasons: string[] }>;
+      method?: string;
+      searchProvider?: string | null;
+    } | null;
+    lastCrawledAt: string | null;
     sourceReferences: Array<{
       id: string;
       providerKey: string;
@@ -129,6 +140,27 @@ export interface LeadDetail {
 export interface WebsiteAuditView {
   id: string;
   url: string;
+  /**
+   * Real-browser measurements, present only when the browser layer ran.
+   * A null metric means "not measured" — never zero, and never estimated from the
+   * HTTP audit.
+   */
+  browser?: {
+    status: string;
+    unavailableReason: string | null;
+    lcpMs: number | null;
+    cls: number | null;
+    inpMs: number | null;
+    fcpMs: number | null;
+    ttfbMs: number | null;
+    fitsMobileViewport: boolean | null;
+    horizontalOverflowPx: number | null;
+    smallestFontPx: number | null;
+    smallTapTargets: number | null;
+    requestCount: number | null;
+    browserName: string | null;
+    createdAt: string;
+  } | null;
   finalUrl: string | null;
   reachable: boolean;
   httpStatus: number | null;
