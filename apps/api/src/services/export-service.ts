@@ -1,4 +1,5 @@
 import { stringify } from 'csv-stringify/sync';
+import { sanitizeCsvRows } from '../lib/csv-safety';
 import { formatPhoneForDisplay, BUSINESS_VALUE_LABELS, TEMPERATURE_LABELS } from '@baimar/shared';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
@@ -101,7 +102,7 @@ export async function exportLeadsCsv(where: Prisma.LeadWhereInput, opts: { limit
   });
 
   // UTF-8 BOM so Excel on Windows opens Persian text correctly.
-  return `﻿${stringify(rows, { header: true, columns: [...LEAD_COLUMNS] })}`;
+  return `﻿${stringify(sanitizeCsvRows(rows), { header: true, columns: [...LEAD_COLUMNS] })}`;
 }
 
 export async function exportMarketCsv(): Promise<string> {
@@ -126,7 +127,7 @@ export async function exportMarketCsv(): Promise<string> {
     period_end: s.periodEnd?.toISOString().slice(0, 10) ?? '',
     computed_at: s.computedAt.toISOString(),
   }));
-  return `﻿${stringify(rows, { header: true })}`;
+  return `﻿${stringify(sanitizeCsvRows(rows), { header: true })}`;
 }
 
 export async function exportPipelineCsv(): Promise<string> {
@@ -151,5 +152,5 @@ export async function exportPipelineCsv(): Promise<string> {
     lost_at: lead.lostAt?.toISOString() ?? '',
     lost_reason: lead.lostReason ?? '',
   }));
-  return `﻿${stringify(rows, { header: true })}`;
+  return `﻿${stringify(sanitizeCsvRows(rows), { header: true })}`;
 }

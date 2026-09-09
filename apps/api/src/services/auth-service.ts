@@ -44,12 +44,24 @@ export async function login(
     await verifyPassword(password, 'scrypt$00$00');
     throw genericFailure;
   }
-  if (user.lockedUntil && user.lockedUntil > new Date()) {
+
+  // The password is checked BEFORE the account's state is revealed.
+  //
+  // Answering "this account is locked" or "this account is deactivated" to somebody who
+  // has not proved they know the password tells them the address is registered — which
+  // is exactly the user enumeration patch 42 forbids. Verifying first costs one hash and
+  // means only a caller who already has the credentials learns anything.
+  const ok = await verifyPassword(password, user.passwordHash);
+
+  if (ok && user.lockedUntil && user.lockedUntil > new Date()) {
     throw unauthorized(`Too many failed attempts. Try again after ${user.lockedUntil.toISOString()}`);
   }
-  if (!user.isActive) throw unauthorized('This account has been deactivated');
+  if (ok && !user.isActive) throw unauthorized('This account has been deactivated');
 
-  const ok = await verifyPassword(password, user.passwordHash);
+  // A locked or deactivated account still refuses a wrong password generically, and
+  // still counts the attempt: a lockout that stops extending under attack is no lockout.
+  if (ok && (user.lockedUntil && user.lockedUntil > new Date())) throw genericFailure;
+
   if (!ok) {
     const failed = user.failedLogins + 1;
     await prisma.user.update({
@@ -68,6 +80,10 @@ export async function login(
     });
     throw genericFailure;
   }
+
+  // Belt and braces: never issue tokens for an account that is locked or deactivated,
+  // whatever path led here.
+  if (!user.isActive || (user.lockedUntil && user.lockedUntil > new Date())) throw genericFailure;
 
   await prisma.user.update({
     where: { id: user.id },

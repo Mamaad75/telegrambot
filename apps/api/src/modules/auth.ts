@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { loadEnv } from '../config/env';
 import { ROLE_PERMISSIONS, type Role } from '@baimar/shared';
 import { prisma } from '../lib/prisma';
 import { changePassword, login, logout, logoutEverywhere, refresh } from '../services/auth-service';
@@ -28,8 +29,15 @@ export default async function authRoutes(app: FastifyInstance) {
   const sign = (payload: object, expiresIn: string | number) =>
     app.jwt.sign(payload as Parameters<typeof app.jwt.sign>[0], { expiresIn });
 
+  /**
+   * Credential-stuffing is a volume attack, so the edge limits are deliberately tight:
+   * five login attempts a minute from one address is far more than a person needs and
+   * far less than a script wants. Nginx applies a 1r/s bucket in front of this, and the
+   * per-account lockout in auth-service sits behind it — three independent layers,
+   * because any one of them can be bypassed by an attacker who controls enough addresses.
+   */
   app.post('/login', {
-    config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    config: { rateLimit: { max: loadEnv().AUTH_RATE_LIMIT_PER_MINUTE, timeWindow: '1 minute' } },
     handler: async (req) => {
       const body = loginSchema.parse(req.body);
       const { user, tokens } = await login(body.email, body.password, sign, {
@@ -41,7 +49,9 @@ export default async function authRoutes(app: FastifyInstance) {
   });
 
   app.post('/refresh', {
-    config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
+    // Refresh is legitimate and frequent (every access-token expiry), so it is looser
+    // than login — but still bounded, because a stolen refresh token is a credential.
+    config: { rateLimit: { max: loadEnv().AUTH_REFRESH_RATE_LIMIT_PER_MINUTE, timeWindow: '1 minute' } },
     handler: async (req) => {
       const body = refreshSchema.parse(req.body);
       const { user, tokens } = await refresh(body.refreshToken, sign, { ip: req.ip, userAgent: req.headers['user-agent'] });
@@ -74,10 +84,16 @@ export default async function authRoutes(app: FastifyInstance) {
     return { user: publicUser(user) };
   });
 
-  app.post('/change-password', { onRequest: [app.authenticate] }, async (req) => {
-    const body = changePasswordSchema.parse(req.body);
-    await changePassword(req.user!.id, body.currentPassword, body.newPassword);
-    return { ok: true };
+  app.post('/change-password', {
+    onRequest: [app.authenticate],
+    // Guessing the *current* password is a credential attack too, even from a session
+    // that is already authenticated — a borrowed laptop, a hijacked token.
+    config: { rateLimit: { max: 5, timeWindow: '5 minutes' } },
+    handler: async (req) => {
+      const body = changePasswordSchema.parse(req.body);
+      await changePassword(req.user!.id, body.currentPassword, body.newPassword);
+      return { ok: true };
+    },
   });
 }
 

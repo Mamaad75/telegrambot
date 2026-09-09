@@ -46,6 +46,13 @@ const schema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   REDIS_URL: z.string().default('redis://localhost:6379'),
 
+  /// Login attempts allowed per minute per IP address. Deliberately low: five is far
+  /// more than a person needs and far less than a credential-stuffing script wants.
+  /// Raised only in the test environment, where the suite logs in repeatedly.
+  AUTH_RATE_LIMIT_PER_MINUTE: int(5),
+  /// Refresh is legitimate and frequent, so it gets its own, looser bucket.
+  AUTH_REFRESH_RATE_LIMIT_PER_MINUTE: int(20),
+
   JWT_SECRET: z.string().min(16, 'JWT_SECRET must be at least 16 characters'),
   JWT_ACCESS_TTL: int(900),
   JWT_REFRESH_TTL: int(60 * 60 * 24 * 30),

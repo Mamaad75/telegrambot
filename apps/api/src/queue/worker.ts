@@ -1,6 +1,7 @@
 import { Worker, type Job } from 'bullmq';
 import { loadEnv } from '../config/env';
 import { prisma } from '../lib/prisma';
+import { jobLogger, logger } from '../lib/logger';
 import { createRedisConnection } from '../lib/redis';
 import { getAiSettings } from '../lib/settings';
 import { analyzeLead } from '../core/ai-analysis';
@@ -206,6 +207,19 @@ async function process(job: Job): Promise<unknown> {
   if (!handler) throw new Error(`No handler registered for job "${job.name}"`);
 
   const started = Date.now();
+
+  // Every line this job writes carries the same identifiers, so a question like "what
+  // happened to this lead in that campaign run?" is one log query rather than a guess.
+  const data = job.data as { leadId?: string; campaignId?: string; runId?: string } | undefined;
+  const jlog = jobLogger({
+    jobId: job.id ?? undefined,
+    jobName: name,
+    leadId: data?.leadId,
+    campaignId: data?.campaignId,
+    runId: data?.runId,
+  });
+  jlog.debug({ attempt: job.attemptsMade + 1 }, 'job started');
+
   const log = await prisma.jobLog
     .create({
       data: {
@@ -221,6 +235,7 @@ async function process(job: Job): Promise<unknown> {
 
   try {
     const result = await handler(job.data, job);
+    jlog.info({ durationMs: Date.now() - started }, 'job completed');
     if (log) {
       await prisma.jobLog
         .update({
@@ -237,6 +252,7 @@ async function process(job: Job): Promise<unknown> {
     return result;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    jlog.error({ durationMs: Date.now() - started, attempt: job.attemptsMade + 1, err: message }, 'job failed');
     if (log) {
       await prisma.jobLog
         .update({
@@ -302,8 +318,10 @@ export function startWorkers(): Worker[] {
     });
 
     worker.on('failed', (job, err) => {
-      // eslint-disable-next-line no-console
-      console.error(`[worker:${queue}] job ${job?.name}#${job?.id} failed:`, err?.message);
+      logger.error(
+        { queue, jobName: job?.name, jobId: job?.id, attempt: job?.attemptsMade, err: err?.message },
+        'job failed',
+      );
 
       // A job that has exhausted its retries breaks the chain, which would leave the
       // campaign run waiting for a lead that will never arrive. Count it and move on, so

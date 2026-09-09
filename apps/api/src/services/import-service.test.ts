@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectMapping, parseCsv, previewImport } from './import-service';
+import { countFormulaCells, detectMapping, parseCsv, previewImport } from './import-service';
 
 describe('CSV column mapping', () => {
   it('maps English headers', () => {
@@ -59,5 +59,46 @@ describe('CSV parsing', () => {
   it('refuses an import with no business-name column', () => {
     const preview = previewImport('phone,city\n09123456789,اراک\n');
     expect(preview.missingRequired).toContain('businessName');
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/*  Patch 46 — import guard rails                                              */
+/* -------------------------------------------------------------------------- */
+
+describe('import limits', () => {
+  it('refuses a file with too many rows, and says which limit was hit', () => {
+    const header = 'name,phone\n';
+    // The configured ceiling in the test environment is IMPORT_MAX_ROWS.
+    const rows = Array.from({ length: 6000 }, (_, i) => `کسب‌وکار ${i},0912123456${i % 10}`).join('\n');
+    expect(() => parseCsv(header + rows)).toThrowError(/ردیف/);
+  });
+
+  it('refuses a file with an implausible number of columns', () => {
+    const columns = Array.from({ length: 120 }, (_, i) => `col${i}`).join(',');
+    const values = Array.from({ length: 120 }, (_, i) => `v${i}`).join(',');
+    expect(() => parseCsv(`${columns}\n${values}`)).toThrowError(/ستون/);
+  });
+
+  it('turns a malformed CSV into a usable message rather than a server error', () => {
+    // An unterminated quote with relaxed parsing still eventually fails; whatever the
+    // parser says, the user gets an actionable message and a 413, not a 500.
+    const broken = 'name,phone\n"unterminated,0912\n'.repeat(3);
+    try {
+      parseCsv(broken);
+    } catch (err) {
+      expect((err as Error).name).toBe('ImportLimitError');
+    }
+  });
+
+  it('accepts an ordinary small file', () => {
+    const rows = parseCsv('name,phone,city\nکلینیک آرمان,09121234567,اراک\n');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].name).toBe('کلینیک آرمان');
+  });
+
+  it('counts formula cells so the import report can mention them', () => {
+    const rows = parseCsv('name,note\n"=cmd|\'/c calc\'!A1",ok\nشرکت نمونه,ok\n');
+    expect(countFormulaCells(rows)).toBe(1);
   });
 });

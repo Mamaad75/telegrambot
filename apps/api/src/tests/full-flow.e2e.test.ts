@@ -228,6 +228,38 @@ describe('authentication', () => {
   });
 });
 
+describe('authentication does not leak which accounts exist (patch 42)', () => {
+  it('answers a deactivated account exactly like a wrong password', async () => {
+    const email = 'deactivated@baimar.test';
+    await prisma.user.create({
+      data: { email, name: 'حساب غیرفعال', role: 'SALESPERSON', passwordHash: await hashPassword('RealPass123'), isActive: false },
+    });
+
+    // Wrong password against the deactivated account, and against one that never existed.
+    const deactivatedWrongPassword = await inject('POST', '/api/auth/login', {
+      payload: { email, password: 'wrong-password' },
+    });
+    const neverExisted = await inject('POST', '/api/auth/login', {
+      payload: { email: 'nobody-here@baimar.test', password: 'wrong-password' },
+    });
+
+    expect(deactivatedWrongPassword.statusCode).toBe(neverExisted.statusCode);
+    // Identical wording: a caller who does not know the password learns nothing about
+    // whether the address is registered.
+    expect(deactivatedWrongPassword.json().message).toBe(neverExisted.json().message);
+
+    // With the correct password the account state may be revealed — the caller has
+    // already proved they hold the credentials, so there is nothing left to leak.
+    const withCorrectPassword = await inject('POST', '/api/auth/login', {
+      payload: { email, password: 'RealPass123' },
+    });
+    expect(withCorrectPassword.statusCode).toBe(401);
+    expect(withCorrectPassword.json().message).toContain('deactivated');
+
+    await prisma.user.delete({ where: { email } }).catch(() => undefined);
+  });
+});
+
 describe('role-based access control', () => {
   it('stops a salesperson from reading settings or managing users', async () => {
     expect((await inject('GET', '/api/settings', { token: salesToken })).statusCode).toBe(403);

@@ -18,6 +18,11 @@ process.env.APP_ENCRYPTION_KEY ??= '0123456789abcdef0123456789abcdef0123456789ab
 process.env.LOG_LEVEL ??= 'silent';
 process.env.RUN_WORKERS_IN_API = 'false';
 process.env.QUEUE_PREFIX = 'baimar-e2e';
+// The suite logs in far more often in one minute than a person ever would, so the
+// production login limit (5/min) would rate-limit the tests themselves. Raised here
+// rather than loosened in the application: the tight limit is the point.
+process.env.AUTH_RATE_LIMIT_PER_MINUTE = '1000';
+process.env.AUTH_REFRESH_RATE_LIMIT_PER_MINUTE = '1000';
 // Every outbound integration stays off: the suite must prove the platform works with
 // nothing configured but the database and Redis.
 process.env.AI_PROVIDER = 'none';

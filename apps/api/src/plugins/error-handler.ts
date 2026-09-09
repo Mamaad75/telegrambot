@@ -2,6 +2,7 @@ import fp from 'fastify-plugin';
 import type { FastifyInstance } from 'fastify';
 import { Prisma } from '@prisma/client';
 import { ZodError } from 'zod';
+import { ImportLimitError } from '../services/import-service';
 import { AppError, ProviderError } from '../lib/errors';
 import { loadEnv } from '../config/env';
 
@@ -33,6 +34,12 @@ export default fp(async function errorHandlerPlugin(app: FastifyInstance) {
         details: error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
         requestId,
       });
+    }
+
+    // An upload that exceeds a limit is the user's to fix, and the message already
+    // says which limit and what to do about it — so it goes back verbatim as a 413.
+    if (error instanceof ImportLimitError) {
+      return reply.status(413).send({ error: 'IMPORT_LIMIT', message: error.message });
     }
 
     if (error instanceof ProviderError) {

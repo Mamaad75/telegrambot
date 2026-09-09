@@ -47,6 +47,13 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(sensible);
   await app.register(errorHandlerPlugin);
 
+  // The request id travels back to the caller, so a user reporting "it failed at 14:05"
+  // can hand over an identifier that finds the exact request — and every job that
+  // request enqueued — in the logs.
+  app.addHook('onRequest', async (req, reply) => {
+    reply.header('x-request-id', req.id);
+  });
+
   await app.register(helmet, {
     // The API serves JSON only; the dashboard is a separate origin with its own policy.
     contentSecurityPolicy: false,

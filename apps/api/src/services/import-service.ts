@@ -1,4 +1,6 @@
 import { parse } from 'csv-parse/sync';
+import { loadEnv } from '../config/env';
+import { looksLikeFormula } from '../lib/csv-safety';
 import { normalizePhone, normalizeText, normalizeUrl } from '@baimar/shared';
 import type { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
@@ -109,16 +111,85 @@ export function detectMapping(headers: string[]): ColumnMapping {
   return mapping;
 }
 
+/** Raised when an upload exceeds a configured limit; carries a message for the user. */
+export class ImportLimitError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ImportLimitError';
+  }
+}
+
+/**
+ * Parse an uploaded CSV, refusing anything outside the configured limits.
+ *
+ * The limits are not paranoia. A spreadsheet is user-supplied input that is parsed
+ * entirely in memory on a 4 GB box, and a malformed or hostile file — a hundred
+ * megabytes, a million rows, ten thousand columns — is an easy way to take the API
+ * down. Each limit is configurable (IMPORT_MAX_BYTES / ROWS / COLUMNS) and each failure
+ * says exactly which limit was hit and what the limit is, so a legitimate large import
+ * can be split rather than merely rejected.
+ */
 export function parseCsv(content: string): Array<Record<string, string>> {
-  // BOM-tolerant, quote-aware, tolerant of ragged rows.
-  return parse(content, {
-    columns: true,
-    skip_empty_lines: true,
-    trim: true,
-    bom: true,
-    relax_column_count: true,
-    relax_quotes: true,
-  }) as Array<Record<string, string>>;
+  const env = loadEnv();
+
+  const bytes = Buffer.byteLength(content, 'utf8');
+  if (env.IMPORT_MAX_BYTES > 0 && bytes > env.IMPORT_MAX_BYTES) {
+    throw new ImportLimitError(
+      `فایل ${(bytes / 1_000_000).toFixed(1)} مگابایت است و از حد مجاز ${(env.IMPORT_MAX_BYTES / 1_000_000).toFixed(1)} مگابایت بیشتر است. فایل را به چند بخش تقسیم کنید.`,
+    );
+  }
+
+  let rows: Array<Record<string, string>>;
+  try {
+    // BOM-tolerant, quote-aware, tolerant of ragged rows.
+    rows = parse(content, {
+      columns: true,
+      skip_empty_lines: true,
+      trim: true,
+      bom: true,
+      relax_column_count: true,
+      relax_quotes: true,
+      // Hard stop inside the parser, so a runaway file is abandoned before it is fully
+      // materialised rather than after.
+      to: env.IMPORT_MAX_ROWS > 0 ? env.IMPORT_MAX_ROWS + 1 : undefined,
+    }) as Array<Record<string, string>>;
+  } catch (err) {
+    // A malformed CSV is a user error with a fixable cause, not a server fault.
+    throw new ImportLimitError(
+      `فایل CSV قابل خواندن نبود: ${err instanceof Error ? err.message : 'ساختار نامعتبر'}. فایل را با UTF-8 و جداکنندهٔ ویرگول ذخیره کنید.`,
+    );
+  }
+
+  if (env.IMPORT_MAX_ROWS > 0 && rows.length > env.IMPORT_MAX_ROWS) {
+    throw new ImportLimitError(
+      `فایل بیش از ${env.IMPORT_MAX_ROWS.toLocaleString('fa-IR')} ردیف دارد. آن را به چند فایل کوچک‌تر تقسیم کنید.`,
+    );
+  }
+
+  const columnCount = rows.length ? Object.keys(rows[0]).length : 0;
+  if (env.IMPORT_MAX_COLUMNS > 0 && columnCount > env.IMPORT_MAX_COLUMNS) {
+    throw new ImportLimitError(
+      `فایل ${columnCount} ستون دارد و از حد مجاز ${env.IMPORT_MAX_COLUMNS} ستون بیشتر است. ستون‌های اضافی را حذف کنید.`,
+    );
+  }
+
+  return rows;
+}
+
+/**
+ * Count cells that a spreadsheet would execute as a formula.
+ *
+ * Imported values are stored as text and re-exported later, so a formula arriving here
+ * would be handed straight back to a salesperson's Excel. The export path neutralises it
+ * (see lib/csv-safety.ts); this count surfaces it in the import report so somebody knows
+ * the file contained one.
+ */
+export function countFormulaCells(rows: Array<Record<string, string>>): number {
+  let count = 0;
+  for (const row of rows) {
+    for (const value of Object.values(row)) if (looksLikeFormula(value)) count++;
+  }
+  return count;
 }
 
 export function previewImport(content: string): ImportPreview {
