@@ -55,6 +55,27 @@ It can never say, and no data source connected to it could support:
 Every market figure carries its basis and its sources. Below `minSampleSize` observations
 the answer is **INSUFFICIENT_DATA** with the reason, not an estimated number.
 
+This is stated in the product, not only here: the Market page carries a permanent,
+non-dismissible notice saying that the platform cannot identify who searched for anything,
+and listing the four sources it does use. The campaign-signal table repeats it directly
+above the data.
+
+### Search volume is never invented
+
+A number is only printed when a source reported one. The four possible states are
+distinct and all four reach the UI:
+
+| State | Meaning | Shown as |
+| --- | --- | --- |
+| `REPORTED` | A provider returned an absolute volume | the number |
+| `IMPORTED` | A human uploaded it in a CSV | the number, labelled "imported" |
+| `RELATIVE_SIGNAL` | We can see demand (impressions, clicks) but not its absolute size | "relative signal only" |
+| `UNKNOWN` | No volume data at all | "unknown" — never `0` |
+
+The difference between `UNKNOWN` and `0` is the whole point. Zero means "we measured and
+found none"; unknown means "nobody measured". Printing the first when we mean the second
+is the most common way a tool like this misleads the person using it.
+
 Every record is tagged with its origin so the two can never be confused:
 
 | Origin | Meaning |

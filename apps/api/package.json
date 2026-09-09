@@ -20,7 +20,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
-    "audit:url": "tsx scripts/live-audit.ts"
+    "audit:url": "tsx scripts/live-audit.ts",
+    "providers:check": "tsx scripts/providers-check.ts",
+    "production:check": "tsx scripts/production-check.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

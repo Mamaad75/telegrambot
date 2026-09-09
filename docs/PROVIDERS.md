@@ -9,6 +9,63 @@ in the browser and never returned by any endpoint. Settings → Integrations sho
 provider's state (**Configured / Not configured / Disabled / Error**), which settings are
 missing, and a "Test connection" button.
 
+```bash
+npm run providers:check          # what is configured, what is missing — no key needed
+npm run providers:check -- --live   # one real request per configured provider
+```
+
+---
+
+## Minimum-cost setup for Iran
+
+**Everything below runs with no paid API and no foreign payment method.** This is the
+configuration the end-to-end suite runs in, and it is a complete product — not a
+crippled trial.
+
+| Capability | How it works with zero cost |
+| --- | --- |
+| Finding businesses | OpenStreetMap / Overpass, plus CSV import from any list you already have |
+| Deduplication | Built in — Iranian phone normalization, Persian text folding, domain matching |
+| Website discovery | Domain probing from the business name, plus whatever the source supplied |
+| Website audit | The built-in crawler: ~30 checks over SEO, mobile, performance, UX, conversion, technical and accessibility |
+| Lead scoring | 25 deterministic signals, every point attributable |
+| Business value | Public signals only — reviews, service breadth, category, social presence |
+| Opportunity matching | The rules engine, using your own service catalogue |
+| Sales brief | Complete on rules alone: why to contact, recommended service, opening, questions, objections, next action |
+| CRM | Calls, notes, tasks, follow-ups, pipeline, assignment |
+| Reports | Acquisition, quality, conversion, source and service performance |
+| Market intelligence | CSV import of keyword research; reports INSUFFICIENT_DATA until you give it something |
+
+What you give up without paid APIs, stated plainly:
+
+* **Google Places** finds businesses OpenStreetMap has not mapped — coverage varies
+  sharply by city, and in smaller Iranian cities the gap is real.
+* **A search API** (Brave or Google CSE) is what turns "we could not find a website" into
+  "they genuinely have no website". Without it, website discovery falls back to guessing
+  domains from the business name, which only works for Latin-script names.
+* **AI** rewrites the brief in more natural Persian. It does not change the score, the
+  recommended service, or any fact.
+
+The cheapest meaningful upgrade is a search provider: Brave's free tier covers a few
+thousand queries a month, which is enough for a small team, and it improves the single
+most valuable signal the platform produces.
+
+### Running AI for free
+
+A local model costs nothing per call and keeps every lead on your own server — no data
+leaves the VPS, which also removes the payment problem entirely:
+
+```bash
+ollama serve && ollama pull qwen2.5:7b
+LOCAL_AI_BASE_URL=http://localhost:11434/v1
+LOCAL_AI_MODEL=qwen2.5:7b
+AI_PROVIDER=local
+```
+
+A 7B model needs roughly 6 GB of RAM, which a 4 GB VPS does not have — run it on a
+workstation and point `LOCAL_AI_BASE_URL` at it over a private network, or leave AI off.
+The platform is fully operational either way.
+
 ---
 
 ## Lead sources — finding businesses
@@ -113,11 +170,27 @@ LOCAL_AI_MODEL=qwen2.5:7b
 AI_PROVIDER=local
 ```
 
-**Cost control is built in, four ways:** the score threshold filters before any call;
-identical inputs are served from the previous analysis instead of being re-billed; the
-monthly ceiling stops the queue rather than overspending; and every call is metered in
-Settings → Integrations → Usage. Prices come from an editable table — a model with no
-configured price reports `Unknown` cost rather than being silently counted as free.
+**Cost control is built in, five ways:**
+
+1. The score threshold (`AI_MIN_LEAD_SCORE`) filters before any call is made.
+2. Identical inputs are served from the previous analysis rather than re-billed. The cache
+   key covers the observations, the provider, the model **and** the prompt version — so
+   editing a prompt invalidates the cache instead of being masked by it.
+3. The monthly ceiling stops paid calls rather than overspending. Reaching it is not a
+   failed lead: the deterministic brief is generated instead and the UI says why.
+4. Malformed model output is retried once and then abandoned in favour of the rules
+   engine, so a broken prompt cannot bill indefinitely.
+5. Every call is metered in Settings → Integrations → Usage.
+
+**On cost figures.** Every number the platform shows is an *estimate* and is labelled as
+one. Prices come from an editable table that vendors can change without telling us, so:
+
+* a model with no configured price reports `Unknown`, never zero;
+* calls against an unpriced model are counted separately, so the budget panel can say
+  "estimated $12 plus 40 calls of unknown cost" rather than implying the estimate is the
+  whole story;
+* override the table in Settings → AI with the prices on your own invoice, which are the
+  only authoritative numbers.
 
 The model is given a structured snapshot of what was observed and is instructed to return
 `نامشخص` for anything the snapshot does not contain. Its output is stored as

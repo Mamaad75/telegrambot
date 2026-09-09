@@ -2,7 +2,7 @@
   "name": "baimar-lead-intelligence",
   "version": "1.0.0",
   "private": true,
-  "description": "Baimar Lead Intelligence — Lead, Market and Sales Intelligence platform",
+  "description": "Baimar Lead Intelligence \u2014 Lead, Market and Sales Intelligence platform",
   "workspaces": [
     "packages/*",
     "apps/*"
@@ -27,7 +27,11 @@
     "test": "npm run test -w @baimar/api",
     "test:e2e": "npm run test:e2e -w @baimar/api",
     "typecheck": "npm run typecheck -w @baimar/shared && npm run typecheck -w @baimar/api && npm run typecheck -w @baimar/web",
-    "lint": "npm run typecheck"
+    "lint": "npm run typecheck",
+    "providers:check": "npm run providers:check -w @baimar/api",
+    "production:check": "npm run production:check -w @baimar/api",
+    "audit:url": "npm run audit:url -w @baimar/api --",
+    "verify": "bash scripts/verify.sh"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

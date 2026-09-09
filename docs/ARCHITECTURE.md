@@ -172,3 +172,37 @@ person's search activity. See [DATA-POLICY.md](DATA-POLICY.md).
 - Helmet headers, strict CORS allow-list, global and per-route rate limits, Zod validation
   on every input, Prisma parameterised queries throughout.
 - Audit log: every action that changes data records who, what, before, after and from where.
+  Pipeline status transitions have a single owner (`services/crm-service.ts`), so logging a
+  call and editing a lead by hand produce the same trail.
+
+### Server-side request forgery
+
+The crawler fetches URLs that other people chose — a website typed into a lead form, a
+column in an uploaded spreadsheet, a link found while crawling, a `Location` header
+returned by a third-party server. Without a guard it would be a proxy into the VPS's own
+network. `lib/url-guard.ts` applies three layers:
+
+1. **Shape** — http/https only, ports 80/443/8080/8443 only, no credentials in the URL,
+   no bare hostnames (`postgres`, `redis`, `localhost`), no `.local` / `.internal` names.
+2. **Address** — the hostname is resolved and *every* returned address is checked against
+   the blocked ranges: loopback, RFC 1918, link-local (including 169.254.169.254, the
+   cloud metadata service), CGNAT, multicast, and their IPv6 equivalents — including the
+   IPv4-mapped, 6to4 and NAT64 forms that wrap a private IPv4 address inside an IPv6 one.
+3. **Connect time** — a custom `lookup` on the undici dispatcher re-checks the address at
+   the moment the socket connects. This is the layer that closes DNS rebinding: a name
+   that resolves to a public address for the pre-check and to 127.0.0.1 a millisecond
+   later is refused when it matters.
+
+Redirects are followed by hand, one hop at a time, and every hop goes through all three
+layers again. `redirect: 'follow'` would hide the intermediate URLs, which is precisely
+where the attack lives.
+
+The guard has 61 tests. A failure there is a security regression, not a style problem.
+
+### Audit cache and locking
+
+Re-crawling a site that has not changed wastes bandwidth and annoys its owner; serving a
+stale audit tells a salesperson something that is no longer true. So freshness is tied to
+how much the answer matters — hot leads are refreshed sooner — and any change to the audit
+engine's version invalidates every earlier row regardless of age. A Redis lock keyed on
+the domain stops two leads that share a website from crawling it simultaneously.

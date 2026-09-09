@@ -205,6 +205,26 @@ and cache and can be lost without data loss. See [docs/DEPLOYMENT.md](docs/DEPLO
 | `npm run db:seed` | Service catalogue + first administrator |
 | `npm run db:demo` | Seed demo data |
 | `npm run db:reset` | Drop and rebuild the database |
+| `npm run verify` | typecheck + unit + e2e + build, in one gate |
+| `npm run providers:check` | What is configured and what is missing. Needs no paid key |
+| `npm run providers:check -- --live` | The same, but makes one real request per provider |
+| `npm run production:check` | Readiness gate: secrets, migrations, queues, posture |
+| `npm run audit:url -- <url>` | Audit any site from the terminal, without creating a lead |
+| `npm run audit:url -- <url> --browser` | …and add the real-browser measurements |
+
+---
+
+## Before you deploy
+
+```bash
+npm run verify              # typecheck, tests and build
+npm run providers:check     # what is configured
+npm run production:check    # secrets, migrations, queues, security posture
+```
+
+`production:check` exits non-zero on anything that would bite in production — a
+development secret, an unapplied migration, a crawler configured to reach the private
+network. Each failure prints what to do about it. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ---
 

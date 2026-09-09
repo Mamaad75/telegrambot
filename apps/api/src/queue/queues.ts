@@ -121,11 +121,24 @@ const DEFAULT_OPTIONS: Record<JobName, JobsOptions> = {
 
 const queues = new Map<QueueName, Queue>();
 
+/**
+ * Connections we handed to BullMQ.
+ *
+ * BullMQ closes a connection only when it created it itself; one passed in is treated as
+ * shared and left open. Since we create them here, we have to close them here — otherwise
+ * `closeQueues()` returns having closed nothing, and any process that does not call
+ * `process.exit` hangs forever holding five idle Redis sockets. That is exactly how the
+ * production-check command came to print its whole report and then never return.
+ */
+const connections: Array<ReturnType<typeof createRedisConnection>> = [];
+
 export function getQueue(name: QueueName): Queue {
   let queue = queues.get(name);
   if (!queue) {
+    const connection = createRedisConnection();
+    connections.push(connection);
     queue = new Queue(name, {
-      connection: createRedisConnection(),
+      connection,
       prefix: loadEnv().QUEUE_PREFIX,
       defaultJobOptions: {
         removeOnComplete: { age: 3600 * 24, count: 1000 },
@@ -251,6 +264,9 @@ export async function queueHealth(): Promise<Array<{ name: string; waiting: numb
 }
 
 export async function closeQueues(): Promise<void> {
-  await Promise.all(Array.from(queues.values()).map((q) => q.close()));
+  await Promise.all(Array.from(queues.values()).map((q) => q.close().catch(() => undefined)));
   queues.clear();
+  // Close what we opened. Without this the event loop stays alive.
+  await Promise.all(connections.map((c) => c.quit().catch(() => c.disconnect())));
+  connections.length = 0;
 }
