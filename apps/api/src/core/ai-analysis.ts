@@ -1,7 +1,10 @@
+import { z } from 'zod';
 import type { AIAnalysis, Lead, Service, WebsiteAudit } from '@prisma/client';
+import { loadEnv } from '../config/env';
 import { stableHash } from '../lib/crypto';
+import { jobLogger } from '../lib/logger';
 import { prisma } from '../lib/prisma';
-import { monthlyAiSpendUsd, trackUsage } from '../lib/provider-usage';
+import { aiBudgetStatus, trackUsage } from '../lib/provider-usage';
 import { getAiSettings } from '../lib/settings';
 import { callProvider, selectedAiProvider } from '../providers/registry';
 import type { AIProvider } from '../providers/types';
@@ -70,6 +73,72 @@ Return ONLY a JSON object with exactly these keys:
   "objection_response_strategy": string,
   "recommended_next_step": string
 }`;
+
+/* -------------------------------------------------------------------------- */
+/*  Output contract (patch 35)                                                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The shape a model must return.
+ *
+ * Validated rather than trusted, because a model's output is untrusted input like any
+ * other: a missing field, a string where an array belongs, or a hallucinated extra key
+ * would otherwise be written straight into the database and shown to a salesperson as
+ * though it were analysis. Anything that fails validation is retried once and then
+ * abandoned in favour of the deterministic brief — which is complete on its own.
+ *
+ * Fields are permissive about *emptiness* and strict about *type*: the prompt tells the
+ * model to answer "نامشخص" when it does not know, and that is a valid answer.
+ */
+const AiOutputSchema = z.object({
+  business_summary: z.string().max(2000).optional().default(''),
+  likely_customer_profile: z.string().max(2000).optional().default(''),
+  main_digital_problems: z.array(z.string().max(500)).max(20).optional().default([]),
+  business_opportunities: z.array(z.string().max(500)).max(20).optional().default([]),
+  recommended_baimar_service: z.string().max(120).optional().default(''),
+  secondary_services: z.array(z.string().max(120)).max(10).optional().default([]),
+  sales_angle: z.string().max(1000).optional().default(''),
+  why_contact_this_lead: z.string().max(2000).optional().default(''),
+  recommended_opening: z.string().max(2000).optional().default(''),
+  recommended_questions: z.array(z.string().max(400)).max(15).optional().default([]),
+  likely_objections: z.array(z.string().max(400)).max(15).optional().default([]),
+  objection_response_strategy: z.string().max(2000).optional().default(''),
+  recommended_next_step: z.string().max(1000).optional().default(''),
+});
+
+export type AiOutput = z.infer<typeof AiOutputSchema>;
+
+/**
+ * Parse and validate one model response.
+ *
+ * Returns the reason for rejection rather than throwing, so the caller can decide
+ * between retrying and falling back — and so the reason lands in the database where a
+ * broken prompt becomes visible instead of being silently absorbed.
+ */
+export function validateAiOutput(text: string): { ok: true; value: AiOutput } | { ok: false; reason: string } {
+  const parsed = parseAiJson(text);
+  if (!parsed) return { ok: false, reason: 'Model response was not valid JSON' };
+
+  const result = AiOutputSchema.safeParse(parsed);
+  if (!result.success) {
+    const issues = result.error.issues
+      .slice(0, 5)
+      .map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`)
+      .join('; ');
+    return { ok: false, reason: `Model output failed schema validation — ${issues}` };
+  }
+
+  // An analysis with nothing in it is not a success: it would replace a complete
+  // deterministic brief with an empty one.
+  const v = result.data;
+  const hasSubstance =
+    v.why_contact_this_lead.trim().length > 0 ||
+    v.recommended_opening.trim().length > 0 ||
+    v.main_digital_problems.length > 0;
+  if (!hasSubstance) return { ok: false, reason: 'Model returned a well-formed but empty analysis' };
+
+  return { ok: true, value: v };
+}
 
 export function buildSnapshot(input: AiAnalysisInput): Record<string, unknown> {
   const { lead, audit, signals, score, businessValue, matches, services } = input;
@@ -149,61 +218,79 @@ export async function analyzeLead(input: AiAnalysisInput, opts: { force?: boolea
   }
 
   // Budget ceiling: refuse rather than overspend.
+  //
+  // Hitting the ceiling is not a failure of the lead. The caller regenerates the
+  // deterministic brief either way, so a budget-capped lead still reaches the sales team
+  // with a score, a recommended service and an opening — just without the model's
+  // wording. The reason string is written to be shown to a human as-is.
   if (settings.monthlyBudgetUsd > 0) {
-    const spent = await monthlyAiSpendUsd();
-    if (spent >= settings.monthlyBudgetUsd) {
+    const budget = await aiBudgetStatus(settings.monthlyBudgetUsd);
+    if (budget.exceeded) {
       return {
         status: 'skipped',
-        reason: `Monthly AI budget reached (estimated $${spent.toFixed(2)} of $${settings.monthlyBudgetUsd}). Raise it in Settings → AI to continue.`,
+        reason: `AI budget reached for this month (estimated $${budget.estimatedSpentUsd.toFixed(2)} of $${budget.budgetUsd}). The rules-based brief was used instead. The ceiling resets automatically; raise it in Settings → AI to continue sooner.`,
       };
     }
   }
 
   const snapshot = buildSnapshot(input);
-  const inputHash = stableHash({ snapshot, model: provider.model });
+  const promptVersion = loadEnv().AI_PROMPT_VERSION;
+
+  // The cache key covers everything that could change the answer: the observations, the
+  // provider, the model and the prompt revision. Leaving the prompt out was the subtle
+  // failure this guards against — an edited prompt would keep returning the old answer
+  // from cache and look like it had no effect.
+  const inputHash = stableHash({
+    snapshot,
+    model: provider.model,
+    provider: provider.descriptor.key,
+    promptVersion,
+  });
 
   if (settings.cacheEnabled && !opts.force) {
     const existing = await prisma.aIAnalysis.findFirst({
-      where: { leadId: input.lead.id, inputHash, error: null },
+      where: {
+        leadId: input.lead.id,
+        inputHash,
+        promptVersion,
+        model: provider.model,
+        provider: provider.descriptor.key,
+        error: null,
+      },
       orderBy: { createdAt: 'desc' },
     });
     if (existing) return { status: 'ok', analysis: existing, cached: true };
   }
 
-  try {
-    const result = await callProvider(
-      provider,
-      () =>
-        (provider as AIProvider).complete({
-          system: SYSTEM_PROMPT,
-          user: `Business snapshot (JSON):\n${JSON.stringify(snapshot, null, 2)}\n\nReturn only the JSON object described in your instructions.`,
-          jsonSchemaName: 'baimar_lead_analysis',
-          temperature: settings.temperature,
-          maxTokens: settings.maxTokens,
-        }),
-      {
-        usage: {},
-      },
-    );
+  const log = jobLogger({ leadId: input.lead.id, providerKey: provider.descriptor.key, jobName: 'ai_analysis' });
 
-    const parsed = parseAiJson(result.text);
-    if (!parsed) {
-      const failed = await prisma.aIAnalysis.create({
-        data: {
-          leadId: input.lead.id,
-          provider: provider.descriptor.key,
-          model: result.model,
-          inputSnapshot: snapshot as object,
-          inputHash,
-          rawOutput: { text: result.text.slice(0, 4000) },
-          error: 'Model response was not valid JSON',
-          latencyMs: result.latencyMs,
-          promptTokens: result.promptTokens,
-          completionTokens: result.completionTokens,
-          totalTokens: result.totalTokens,
-          estimatedCostUsd: result.estimatedCostUsd,
-        },
-      });
+  try {
+    // One retry, then stop. A model that returns malformed JSON twice for the same input
+    // is not going to get it right on the third attempt, and each attempt is billed.
+    const MAX_ATTEMPTS = 2;
+    let result: Awaited<ReturnType<AIProvider['complete']>> | null = null;
+    let validated: AiOutput | null = null;
+    let lastReason = '';
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const strictness =
+        attempt === 1
+          ? ''
+          : `\n\nYour previous response was rejected: ${lastReason}. Return ONLY the JSON object, with no prose, no code fence and no extra keys.`;
+
+      result = await callProvider(
+        provider,
+        () =>
+          (provider as AIProvider).complete({
+            system: SYSTEM_PROMPT,
+            user: `Business snapshot (JSON):\n${JSON.stringify(snapshot, null, 2)}\n\nReturn only the JSON object described in your instructions.${strictness}`,
+            jsonSchemaName: 'baimar_lead_analysis',
+            temperature: settings.temperature,
+            maxTokens: settings.maxTokens,
+          }),
+        { usage: {} },
+      );
+
       await trackUsage({
         providerKey: provider.descriptor.key,
         kind: 'AI',
@@ -211,10 +298,49 @@ export async function analyzeLead(input: AiAnalysisInput, opts: { force?: boolea
         completionTokens: result.completionTokens,
         totalTokens: result.totalTokens,
         estimatedCostUsd: result.estimatedCostUsd,
+        // The adapter returns undefined when the model is not in the pricing table.
+        // Recorded rather than treated as free, so the ceiling cannot be walked past.
+        unpriced: result.estimatedCostUsd === undefined || result.estimatedCostUsd === null,
       });
-      return { status: 'failed', reason: `Model returned unparseable output (analysis ${failed.id})` };
+
+      const check = validateAiOutput(result.text);
+      if (check.ok) {
+        validated = check.value;
+        break;
+      }
+      lastReason = check.reason;
+      log.warn({ attempt, reason: check.reason }, 'AI output rejected by the schema');
     }
 
+    if (!validated || !result) {
+      // Store the failure so a broken prompt is visible in the admin log rather than
+      // disappearing, then let the caller fall back to the deterministic brief.
+      const failed = await prisma.aIAnalysis.create({
+        data: {
+          leadId: input.lead.id,
+          provider: provider.descriptor.key,
+          model: result?.model ?? provider.model,
+          inputSnapshot: snapshot as object,
+          inputHash,
+          promptVersion,
+          rawOutput: { text: (result?.text ?? '').slice(0, 4000) },
+          error: lastReason,
+          validationError: lastReason,
+          usedFallback: true,
+          latencyMs: result?.latencyMs,
+          promptTokens: result?.promptTokens,
+          completionTokens: result?.completionTokens,
+          totalTokens: result?.totalTokens,
+          estimatedCostUsd: result?.estimatedCostUsd,
+        },
+      });
+      return {
+        status: 'failed',
+        reason: `${lastReason} after ${MAX_ATTEMPTS} attempts — falling back to the rules-based brief (analysis ${failed.id})`,
+      };
+    }
+
+    const parsed = validated as unknown as Record<string, unknown>;
     const validServiceKeys = new Set(input.services.map((s) => s.key));
     const recommended = validServiceKeys.has(String(parsed.recommended_baimar_service))
       ? String(parsed.recommended_baimar_service)
@@ -242,6 +368,7 @@ export async function analyzeLead(input: AiAnalysisInput, opts: { force?: boolea
         recommendedNextStep: clean(parsed.recommended_next_step),
         inputSnapshot: snapshot as object,
         inputHash,
+        promptVersion,
         rawOutput: parsed as object,
         promptTokens: result.promptTokens,
         completionTokens: result.completionTokens,
@@ -249,15 +376,6 @@ export async function analyzeLead(input: AiAnalysisInput, opts: { force?: boolea
         estimatedCostUsd: result.estimatedCostUsd,
         latencyMs: result.latencyMs,
       },
-    });
-
-    await trackUsage({
-      providerKey: provider.descriptor.key,
-      kind: 'AI',
-      promptTokens: result.promptTokens,
-      completionTokens: result.completionTokens,
-      totalTokens: result.totalTokens,
-      estimatedCostUsd: result.estimatedCostUsd,
     });
 
     return { status: 'ok', analysis, cached: false };
@@ -271,6 +389,8 @@ export async function analyzeLead(input: AiAnalysisInput, opts: { force?: boolea
           model: provider.model,
           inputSnapshot: snapshot as object,
           inputHash,
+          promptVersion,
+          usedFallback: true,
           error: reason.slice(0, 1000),
         },
       })

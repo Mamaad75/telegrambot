@@ -249,16 +249,33 @@ async function process(job: Job): Promise<unknown> {
   }
 }
 
-/** Concurrency per queue. AI is deliberately serial to keep spend predictable. */
-function concurrencyFor(queue: QueueName): number {
+/**
+ * Concurrency per queue, sized for the target box: 2 CPU and 4 GB of RAM.
+ *
+ * Each kind of work is capped separately because they are constrained by different
+ * things, and a single global number would have to be wrong for at least one of them:
+ *
+ *   campaign — one at a time. A run is mostly waiting on providers, and two runs racing
+ *              would double the request rate against the same rate-limited APIs.
+ *   lead     — HTTP crawling, bounded by CRAWLER_CONCURRENCY. Politeness, not capacity,
+ *              is the limit here: the per-host throttle already serialises one site.
+ *   ai       — AI_CONCURRENCY, default 1. Parallel model calls buy latency, not
+ *              throughput, and make spend much harder to predict.
+ *   browser  — BROWSER_AUDIT_CONCURRENCY, default 1. Chromium needs ~400 MB resident;
+ *              three at once is most of this machine's RAM.
+ *
+ * All four are administrator-configurable, and all four default low. Raising them is a
+ * deliberate act after watching memory under a real campaign — not a starting point.
+ */
+export function concurrencyFor(queue: QueueName): number {
   const env = loadEnv();
   switch (queue) {
     case QUEUE.campaign:
       return 1;
     case QUEUE.lead:
-      return Math.max(1, env.CRAWLER_CONCURRENCY);
+      return Math.max(1, Math.min(env.CRAWLER_CONCURRENCY, env.WORKER_CONCURRENCY));
     case QUEUE.ai:
-      return 1;
+      return Math.max(1, env.AI_CONCURRENCY);
     case QUEUE.notification:
       return 2;
     case QUEUE.market:
@@ -297,7 +314,9 @@ export function startWorkers(): Worker[] {
 
       const data = job.data as { runId?: string; leadId?: string } | undefined;
       if (data?.runId && data?.leadId) {
-        void recordRunProgress(data.runId, data.leadId).catch(() => undefined);
+        // Counted as failed, not as processed: the run's totals must add up, and a lead
+        // whose pipeline died is not a lead that was evaluated.
+        void recordRunProgress(data.runId, data.leadId, 'failed').catch(() => undefined);
       }
     });
     worker.on('error', (err) => {

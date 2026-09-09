@@ -129,15 +129,22 @@ enum WebsiteFilter {
   HAS_WEBSITE
 }
 
+/// Every way a salesperson can touch a lead. WhatsApp and Telegram are first-class
+/// here because in Iran they are how most of these conversations actually happen —
+/// recording them as a generic "note" would lose the channel, and the channel is what
+/// the source-performance report is measured on.
 enum ActivityType {
   CALL
+  SMS
+  EMAIL
+  WHATSAPP
+  TELEGRAM
+  MEETING
   NOTE
+  FOLLOW_UP
   STATUS_CHANGE
   ASSIGNMENT
-  EMAIL
-  MEETING
   PROPOSAL_SENT
-  FOLLOW_UP
   SYSTEM
 }
 
@@ -1325,6 +1332,10 @@ model ProviderUsage {
   completionTokens Int          @default(0)
   totalTokens      Int          @default(0)
   estimatedCostUsd Float        @default(0)
+  /// Calls whose model has no price in the pricing table. Counted separately so the
+  /// budget guard can say "estimated $12 plus 40 calls of unknown cost" instead of
+  /// quietly treating an unpriced model as free.
+  unpricedRequests Int          @default(0)
   bytesFetched     BigInt       @default(0)
   updatedAt        DateTime     @updatedAt
   createdAt        DateTime     @default(now())

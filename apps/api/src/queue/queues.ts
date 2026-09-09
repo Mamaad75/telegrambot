@@ -120,6 +120,54 @@ export function allQueues(): Queue[] {
   return Object.values(QUEUE).map((n) => getQueue(n));
 }
 
+/**
+ * Deterministic job id for the operations where running twice is wasteful or wrong.
+ *
+ * BullMQ refuses a job whose id already exists in the queue, so a stable id turns
+ * "enqueue this" into "make sure this is enqueued". The cases that matter:
+ *
+ *   * a user clicking Audit twice, or an impatient double-submit;
+ *   * a campaign that re-runs and re-queues leads it already queued;
+ *   * a chained stage enqueued by a job that is itself retried after a late failure —
+ *     without this, one retry of `discover_website` would enqueue a *second* audit.
+ *
+ * The id includes the run and the calendar minute rather than being global forever:
+ * re-auditing a lead tomorrow, or in a different campaign run, is legitimate work and
+ * must not be silently swallowed by a job id from last week.
+ *
+ * Notification jobs are excluded on purpose — two identical alerts a day apart are two
+ * real events, and deduplicating them would hide the second.
+ */
+function deterministicJobId<N extends JobName>(name: N, payload: JobPayloads[N]): string | undefined {
+  const p = payload as Record<string, unknown>;
+  const minute = Math.floor(Date.now() / 60_000);
+
+  switch (name) {
+    case 'discover_website':
+    case 'crawl_website':
+    case 'audit_website':
+    case 'calculate_score':
+    case 'generate_sales_brief':
+    case 'analyze_lead': {
+      const leadId = p.leadId as string | undefined;
+      if (!leadId) return undefined;
+      // Within one campaign run, one job of each kind per lead. Outside a run, one per
+      // minute — enough to absorb a double click without blocking a deliberate re-run.
+      const scope = (p.runId as string | undefined) ?? `m${minute}`;
+      const forced = p.force ? 'force' : 'auto';
+      // BullMQ reserves ':' in job ids (it builds Redis keys from them), so the parts
+      // are joined with '--'. Getting this wrong fails the enqueue silently at runtime.
+      return `${name}--${leadId}--${scope}--${forced}`;
+    }
+    case 'discover_businesses': {
+      const runId = p.runId as string | undefined;
+      return runId ? `${name}--${runId}` : undefined;
+    }
+    default:
+      return undefined;
+  }
+}
+
 /** Type-safe enqueue. Returns the job id, or null when Redis is unreachable. */
 export async function enqueue<N extends JobName>(
   name: N,
@@ -128,7 +176,8 @@ export async function enqueue<N extends JobName>(
 ): Promise<string | null> {
   try {
     const queue = getQueue(QUEUE_FOR_JOB[name]);
-    const job = await queue.add(name, payload, { ...DEFAULT_OPTIONS[name], ...options });
+    const jobId = options.jobId ?? deterministicJobId(name, payload);
+    const job = await queue.add(name, payload, { ...DEFAULT_OPTIONS[name], ...options, ...(jobId ? { jobId } : {}) });
     return job.id ?? null;
   } catch (err) {
     // A queue outage must not take the API down; the caller decides whether to run inline.

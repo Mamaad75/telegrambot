@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import { Queue, Worker } from 'bullmq';
 import { createRedisConnection, disconnectRedis, redisHealthy } from '../lib/redis';
-import { enqueue, queueHealth } from '../queue/queues';
+import { enqueue, getQueue, queueHealth } from '../queue/queues';
 
 /**
  * Queue behaviour.
@@ -96,5 +96,45 @@ describe('background jobs', () => {
   it('enqueues a real pipeline job and returns its id', async () => {
     const jobId = await enqueue('calculate_score', { leadId: 'non-existent-lead-id' });
     expect(jobId).toBeTruthy();
+  });
+});
+
+describe('job idempotency (patch 31)', () => {
+  // Running an audit or an AI analysis twice for the same lead is not merely wasteful:
+  // it crawls somebody else's site twice, and bills a model twice, for one answer.
+  it('collapses a double-submit into one job', async () => {
+    const leadId = `idem-${Date.now()}`;
+    const first = await enqueue('audit_website', { leadId, runId: 'run-idem-1' });
+    const second = await enqueue('audit_website', { leadId, runId: 'run-idem-1' });
+
+    expect(first).toBeTruthy();
+    // BullMQ returns the existing job rather than adding a duplicate, so the ids match.
+    expect(second).toBe(first);
+
+    const counts = await getQueue('lead').getJobCounts('waiting', 'delayed');
+    expect((counts.waiting ?? 0) + (counts.delayed ?? 0)).toBeGreaterThan(0);
+  });
+
+  it('keeps separate campaign runs separate', async () => {
+    const leadId = `idem-runs-${Date.now()}`;
+    const a = await enqueue('audit_website', { leadId, runId: 'run-A' });
+    const b = await enqueue('audit_website', { leadId, runId: 'run-B' });
+    // A later run legitimately re-audits the same lead; that must not be swallowed.
+    expect(a).not.toBe(b);
+  });
+
+  it('treats a forced re-audit as different work from an automatic one', async () => {
+    const leadId = `idem-force-${Date.now()}`;
+    const auto = await enqueue('audit_website', { leadId, runId: 'run-C' });
+    const forced = await enqueue('audit_website', { leadId, runId: 'run-C', force: true });
+    expect(auto).not.toBe(forced);
+  });
+
+  it('never deduplicates notifications — two alerts are two events', async () => {
+    const payload = { event: 'HOT_LEAD' as const, title: 'یک سرنخ داغ', body: 'x' };
+    const first = await enqueue('send_notification', payload);
+    const second = await enqueue('send_notification', payload);
+    expect(first).toBeTruthy();
+    expect(second).not.toBe(first);
   });
 });

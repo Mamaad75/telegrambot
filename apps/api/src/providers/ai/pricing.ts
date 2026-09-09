@@ -1,10 +1,21 @@
 /**
  * Token pricing used to estimate AI spend, in USD per 1 million tokens.
  *
- * These are *estimates*, and the platform treats them as such: the cost dashboard labels
- * every figure "estimated". Prices change, so administrators can override this table in
- * Settings → AI. A model that is not listed reports `null` cost rather than a made-up
- * number — the dashboard then shows "Unknown" for that portion of the spend.
+ * Every figure derived from this table is an *estimate*, and the platform never calls it
+ * anything else. Three rules keep it honest:
+ *
+ *   1. Vendors change prices whenever they like, and this table cannot know when they
+ *      do. Administrators override it in Settings → AI with the prices on their own
+ *      invoice, which are the only authoritative numbers.
+ *   2. A model that is not listed reports `null`, never zero. Treating an unpriced
+ *      model as free would let it run past the monthly ceiling unnoticed, which is the
+ *      exact failure the ceiling exists to prevent.
+ *   3. Unpriced calls are counted separately (ProviderUsage.unpricedRequests) so the
+ *      budget panel can say "estimated $12 plus 40 calls of unknown cost" rather than
+ *      implying the estimate is the whole story.
+ *
+ * The defaults below are a starting point for the models this project was tested with.
+ * Verify them against your own billing before relying on the ceiling.
  */
 export interface ModelPrice {
   inputPerMillion: number;

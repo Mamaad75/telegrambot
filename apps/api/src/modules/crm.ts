@@ -1,9 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { CALL_OUTCOMES, TASK_PRIORITIES, TASK_STATUSES, isRestrictedToAssigned } from '@baimar/shared';
-import type { Prisma } from '@prisma/client';
+import type { ContactStatus, Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { assertLeadAccess } from '../plugins/auth';
+import { applyStatusTransition, followUpBuckets, syncNextFollowUp, upsertFollowUp } from '../services/crm-service';
 
 /**
  * CRM: notes, calls, tasks and follow-ups.
@@ -83,19 +84,35 @@ export default async function crmRoutes(app: FastifyInstance) {
     });
 
     const leadUpdate: Prisma.LeadUpdateInput = { lastContactAt: new Date() };
-    const derivedStatus = (body.contactStatus as Prisma.LeadUpdateInput['contactStatus']) ?? OUTCOME_TO_STATUS[body.outcome];
-    if (derivedStatus) leadUpdate.contactStatus = derivedStatus;
-    if (body.outcome === 'NOT_INTERESTED') leadUpdate.lostAt = new Date();
+    const derivedStatus = (body.contactStatus as ContactStatus | undefined) ?? OUTCOME_TO_STATUS[body.outcome];
 
     if (body.nextActionAt) {
-      const dueAt = new Date(body.nextActionAt);
-      leadUpdate.nextFollowUpAt = dueAt;
-      await prisma.followUp.create({
-        data: { leadId, userId: req.user!.id, kind: body.nextActionKind ?? 'تماس مجدد', dueAt, notes: body.notes ?? null },
+      // Upsert, not create: editing and re-saving a call must not leave two reminders
+      // for the same lead on the same day.
+      await upsertFollowUp({
+        leadId,
+        userId: req.user!.id,
+        kind: body.nextActionKind ?? 'تماس مجدد',
+        dueAt: new Date(body.nextActionAt),
+        notes: body.notes ?? null,
       });
     }
 
-    await prisma.lead.update({ where: { id: leadId }, data: leadUpdate });
+    if (derivedStatus) {
+      // Goes through the one transition function, so the move is on the lead timeline
+      // and in the audit log — logging a call used to change the status invisibly.
+      await applyStatusTransition({
+        leadId,
+        to: derivedStatus as ContactStatus,
+        actor: { id: req.user!.id, email: req.user!.email },
+        reasonFa: `نتیجه تماس: ${body.outcome}`,
+        extra: leadUpdate,
+        ip: req.ip,
+        source: 'call',
+      });
+    } else {
+      await prisma.lead.update({ where: { id: leadId }, data: leadUpdate });
+    }
     await prisma.salesActivity.create({
       data: {
         leadId,
@@ -239,28 +256,42 @@ export default async function crmRoutes(app: FastifyInstance) {
       .object({ kind: z.string().min(2).max(120), dueAt: z.string().datetime(), notes: z.string().max(2000).optional() })
       .parse(req.body);
 
-    const dueAt = new Date(body.dueAt);
-    const followUp = await prisma.followUp.create({
-      data: { leadId, userId: req.user!.id, kind: body.kind, dueAt, notes: body.notes ?? null },
+    const { id, created } = await upsertFollowUp({
+      leadId,
+      userId: req.user!.id,
+      kind: body.kind,
+      dueAt: new Date(body.dueAt),
+      notes: body.notes ?? null,
     });
-    await prisma.lead.update({ where: { id: leadId }, data: { nextFollowUpAt: dueAt } });
-    await prisma.salesActivity.create({
-      data: { leadId, userId: req.user!.id, type: 'FOLLOW_UP', title: `پیگیری: ${body.kind}`, body: body.notes ?? null },
-    });
-    return { followUp };
+
+    // Only a genuinely new reminder is worth a timeline entry; re-saving the same one
+    // would otherwise fill the lead's history with noise.
+    if (created) {
+      await prisma.salesActivity.create({
+        data: { leadId, userId: req.user!.id, type: 'FOLLOW_UP', title: `پیگیری: ${body.kind}`, body: body.notes ?? null },
+      });
+    }
+
+    const followUp = await prisma.followUp.findUniqueOrThrow({ where: { id } });
+    return { followUp, created };
   });
 
   app.post('/follow-ups/:id/complete', { onRequest: [app.requirePermission('crm:write')] }, async (req) => {
     const { id } = z.object({ id: z.string() }).parse(req.params);
     const followUp = await prisma.followUp.update({ where: { id }, data: { completedAt: new Date() } });
-
     // Point the lead at its next open follow-up, if any.
-    const next = await prisma.followUp.findFirst({
-      where: { leadId: followUp.leadId, completedAt: null },
-      orderBy: { dueAt: 'asc' },
-    });
-    await prisma.lead.update({ where: { id: followUp.leadId }, data: { nextFollowUpAt: next?.dueAt ?? null } });
-
+    await syncNextFollowUp(followUp.leadId);
     return { followUp };
+  });
+
+  /**
+   * The three buckets the Today view is built on.
+   *
+   * Scoped to the caller unless they can see the whole pipeline, so a salesperson's
+   * "overdue" count is their own work and not the team's.
+   */
+  app.get('/follow-ups/summary', { onRequest: [app.requirePermission('crm:write')] }, async (req) => {
+    const scopeToSelf = isRestrictedToAssigned(req.user!.role);
+    return followUpBuckets(scopeToSelf ? req.user!.id : null);
   });
 }

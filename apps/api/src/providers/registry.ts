@@ -3,7 +3,7 @@ import { loadEnv } from '../config/env';
 import { ProviderError } from '../lib/errors';
 import { prisma } from '../lib/prisma';
 import { consumeRateLimit } from '../lib/rate-limiter';
-import { recordProviderFailure, trackUsage } from '../lib/provider-usage';
+import { recordProviderFailure, recordProviderSuccess, trackUsage } from '../lib/provider-usage';
 import { GooglePlacesProvider } from './lead-source/google-places';
 import { ManualProvider } from './lead-source/manual';
 import { OverpassProvider } from './lead-source/overpass';
@@ -310,12 +310,10 @@ export async function callProvider<T>(
   try {
     const result = await fn();
     await trackUsage({ providerKey: d.key, kind: d.kind, requests: 1, ...opts.usage });
-    // A successful call clears a stale ERROR state.
-    if (row?.state === 'ERROR') {
-      await prisma.provider
-        .update({ where: { key: d.key }, data: { state: 'CONFIGURED', lastError: null } })
-        .catch(() => undefined);
-    }
+    // A success is the only thing that can clear a DEGRADED or ERROR state, and it also
+    // records when this integration last actually worked — the honest answer to "is this
+    // configured provider doing anything?".
+    await recordProviderSuccess(d.key);
     return result;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

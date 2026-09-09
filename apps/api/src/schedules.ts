@@ -1,5 +1,8 @@
 import { getNotificationSettings } from './lib/settings';
+import { logger } from './lib/logger';
 import { pruneRefreshTokens } from './services/auth-service';
+import { closeStalledRuns } from './services/campaign-service';
+import { cleanupExpiredCache, runRetentionCleanup } from './services/cleanup-service';
 import { notifyDueFollowUps, sendDailySummary } from './services/notification-service';
 import { enqueue } from './queue/queues';
 
@@ -35,11 +38,40 @@ export function startSchedules(): void {
     ),
   );
 
-  // Token cleanup: daily.
+  // Stalled campaign runs: every 15 minutes.
+  //
+  // A run must always reach a terminal state. Jobs can be lost in ways no retry policy
+  // covers — the worker container is replaced mid-crawl, Redis is flushed — and without
+  // this sweep the campaign would sit at RUNNING while a salesperson waits for a list
+  // that is never coming.
   timers.push(
     setInterval(
       () => {
-        void pruneRefreshTokens().catch(() => undefined);
+        void closeStalledRuns()
+          .then((closed) => {
+            if (closed > 0) logger.warn({ scope: 'schedule', closed }, 'closed stalled campaign run(s)');
+          })
+          .catch((err) => logger.error({ scope: 'schedule', err: String(err) }, 'stalled-run sweep failed'));
+      },
+      15 * MINUTE,
+    ),
+  );
+
+  // Housekeeping: daily. Token pruning, log retention and cache cleanup.
+  //
+  // CRM records are deliberately out of scope here — see cleanup-service.ts.
+  timers.push(
+    setInterval(
+      () => {
+        void (async () => {
+          try {
+            await pruneRefreshTokens();
+            await runRetentionCleanup();
+            await cleanupExpiredCache();
+          } catch (err) {
+            logger.error({ scope: 'schedule', err: String(err) }, 'daily housekeeping failed');
+          }
+        })();
       },
       24 * 60 * MINUTE,
     ),

@@ -38,7 +38,16 @@ export default async function providerRoutes(app: FastifyInstance) {
         displayName: row.displayName,
         description: row.description,
         enabled: row.enabled,
-        state: !row.enabled ? 'DISABLED' : row.state === 'ERROR' ? 'ERROR' : configured ? 'CONFIGURED' : 'NOT_CONFIGURED',
+        // Health outranks configuration in the display: a provider with credentials
+        // that has been failing is ERROR, not CONFIGURED, and an administrator needs to
+        // see that difference at a glance.
+        state: !row.enabled
+          ? 'DISABLED'
+          : !configured
+            ? 'NOT_CONFIGURED'
+            : row.state === 'ERROR' || row.state === 'DEGRADED' || row.state === 'HEALTHY'
+              ? row.state
+              : 'CONFIGURED',
         requiredConfig: descriptor?.requiredConfig ?? [],
         missingConfig: missing,
         cost: descriptor?.cost ?? 'FREE',
@@ -53,6 +62,12 @@ export default async function providerRoutes(app: FastifyInstance) {
         lastError: row.lastError,
         lastErrorAt: row.lastErrorAt,
         lastUsedAt: row.lastUsedAt,
+        /** When this integration last actually worked. Null means: never, yet. */
+        lastSuccessAt: row.lastSuccessAt,
+        lastCheckAt: row.lastCheckAt,
+        lastCheckOk: row.lastCheckOk,
+        lastCheckMessage: row.lastCheckMessage,
+        consecutiveFailures: row.consecutiveFailures,
       };
     });
 
@@ -114,16 +129,34 @@ export default async function providerRoutes(app: FastifyInstance) {
     const started = Date.now();
     const result = await provider.healthCheck();
 
+    const durationMs = Date.now() - started;
+
     await prisma.provider
       .update({
         where: { key },
         data: result.ok
-          ? { state: 'CONFIGURED', lastError: null, lastErrorAt: null }
-          : { state: 'ERROR', lastError: result.message.slice(0, 1000), lastErrorAt: new Date() },
+          ? {
+              state: 'HEALTHY',
+              lastError: null,
+              lastErrorAt: null,
+              lastSuccessAt: new Date(),
+              consecutiveFailures: 0,
+              lastCheckAt: new Date(),
+              lastCheckOk: true,
+              lastCheckMessage: result.message.slice(0, 500),
+            }
+          : {
+              state: 'ERROR',
+              lastError: result.message.slice(0, 1000),
+              lastErrorAt: new Date(),
+              lastCheckAt: new Date(),
+              lastCheckOk: false,
+              lastCheckMessage: result.message.slice(0, 500),
+            },
       })
       .catch(() => undefined);
 
-    return { ...result, durationMs: Date.now() - started };
+    return { ...result, durationMs };
   });
 
   /* --------------------------- Usage & cost ------------------------------- */
