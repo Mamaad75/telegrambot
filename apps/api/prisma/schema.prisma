@@ -904,6 +904,10 @@ model Service {
   commonObjections   String[] @default([])
   objectionResponses String[] @default([])
   discoveryQuestions String[] @default([])
+  /// Search terms that indicate demand for this service, in Persian or English.
+  /// Editable in Settings → Services: adding a service to the catalogue must not
+  /// require a code change for the market engine to start recognising its keywords.
+  matchKeywords      String[] @default([])
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -921,6 +925,10 @@ model Opportunity {
   score       Int
   level       String
   reasons     String[] @default([])
+  /// Per-factor breakdown of the score: which rule fired, the market boost, the
+  /// business-value contribution, and the observation behind each one. Stored so the
+  /// UI can justify a 94 rather than merely display it.
+  factors     Json?
   marketBoost Int      @default(0)
   isPrimary   Boolean  @default(false)
   createdAt   DateTime @default(now())
@@ -1177,6 +1185,9 @@ model SearchTerm {
   normalizedTerm   String
   source           KeywordSource
   origin           DataOrigin    @default(ADVERTISING_CAMPAIGN)
+  /// Where this observation can be traced back to — a Google Ads report, the import
+  /// batch it arrived in. Provenance is mandatory on anything a salesperson may quote.
+  sourceUrl        String?
   campaignName     String?
   adGroupName      String?
   matchType        String?

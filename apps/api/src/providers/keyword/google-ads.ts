@@ -126,13 +126,19 @@ export class GoogleAdsProvider implements KeywordInsightProvider {
     `;
 
     const rows = await this.query(gaql, q.signal);
+    const customerIdForLink = loadEnv().GOOGLE_ADS_CUSTOMER_ID?.replace(/-/g, '') ?? '';
     return rows
       .filter((r) => r.searchTermView?.searchTerm)
       .map<SearchTermObservation>((r) => ({
         term: r.searchTermView!.searchTerm!,
         keyword: r.searchTermView!.searchTerm!,
         source: 'GOOGLE_ADS',
+        // ADVERTISING_CAMPAIGN, never AGGREGATE_SEARCH_SIGNAL and never anything
+        // person-shaped: this is the set of queries that triggered *Baimar's own ads*,
+        // read from Baimar's own authenticated account. It says a query happened, and
+        // says nothing whatsoever about who made it.
         origin: 'ADVERTISING_CAMPAIGN',
+        sourceUrl: `https://ads.google.com/aw/overview?ocid=${customerIdForLink}`,
         campaignName: r.campaign?.name,
         adGroupName: r.adGroup?.name,
         matchType: r.segments?.keyword?.info?.matchType,

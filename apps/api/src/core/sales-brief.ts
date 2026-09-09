@@ -55,6 +55,12 @@ export function buildSalesBrief(input: BriefInput): SalesBriefContent {
   const base: SalesBriefContent = {
     whyContactFa: whyContact,
     keyProblemsFa: observedProblems.map((p) => p.textFa),
+    keyProblems: observedProblems.map((p) => ({
+      textFa: p.textFa,
+      evidenceFa: p.evidence,
+      sourceFa: p.sourceFa,
+      confidence: p.confidence,
+    })),
     recommendedServiceKey: primary?.serviceKey ?? null,
     recommendedServiceNameFa: primary?.nameFa ?? null,
     secondaryServiceKeys: secondary.map((s) => s.serviceKey),
@@ -63,6 +69,7 @@ export function buildSalesBrief(input: BriefInput): SalesBriefContent {
     questionsFa: questions,
     objections,
     nextActionFa: nextAction,
+    suggestedFollowUpAt: suggestFollowUp(score).toISOString(),
     generatedBy: 'RULES',
     disclaimersFa: buildDisclaimers(lead, audit, observedProblems.length),
   };
@@ -80,6 +87,9 @@ interface ObservedProblem {
   textFa: string;
   evidence: string;
   severity: number;
+  /** Where the observation came from, named in the salesperson's own language. */
+  sourceFa: string;
+  confidence: 'FACT' | 'CALCULATED' | 'ESTIMATED' | 'AI_INSIGHT' | 'UNKNOWN';
 }
 
 function collectProblems(signals: SignalMap, audit: WebsiteAudit | null): ObservedProblem[] {
@@ -91,7 +101,13 @@ function collectProblems(signals: SignalMap, audit: WebsiteAudit | null): Observ
    * "امکان رزرو یا نوبت‌دهی آنلاین ندارد" are one problem, and printing both makes the
    * brief look padded.
    */
-  const push = (textFa: string, evidence: string, severity: number) => {
+  const push = (
+    textFa: string,
+    evidence: string,
+    severity: number,
+    sourceFa = 'وب‌سایت رسمی کسب‌وکار',
+    confidence: ObservedProblem['confidence'] = 'FACT',
+  ) => {
     const tokens = problemTokens(textFa);
     // Overlap rather than equality: the signal and the audit finding for the same defect
     // rarely use identical wording.
@@ -102,12 +118,18 @@ function collectProblems(signals: SignalMap, audit: WebsiteAudit | null): Observ
       if (evidence.length > existing.evidence.length) existing.evidence = evidence;
       return;
     }
-    problems.push({ textFa, evidence, severity });
+    problems.push({ textFa, evidence, severity, sourceFa, confidence });
   };
 
-  if (signals.NO_WEBSITE?.value) push('وب‌سایتی برای این کسب‌وکار پیدا نشد', signals.NO_WEBSITE.evidence, 10);
+  // Source attribution matters: "we could not find a website" comes from our discovery
+  // step, not from reading their site — there was no site to read.
+  if (signals.NO_WEBSITE?.value) {
+    push('وب‌سایتی برای این کسب‌وکار پیدا نشد', signals.NO_WEBSITE.evidence, 10, 'جست‌وجوی وب‌سایت توسط بایمر', 'CALCULATED');
+  }
   if (signals.WEBSITE_BROKEN?.value) push('وب‌سایت در دسترس نیست', signals.WEBSITE_BROKEN.evidence, 10);
-  if (signals.SOCIAL_ONLY_PRESENCE?.value) push('فعالیت فقط در شبکه‌های اجتماعی', signals.SOCIAL_ONLY_PRESENCE.evidence, 9);
+  if (signals.SOCIAL_ONLY_PRESENCE?.value) {
+    push('فعالیت فقط در شبکه‌های اجتماعی', signals.SOCIAL_ONLY_PRESENCE.evidence, 9, 'پروفایل‌های عمومی شبکه‌های اجتماعی', 'FACT');
+  }
   if (signals.OUTDATED_WEBSITE?.value) push('ساختار وب‌سایت قدیمی است', signals.OUTDATED_WEBSITE.evidence, 8);
   if (signals.POOR_MOBILE_UX?.value) push('تجربه کاربری موبایل ضعیف', signals.POOR_MOBILE_UX.evidence, 8);
   if (signals.NO_SSL?.value) push('گواهی امنیتی HTTPS ندارد', signals.NO_SSL.evidence, 7);
@@ -124,7 +146,7 @@ function collectProblems(signals: SignalMap, audit: WebsiteAudit | null): Observ
   // The audit's own high-severity findings add specificity the signals do not carry.
   const findings = Array.isArray(audit?.findings) ? (audit!.findings as Array<{ severity: string; titleFa: string; evidence: string }>) : [];
   for (const f of findings.filter((x) => x.severity === 'HIGH').slice(0, 3)) {
-    push(f.titleFa, f.evidence, 7);
+    push(f.titleFa, f.evidence, 7, `بررسی فنی وب‌سایت${audit?.finalUrl ? ` (${audit.finalUrl})` : ''}`, 'FACT');
   }
 
   return problems.sort((a, b) => b.severity - a.severity).slice(0, 6);
@@ -208,26 +230,38 @@ function buildOpenings(
   const city = lead.city ? ` ${lead.city}` : '';
   const openings: SalesBriefContent['openings'] = [];
 
+  // Every opening below is built from something observed, and carries the observations
+  // with it. The rule this enforces (patch 24): the system must never hand a salesperson
+  // a sentence like "I noticed your traffic dropped 40%" — we have no traffic data for
+  // anyone else's site, so no opening may imply that we do.
+
   // Problem-based: only when we actually observed a problem.
   if (problems.length) {
     const p = problems[0];
     openings.push({
       style: 'PROBLEM',
       textFa: `سلام، از بایمر تماس می‌گیرم. ما حضور آنلاین کسب‌وکارهای${city || ' منطقه'} را بررسی می‌کنیم و در بررسی «${name}» به این مورد برخوردیم: ${p.textFa}. اگر یک دقیقه وقت داشته باشید توضیح می‌دهم چه تأثیری روی مشتری‌های شما دارد.`,
+      factBased: true,
+      basedOnFa: [`${p.textFa} — ${p.evidence} (منبع: ${p.sourceFa})`],
     });
   }
 
   // Opportunity-based: needs a real asset to build on.
   const asset =
     signals.ACTIVE_INSTAGRAM?.value
-      ? 'صفحه اینستاگرام فعال شما'
+      ? { textFa: 'صفحه اینستاگرام فعال شما', evidence: signals.ACTIVE_INSTAGRAM.evidence }
       : typeof lead.reviewCount === 'number' && lead.reviewCount >= 20
-        ? `${fa(lead.reviewCount)} نظر ثبت‌شده مشتریان شما`
+        ? {
+            textFa: `${fa(lead.reviewCount)} نظر ثبت‌شده مشتریان شما`,
+            evidence: `${fa(lead.reviewCount)} نظر عمومی در منبع اولیه سرنخ ثبت شده است`,
+          }
         : null;
   if (asset && primary) {
     openings.push({
       style: 'OPPORTUNITY',
-      textFa: `سلام، از بایمر مزاحم می‌شوم. ${asset} را دیدیم؛ چیزی که الان جایش خالی است ${primary.nameFa} است تا این مخاطب به مشتری قابل شمارش تبدیل شود. می‌توانم در دو دقیقه توضیح بدهم؟`,
+      textFa: `سلام، از بایمر مزاحم می‌شوم. ${asset.textFa} را دیدیم؛ چیزی که الان جایش خالی است ${primary.nameFa} است تا این مخاطب به مشتری قابل شمارش تبدیل شود. می‌توانم در دو دقیقه توضیح بدهم؟`,
+      factBased: true,
+      basedOnFa: [asset.evidence],
     });
   }
 
@@ -237,13 +271,22 @@ function buildOpenings(
     openings.push({
       style: 'AUDIT',
       textFa: `سلام، از بایمر تماس می‌گیرم. ما یک بررسی فنی کوتاه روی وب‌سایت ${audit.finalUrl ?? lead.websiteDomain} انجام دادیم؛ امتیاز کلی ${fa(audit.overallScore)} از ۱۰۰ شد${weakest ? ` و ضعیف‌ترین بخش ${weakest} بود` : ''}. گزارش را رایگان برایتان می‌فرستم، اگر مایل باشید.`,
+      factBased: true,
+      basedOnFa: [
+        `بررسی فنی ${audit.finalUrl ?? lead.websiteDomain} در ${new Intl.DateTimeFormat('fa-IR').format(audit.createdAt)}: امتیاز کلی ${fa(audit.overallScore)}`,
+      ],
     });
   }
 
   if (!openings.length) {
+    // Nothing was observed, so the opening asserts nothing. factBased is false and the
+    // UI says so — an honest question is a perfectly good opening; a fabricated
+    // observation is not.
     openings.push({
-      style: 'PROBLEM',
+      style: 'NEUTRAL',
       textFa: `سلام، از بایمر تماس می‌گیرم. در حال بررسی حضور آنلاین کسب‌وکارهای${city || ' منطقه'} هستیم. هنوز اطلاعات دیجیتال کاملی از «${name}» نداریم — می‌توانم چند سؤال کوتاه بپرسم تا ببینیم آیا اصلاً کمکی از ما برمی‌آید؟`,
+      factBased: false,
+      basedOnFa: [],
     });
   }
 
@@ -302,6 +345,23 @@ function buildNextAction(score: ScoreResult | null, lead: Lead): string {
     : 'اولویت پایین — فقط در صورت خالی بودن صف تماس، پیگیری شود.';
 }
 
+/**
+ * When to come back if the call does not happen today.
+ *
+ * Patch 25: a hot lead that nobody calls quietly becomes a cold one, so the brief always
+ * proposes a concrete date rather than leaving "follow up soon" to the salesperson's
+ * memory. The intervals are deliberately short at the top of the range: the whole value
+ * of a hot lead is that the observation behind it is still current.
+ */
+function suggestFollowUp(score: ScoreResult | null): Date {
+  const days = !score ? 7 : score.temperature === 'HOT' ? 3 : score.temperature === 'WARM' ? 5 : score.temperature === 'MEDIUM' ? 10 : 21;
+  const at = new Date();
+  at.setDate(at.getDate() + days);
+  // Late morning: inside working hours in Iran and clear of the start-of-day rush.
+  at.setHours(10, 0, 0, 0);
+  return at;
+}
+
 function defaultAngle(lead: Lead): string {
   return lead.websiteStatus === 'NO_WEBSITE'
     ? 'ساختن اولین مرجع رسمی و قابل جست‌وجو برای کسب‌وکار'
@@ -332,7 +392,23 @@ function mergeAi(base: SalesBriefContent, ai: AIAnalysis): SalesBriefContent {
   const merged: SalesBriefContent = { ...base, generatedBy: 'HYBRID' };
 
   if (ai.whyContact) merged.whyContactFa = ai.whyContact;
-  if (ai.mainDigitalProblems?.length) merged.keyProblemsFa = ai.mainDigitalProblems;
+  if (ai.mainDigitalProblems?.length) {
+    merged.keyProblemsFa = ai.mainDigitalProblems;
+    // The model's problem list is labelled AI_INSIGHT and sourced to the model, so the
+    // salesperson can see at a glance which lines are observations and which are a
+    // model's reading of them.
+    merged.keyProblems = ai.mainDigitalProblems.map((textFa) => {
+      const observed = base.keyProblems.find((p) => p.textFa === textFa);
+      return (
+        observed ?? {
+          textFa,
+          evidenceFa: 'برداشت مدل زبانی از داده‌های مشاهده‌شده — مشاهدهٔ مستقیم نیست.',
+          sourceFa: 'تحلیل هوش مصنوعی',
+          confidence: 'AI_INSIGHT' as const,
+        }
+      );
+    });
+  }
   if (ai.salesAngle) merged.salesAngleFa = ai.salesAngle;
   if (ai.recommendedService) merged.recommendedServiceKey = ai.recommendedService;
   if (ai.secondaryServices?.length) merged.secondaryServiceKeys = ai.secondaryServices;
@@ -340,8 +416,12 @@ function mergeAi(base: SalesBriefContent, ai: AIAnalysis): SalesBriefContent {
   if (ai.recommendedNextStep) merged.nextActionFa = ai.recommendedNextStep;
 
   if (ai.recommendedOpening) {
+    // A model-written opening is never marked fact-based: we did not verify sentence by
+    // sentence that everything it says was observed, and claiming otherwise is exactly
+    // the failure mode patch 24 exists to prevent. The deterministic openings stay in
+    // the list underneath, so a salesperson who wants a guaranteed-safe line has one.
     merged.openings = [
-      { style: 'PROBLEM', textFa: ai.recommendedOpening },
+      { style: 'PROBLEM', textFa: ai.recommendedOpening, factBased: false, basedOnFa: [] },
       ...base.openings.filter((o) => o.textFa !== ai.recommendedOpening),
     ];
   }

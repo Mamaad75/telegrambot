@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { ALL_CITIES } from '@baimar/shared';
 import { PageHeader } from '@/components/app-shell';
-import { DemandBadge } from '@/components/badges';
+import { DemandBadge, MetricOrUnknown, QualityBadge } from '@/components/badges';
 import { BarList, StatTile } from '@/components/charts';
 import { Card, EmptyState, ErrorNote, Field, Loading, Modal, Spinner, Tabs, useToast } from '@/components/ui';
 import { api, ApiError, downloadCsv } from '@/lib/api';
@@ -20,12 +20,42 @@ interface ServiceDemand {
   score: number | null;
   basis: string;
   confidence: string;
+  /** Provenance, always present — see patch 16. */
+  origin: string;
+  quality: 'FACT' | 'AGGREGATE' | 'ESTIMATED' | 'IMPORTED' | 'AI_INSIGHT' | 'UNKNOWN';
+  sourceUrls: string[];
+  periodLabel: string | null;
   sourceLabels: string[];
   sampleSize: number;
   totalClicks: number | null;
   totalImpressions: number | null;
   periodStart: string | null;
   periodEnd: string | null;
+}
+
+interface FirstPartyQuery {
+  query: string;
+  clicks: number | null;
+  impressions: number | null;
+  ctr: number | null;
+  position: number | null;
+  city: string | null;
+  date: string | null;
+  quality: 'FACT';
+  sourceUrl: string | null;
+}
+
+interface CampaignSignal {
+  term: string;
+  clicks: number | null;
+  impressions: number | null;
+  conversions: number | null;
+  campaignName: string | null;
+  matchType: string | null;
+  city: string | null;
+  date: string | null;
+  quality: 'AGGREGATE';
+  sourceUrl: string | null;
 }
 
 interface Overview {
@@ -39,6 +69,8 @@ interface Overview {
     lastImportAt: string | null;
   };
   serviceDemand: ServiceDemand[];
+  firstPartyQueries: FirstPartyQuery[];
+  campaignSignals: CampaignSignal[];
   emptyStateHint: string | null;
 }
 
@@ -192,6 +224,20 @@ export default function MarketPage() {
 
       {error && <ErrorNote message={error} onRetry={load} />}
 
+      {/*
+        Patch 60. This notice is permanent and not dismissible, because the single most
+        damaging thing this product could do is let a salesperson believe it knows who
+        searched for something. It does not, and no data source here could tell it.
+      */}
+      <div className="rounded-xl border border-border bg-surface-2 p-3.5 text-[11px] leading-6 text-muted">
+        <span className="font-medium text-fg">این بخش تقاضا را نشان می‌دهد، نه اشخاص را. </span>
+        سامانه نمی‌تواند و هرگز تلاش نمی‌کند کاربران ناشناس گوگل را که عبارتی را جست‌وجو کرده‌اند
+        شناسایی کند. آنچه اینجا می‌بینید فقط از این منابع می‌آید:
+        {' '}داده‌های اول‌شخصِ خودِ بایمر (سرچ کنسول و آنالیتیکس)، عبارت‌های جست‌وجوی کمپین‌های تبلیغاتی خودِ
+        بایمر به‌صورت تجمیعی، منابع کلیدواژهٔ تجمیعی، و داده‌هایی که به‌صورت دستی وارد شده‌اند.
+        {' '}هیچ‌جای این گزارش «شخص X این را جست‌وجو کرد» نیست و نخواهد بود.
+      </div>
+
       {overview && !overview.hasData ? (
         <Card>
           <EmptyState
@@ -235,6 +281,8 @@ export default function MarketPage() {
                 tabs={[
                   { key: 'demand', label: 'تقاضای خدمات' },
                   { key: 'keywords', label: 'کلیدواژه‌ها', badge: keywords.length },
+                  { key: 'firstparty', label: 'داده‌های خودِ بایمر', badge: overview.firstPartyQueries?.length },
+                  { key: 'campaigns', label: 'سیگنال کمپین‌ها', badge: overview.campaignSignals?.length },
                   { key: 'opportunities', label: 'تطبیق با سرنخ‌ها' },
                 ]}
                 active={tab}
@@ -258,12 +306,27 @@ export default function MarketPage() {
                               <p className="mt-0.5 text-[11px] leading-6 text-subtle">{signal.basis}</p>
                               <p className="mt-0.5 text-[11px] text-subtle">
                                 منابع: {signal.sourceLabels.join('، ') || '—'}
-                                {signal.periodStart && signal.periodEnd && (
-                                  <span> • {faDate(signal.periodStart)} تا {faDate(signal.periodEnd)}</span>
-                                )}
+                                {signal.periodLabel
+                                  ? <span> • دورهٔ اندازه‌گیری: {signal.periodLabel}</span>
+                                  : signal.periodStart && signal.periodEnd && (
+                                      <span> • {faDate(signal.periodStart)} تا {faDate(signal.periodEnd)}</span>
+                                    )}
                               </p>
+                              {signal.sourceUrls?.length > 0 && (
+                                <p className="mt-0.5 text-[11px] text-subtle">
+                                  پیوند منبع:{' '}
+                                  {signal.sourceUrls.slice(0, 2).map((u) => (
+                                    <a key={u} href={u} target="_blank" rel="noreferrer" className="text-accent hover:underline">
+                                      {u.replace(/^https?:\/\//, '').slice(0, 40)}
+                                    </a>
+                                  ))}
+                                </p>
+                              )}
                             </div>
                             <div className="flex shrink-0 items-center gap-2">
+                              {/* The provenance badge sits next to the strength, so
+                                  "HIGH" is never read without knowing what backs it. */}
+                              <QualityBadge quality={signal.quality} />
                               <DemandBadge strength={signal.strength} />
                               {signal.serviceKey && (
                                 <button
@@ -294,6 +357,109 @@ export default function MarketPage() {
                     />
                   </Card>
                 </div>
+              )}
+
+              {tab === 'firstparty' && (
+                <Card
+                  title="جست‌وجوهایی که به خودِ بایمر رسیده‌اند"
+                  subtitle="داده اول‌شخص از سرچ کنسول و آنالیتیکس بایمر — اندازه‌گیری‌شده، نه تخمین"
+                  padded={false}
+                >
+                  {(overview.firstPartyQueries ?? []).length === 0 ? (
+                    <div className="p-5">
+                      <EmptyState
+                        title="هنوز داده اول‌شخصی وجود ندارد"
+                        description="اتصال Google Search Console را در تنظیمات → یکپارچه‌سازی‌ها فعال کنید تا عبارت‌هایی که کاربران برای رسیدن به سایت بایمر جست‌وجو کرده‌اند اینجا دیده شود."
+                      />
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border text-[11px] text-subtle">
+                            <th className="px-4 py-2.5 text-start font-medium">عبارت جست‌وجو</th>
+                            <th className="px-4 py-2.5 text-start font-medium">کلیک</th>
+                            <th className="px-4 py-2.5 text-start font-medium">نمایش</th>
+                            <th className="px-4 py-2.5 text-start font-medium">CTR</th>
+                            <th className="px-4 py-2.5 text-start font-medium">میانگین جایگاه</th>
+                            <th className="px-4 py-2.5 text-start font-medium">اعتبار</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {overview.firstPartyQueries.map((q) => (
+                            <tr key={`${q.query}-${q.date ?? ''}`}>
+                              <td className="px-4 py-2.5">{q.query}</td>
+                              <td className="px-4 py-2.5"><MetricOrUnknown value={q.clicks} /></td>
+                              <td className="px-4 py-2.5"><MetricOrUnknown value={q.impressions} /></td>
+                              <td className="px-4 py-2.5 tnum">
+                                {q.ctr === null ? <span className="text-subtle">نامشخص</span> : `${(q.ctr * 100).toFixed(1)}٪`}
+                              </td>
+                              <td className="px-4 py-2.5 tnum">
+                                {q.position === null ? <span className="text-subtle">نامشخص</span> : q.position.toFixed(1)}
+                              </td>
+                              <td className="px-4 py-2.5"><QualityBadge quality="FACT" /></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </Card>
+              )}
+
+              {tab === 'campaigns' && (
+                <Card
+                  title="سیگنال عبارت‌های جست‌وجوی کمپین"
+                  subtitle="عبارت‌هایی که تبلیغات خودِ بایمر را فعال کرده‌اند — داده تجمیعی حساب تبلیغاتی بایمر"
+                  padded={false}
+                >
+                  {/*
+                    The wording here is the product rule, not decoration. This table shows
+                    that a demand signal exists for a service in a city. It cannot show —
+                    and this platform never claims — which person searched for anything.
+                  */}
+                  <div className="border-b border-border bg-surface-2 px-5 py-3 text-[11px] leading-6 text-muted">
+                    این جدول نشان می‌دهد «برای این خدمت تقاضای جست‌وجو وجود داشته است». سامانه هیچ فرد
+                    ناشناسی را شناسایی نمی‌کند و هرگز نمی‌گوید «شخص X این عبارت را جست‌وجو کرده است».
+                  </div>
+                  {(overview.campaignSignals ?? []).length === 0 ? (
+                    <div className="p-5">
+                      <EmptyState
+                        title="هنوز داده کمپینی وجود ندارد"
+                        description="اتصال Google Ads را در تنظیمات → یکپارچه‌سازی‌ها فعال کنید. فقط داده حساب تبلیغاتی خودِ بایمر خوانده می‌شود."
+                      />
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border text-[11px] text-subtle">
+                            <th className="px-4 py-2.5 text-start font-medium">عبارت</th>
+                            <th className="px-4 py-2.5 text-start font-medium">کمپین</th>
+                            <th className="px-4 py-2.5 text-start font-medium">نمایش</th>
+                            <th className="px-4 py-2.5 text-start font-medium">کلیک</th>
+                            <th className="px-4 py-2.5 text-start font-medium">تبدیل</th>
+                            <th className="px-4 py-2.5 text-start font-medium">اعتبار</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {overview.campaignSignals.map((t) => (
+                            <tr key={`${t.term}-${t.date ?? ''}`}>
+                              <td className="px-4 py-2.5">{t.term}</td>
+                              <td className="px-4 py-2.5 text-[11px] text-subtle">{t.campaignName ?? '—'}</td>
+                              <td className="px-4 py-2.5"><MetricOrUnknown value={t.impressions} /></td>
+                              <td className="px-4 py-2.5"><MetricOrUnknown value={t.clicks} /></td>
+                              <td className="px-4 py-2.5 tnum">
+                                {t.conversions === null ? <span className="text-subtle">نامشخص</span> : t.conversions.toLocaleString('fa-IR')}
+                              </td>
+                              <td className="px-4 py-2.5"><QualityBadge quality="AGGREGATE" /></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </Card>
               )}
 
               {tab === 'keywords' && (

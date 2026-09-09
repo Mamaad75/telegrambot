@@ -13,6 +13,22 @@ import type { SignalMap } from './signals';
 
 export type OpportunityLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'VERY_HIGH';
 
+/**
+ * One contribution to an opportunity score, with the observation behind it.
+ *
+ * The score is deterministic and every point is attributable — a salesperson can be told
+ * "94, because the market signal is high (+20), they have no online store (+35), their
+ * Instagram is active (+15) and the business looks commercially attractive (+8)". AI may
+ * later rewrite that into a sentence; it never changes the number.
+ */
+export interface OpportunityFactor {
+  key: string;
+  labelFa: string;
+  points: number;
+  evidence: string;
+  kind: 'RULE' | 'MARKET' | 'BUSINESS_VALUE' | 'PRIORITY';
+}
+
 export interface ServiceMatch {
   serviceId: string;
   serviceKey: string;
@@ -25,7 +41,23 @@ export interface ServiceMatch {
   /** Extra points contributed by market demand for this service in this city. */
   marketBoost: number;
   matchedRules: number;
+  /** Full breakdown of the score. */
+  factors: OpportunityFactor[];
 }
+
+export interface OpportunityContext {
+  /** Commercial attractiveness, kept strictly separate from opportunity fit. */
+  businessValueTier?: string | null;
+  businessValueScore?: number | null;
+}
+
+/**
+ * Points added for commercial attractiveness.
+ *
+ * Deliberately small next to the rule points: a large business with no relevant problem
+ * is still a poor lead, and this must never let business size overwhelm actual fit.
+ */
+const BUSINESS_VALUE_POINTS: Record<string, number> = { HIGH: 10, MEDIUM: 5, LOW: 0, UNKNOWN: 0 };
 
 export interface MarketBoostLookup {
   /** Returns 0..25 extra points when the market shows demand for this service. */
@@ -45,6 +77,7 @@ export function matchServices(
   signals: SignalMap,
   services: Service[],
   marketBoost?: MarketBoostLookup,
+  context: OpportunityContext = {},
 ): ServiceMatch[] {
   const active = new Set<ScoringSignal>(
     (Object.keys(signals) as ScoringSignal[]).filter((k) => signals[k]?.value === true),
@@ -58,6 +91,7 @@ export function matchServices(
     let score = 0;
     const reasonsFa: string[] = [];
     const reasonsEn: string[] = [];
+    const factors: OpportunityFactor[] = [];
     let matchedRules = 0;
 
     for (const rule of rules) {
@@ -73,12 +107,29 @@ export function matchServices(
       if (trigger && signals[trigger]?.evidence) {
         reasonsFa.push(signals[trigger]!.evidence);
       }
+      factors.push({
+        key: trigger ?? rule.reasonEn,
+        labelFa: rule.reasonFa,
+        points: rule.points,
+        evidence: (trigger && signals[trigger]?.evidence) || 'قاعدهٔ سرویس برقرار شد',
+        kind: 'RULE',
+      });
     }
 
     if (matchedRules === 0) continue;
 
     // Service priority breaks ties between rules of equal strength.
-    score += service.basePriority * 0.1;
+    const priorityPoints = service.basePriority * 0.1;
+    score += priorityPoints;
+    if (priorityPoints !== 0) {
+      factors.push({
+        key: 'service_priority',
+        labelFa: 'اولویت پایهٔ خدمت',
+        points: Math.round(priorityPoints * 10) / 10,
+        evidence: `اولویت پیکربندی‌شدهٔ «${service.nameFa}»`,
+        kind: 'PRIORITY',
+      });
+    }
 
     let boost = 0;
     if (marketBoost) {
@@ -87,7 +138,31 @@ export function matchServices(
         boost = b.points;
         score += b.points;
         reasonsFa.push(b.reasonFa);
+        factors.push({
+          key: 'market_demand',
+          labelFa: 'تقاضای بازار برای این خدمت',
+          points: b.points,
+          evidence: b.reasonFa,
+          kind: 'MARKET',
+        });
       }
+    }
+
+    // Commercial attractiveness, kept as its own small factor so it can never be
+    // mistaken for opportunity fit — and never presented as revenue.
+    const tier = context.businessValueTier ?? 'UNKNOWN';
+    const valuePoints = BUSINESS_VALUE_POINTS[tier] ?? 0;
+    if (valuePoints > 0) {
+      score += valuePoints;
+      const label = tier === 'HIGH' ? 'بالا' : 'متوسط';
+      reasonsFa.push(`ارزش تجاری کسب‌وکار ${label} ارزیابی شده است`);
+      factors.push({
+        key: 'business_value',
+        labelFa: 'ارزش تجاری کسب‌وکار',
+        points: valuePoints,
+        evidence: `سطح ارزش تجاری: ${label}${context.businessValueScore != null ? ` (${context.businessValueScore}/100)` : ''}`,
+        kind: 'BUSINESS_VALUE',
+      });
     }
 
     matches.push({
@@ -101,6 +176,7 @@ export function matchServices(
       reasonsEn: Array.from(new Set(reasonsEn)),
       marketBoost: boost,
       matchedRules,
+      factors: factors.sort((a, b) => b.points - a.points),
     });
   }
 

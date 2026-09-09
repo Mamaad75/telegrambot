@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { ConfidenceBadge } from '@/components/badges';
 import { Card, EmptyState, Spinner, useToast } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { faDate } from '@/lib/format';
@@ -11,6 +12,7 @@ const OPENING_LABELS: Record<string, string> = {
   PROBLEM: 'شروع بر پایه مشکل مشاهده‌شده',
   OPPORTUNITY: 'شروع بر پایه فرصت',
   AUDIT: 'شروع بر پایه گزارش بررسی',
+  NEUTRAL: 'شروع خنثی (بدون ادعای مشاهده‌شده)',
 };
 
 const SOURCE_LABELS: Record<string, { label: string; className: string }> = {
@@ -103,14 +105,30 @@ export function BriefTab({ data, onReload }: { data: LeadDetail; onReload: () =>
                 <p className="text-sm leading-7">{content.whyContactFa}</p>
               </div>
 
-              {content.keyProblemsFa.length > 0 && (
+              {(content.keyProblems ?? []).length > 0 && (
                 <div>
-                  <h3 className="mb-1.5 text-xs font-medium text-subtle">مشکلات مشاهده‌شده</h3>
-                  <ul className="space-y-1">
-                    {content.keyProblemsFa.map((problem) => (
-                      <li key={problem} className="flex gap-2 text-sm leading-7">
-                        <span className="text-hot">•</span>
-                        <span>{problem}</span>
+                  <h3 className="mb-1.5 text-xs font-medium text-subtle">
+                    مشکلات مشاهده‌شده
+                    <span className="mr-1.5 font-normal text-[10px]">— با شواهد و منبع</span>
+                  </h3>
+                  <ul className="space-y-2">
+                    {/* Every problem shows what was observed and where, so a salesperson
+                        can tell an observed fact from an AI reading of one before quoting it. */}
+                    {content.keyProblems.map((problem) => (
+                      <li key={problem.textFa} className="rounded-lg bg-surface-2 p-2.5">
+                        <div className="flex items-start gap-2">
+                          <span className="text-hot leading-7">•</span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm leading-7">{problem.textFa}</p>
+                            <p className="mt-0.5 text-[11px] leading-6 text-muted">
+                              شاهد: {problem.evidenceFa}
+                            </p>
+                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                              <ConfidenceBadge confidence={problem.confidence} />
+                              <span className="text-[10px] text-subtle">منبع: {problem.sourceFa}</span>
+                            </div>
+                          </div>
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -144,7 +162,18 @@ export function BriefTab({ data, onReload }: { data: LeadDetail; onReload: () =>
               {content.openings.map((opening) => (
                 <li key={opening.style} className="rounded-xl border border-border p-3.5">
                   <div className="mb-1.5 flex items-center justify-between gap-2">
-                    <span className="text-[11px] font-medium text-subtle">{OPENING_LABELS[opening.style]}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-medium text-subtle">{OPENING_LABELS[opening.style]}</span>
+                      {/* Whether the sentence rests on something we actually observed.
+                          A neutral opening is not worse — it just asserts nothing. */}
+                      {opening.factBased ? (
+                        <span className="chip bg-success/10 text-success text-[10px]">بر پایه مشاهده</span>
+                      ) : (
+                        <span className="chip bg-surface-2 text-subtle text-[10px]" title="این جمله ادعای مشاهده‌شده‌ای ندارد؛ سؤال می‌پرسد.">
+                          بدون ادعای مشاهده‌شده
+                        </span>
+                      )}
+                    </div>
                     <button
                       type="button"
                       className="btn-ghost btn-sm"
@@ -154,6 +183,15 @@ export function BriefTab({ data, onReload }: { data: LeadDetail; onReload: () =>
                     </button>
                   </div>
                   <p className="text-sm leading-7">{opening.textFa}</p>
+                  {opening.basedOnFa?.length > 0 && (
+                    <ul className="mt-2 space-y-0.5 border-t border-border pt-2">
+                      {opening.basedOnFa.map((basis) => (
+                        <li key={basis} className="text-[11px] leading-6 text-muted">
+                          مبنا: {basis}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </li>
               ))}
             </ul>
@@ -185,6 +223,12 @@ export function BriefTab({ data, onReload }: { data: LeadDetail; onReload: () =>
 
           <Card title="اقدام بعدی">
             <p className="text-sm leading-7">{content.nextActionFa}</p>
+            {content.suggestedFollowUpAt && (
+              <p className="mt-2 border-t border-border pt-2 text-xs leading-6 text-muted">
+                اگر امروز تماس نگرفتید، پیگیری بعدی:{' '}
+                <span className="font-medium text-fg">{faDate(content.suggestedFollowUpAt)}</span>
+              </p>
+            )}
           </Card>
 
           {content.disclaimersFa.length > 0 && (

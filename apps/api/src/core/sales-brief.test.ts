@@ -59,6 +59,7 @@ const primary: ServiceMatch = {
   reasonsEn: ['No website'],
   marketBoost: 0,
   matchedRules: 1,
+  factors: [],
 };
 
 const service: Service = {
@@ -69,6 +70,24 @@ const service: Service = {
   objectionResponses: ['اینستاگرام کانال خوبی است اما جست‌وجوی نام شما به جایی نمی‌رسد.'],
   discoveryQuestions: ['مشتری‌ها چطور با شما تماس می‌گیرند؟'],
 } as unknown as Service;
+
+/**
+ * Convenience wrapper for the newer tests: a complete, valid brief input with only the
+ * fields a given test cares about overridden.
+ */
+function briefInput(overrides: Partial<Parameters<typeof buildSalesBrief>[0]>): Parameters<typeof buildSalesBrief>[0] {
+  return {
+    lead: lead(),
+    audit: null,
+    signals: {},
+    score,
+    businessValue,
+    primary,
+    secondary: [],
+    services: [service],
+    ...overrides,
+  };
+}
 
 describe('sales brief generation', () => {
   it('produces a complete brief with no AI provider at all', () => {
@@ -232,5 +251,112 @@ describe('sales brief generation', () => {
       services: [service],
     });
     expect(hot.nextActionFa).toContain('همین امروز');
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/*  Patch 23-25 — evidence, fact-based openings, and a concrete next action     */
+/* -------------------------------------------------------------------------- */
+
+describe('every claim carries its evidence (patch 23)', () => {
+  it('attaches evidence, a source and a confidence label to each problem', () => {
+    const brief = buildSalesBrief(
+      briefInput({
+        signals: {
+          POOR_MOBILE_UX: { signal: 'POOR_MOBILE_UX', value: true, evidence: 'تگ viewport در صفحه اصلی وجود ندارد', confidence: 'FACT' },
+        },
+      }),
+    );
+
+    expect(brief.keyProblems.length).toBeGreaterThan(0);
+    for (const claim of brief.keyProblems) {
+      expect(claim.textFa).toBeTruthy();
+      expect(claim.evidenceFa).toBeTruthy();
+      expect(claim.sourceFa).toBeTruthy();
+      expect(claim.confidence).toBeTruthy();
+    }
+    const mobile = brief.keyProblems.find((c) => c.textFa.includes('موبایل'));
+    expect(mobile?.evidenceFa).toContain('viewport');
+  });
+
+  it('attributes "no website" to the discovery step, not to reading their site', () => {
+    const brief = buildSalesBrief(
+      briefInput({
+        signals: { NO_WEBSITE: { signal: 'NO_WEBSITE', value: true, evidence: 'هیچ دامنه‌ای یافت نشد', confidence: 'CALCULATED' } },
+      }),
+    );
+    const claim = brief.keyProblems.find((c) => c.textFa.includes('وب‌سایتی'));
+    // There was no website to read, so the source cannot be "their website".
+    expect(claim?.sourceFa).not.toContain('وب‌سایت رسمی');
+    expect(claim?.confidence).toBe('CALCULATED');
+  });
+});
+
+describe('openings never imply an observation we do not have (patch 24)', () => {
+  it('marks an opening built on a real finding as fact-based, with what it rests on', () => {
+    const brief = buildSalesBrief(
+      briefInput({
+        signals: { NO_SSL: { signal: 'NO_SSL', value: true, evidence: 'سایت روی http سرو می‌شود', confidence: 'FACT' } },
+      }),
+    );
+    const opening = brief.openings[0];
+    expect(opening.factBased).toBe(true);
+    expect(opening.basedOnFa.length).toBeGreaterThan(0);
+    expect(opening.basedOnFa[0]).toContain('http');
+  });
+
+  it('falls back to a neutral question — not an invented fact — when nothing was observed', () => {
+    const brief = buildSalesBrief(briefInput({ signals: {}, audit: null }));
+    expect(brief.openings).toHaveLength(1);
+    expect(brief.openings[0].style).toBe('NEUTRAL');
+    expect(brief.openings[0].factBased).toBe(false);
+    expect(brief.openings[0].basedOnFa).toHaveLength(0);
+    // The sentence asks; it does not assert.
+    expect(brief.openings[0].textFa).toContain('چند سؤال کوتاه');
+  });
+
+  it('never claims traffic, revenue or visitor numbers, which no source gives us', () => {
+    const brief = buildSalesBrief(
+      briefInput({
+        signals: { POOR_PERFORMANCE: { signal: 'POOR_PERFORMANCE', value: true, evidence: 'صفحه اصلی ۲.۹ مگابایت است', confidence: 'FACT' } },
+      }),
+    );
+    const allText = [brief.whyContactFa, ...brief.openings.map((o) => o.textFa), ...brief.keyProblemsFa].join(' ');
+    for (const forbidden of ['بازدید ماهانه', 'درآمد', 'ترافیک سایت شما', 'فروش شما']) {
+      expect(allText).not.toContain(forbidden);
+    }
+  });
+});
+
+describe('the action plan is concrete (patch 25)', () => {
+  it('gives a hot lead a same-day action and a dated follow-up', () => {
+    const brief = buildSalesBrief(
+      briefInput({
+        score: {
+          score: 88,
+          temperature: 'HOT',
+          contributions: [],
+          groups: [],
+          rawTotal: 88,
+          configHash: 'x',
+          summary: 'داغ',
+        },
+      }),
+    );
+    expect(brief.nextActionFa).toContain('همین امروز');
+    expect(brief.suggestedFollowUpAt).toBeTruthy();
+
+    const at = new Date(brief.suggestedFollowUpAt!);
+    const days = (at.getTime() - Date.now()) / (24 * 3600 * 1000);
+    // A hot lead comes back within days, not weeks — the observation behind it goes stale.
+    expect(days).toBeGreaterThan(0);
+    expect(days).toBeLessThan(5);
+  });
+
+  it('always offers questions and objections to work with', () => {
+    const brief = buildSalesBrief(briefInput({}));
+    expect(brief.questionsFa.length).toBeGreaterThanOrEqual(1);
+    expect(brief.objections.length).toBeGreaterThanOrEqual(1);
+    for (const o of brief.objections) expect(o.responseFa).toBeTruthy();
   });
 });

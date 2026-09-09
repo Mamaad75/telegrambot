@@ -1,5 +1,5 @@
 import { normalizeText, type MarketSignalStrength } from '@baimar/shared';
-import type { KeywordSource, Prisma, Service } from '@prisma/client';
+import type { DataOrigin, DataQuality, KeywordSource, Prisma, Service } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { getMarketSettings, type MarketSettings } from '../lib/settings';
 
@@ -35,34 +35,61 @@ export const SERVICE_KEYWORD_MAP: Record<string, string[]> = {
   AUTOMATION: ['اتوماسیون', 'automation', 'crm', 'یکپارچه سازی'],
 };
 
-/** Best-effort classification of a keyword into a Baimar service. */
+/**
+ * Best-effort classification of a keyword into a Baimar service.
+ *
+ * Vocabulary comes from three places, in this order of authority:
+ *   1. the service's own `matchKeywords`, edited in Settings → Services — so adding a
+ *      service to the catalogue never requires a code change here;
+ *   2. SERVICE_KEYWORD_MAP above, the built-in defaults for the seeded services;
+ *   3. the service's own display name.
+ *
+ * The longest match wins, because a longer phrase is the more specific claim:
+ * "فروشگاه اینترنتی" should beat "سایت".
+ */
 export function classifyKeyword(keyword: string, services?: Service[]): string | null {
   const norm = normalizeText(keyword);
   if (!norm) return null;
 
   let best: { key: string; score: number } | null = null;
-  for (const [serviceKey, vocabulary] of Object.entries(SERVICE_KEYWORD_MAP)) {
-    for (const term of vocabulary) {
-      const t = normalizeText(term);
-      if (!t) continue;
-      if (norm.includes(t)) {
-        // Longer vocabulary matches are more specific and win.
-        const score = t.length;
-        if (!best || score > best.score) best = { key: serviceKey, score };
-      }
-    }
+  const consider = (serviceKey: string, term: string, bonus = 0) => {
+    const t = normalizeText(term);
+    if (!t || !norm.includes(t)) return;
+    const score = t.length + bonus;
+    if (!best || score > best.score) best = { key: serviceKey, score };
+  };
+
+  // Administrator-configured vocabulary outranks the built-in defaults at equal length.
+  for (const service of services ?? []) {
+    for (const term of service.matchKeywords ?? []) consider(service.key, term, 1);
   }
 
-  if (best) return best.key;
+  for (const [serviceKey, vocabulary] of Object.entries(SERVICE_KEYWORD_MAP)) {
+    for (const term of vocabulary) consider(serviceKey, term);
+  }
+
+  if (best) return (best as { key: string }).key;
 
   // Fall back to matching the service's own configured name.
-  if (services?.length) {
-    for (const s of services) {
-      if (norm.includes(normalizeText(s.nameFa)) || norm.includes(normalizeText(s.nameEn))) return s.key;
-    }
+  for (const s of services ?? []) {
+    if (norm.includes(normalizeText(s.nameFa)) || norm.includes(normalizeText(s.nameEn))) return s.key;
   }
   return null;
 }
+
+/**
+ * How a search-volume figure came to exist.
+ *
+ * The distinction is the whole point of patch 17: the platform must never turn an
+ * absent number into a confident one. "10,000 searches a month" is only ever printed
+ * when a real source reported it.
+ *
+ *   REPORTED         a provider returned an absolute volume for this keyword
+ *   IMPORTED         a human supplied it in a CSV; only as good as the sheet
+ *   RELATIVE_SIGNAL  we can see relative demand (impressions, clicks) but no volume
+ *   UNKNOWN          no volume data at all — displayed as "unknown", never as zero
+ */
+export type VolumeQuality = 'REPORTED' | 'IMPORTED' | 'RELATIVE_SIGNAL' | 'UNKNOWN';
 
 export interface DemandAggregate {
   serviceKey: string | null;
@@ -75,11 +102,47 @@ export interface DemandAggregate {
   totalConversions: number | null;
   totalCostMicros: bigint | null;
   averageVolume: number | null;
+  /** Provenance of `averageVolume`. Never omitted — see patch 17. */
+  volumeQuality: VolumeQuality;
   score: number | null;
   strength: MarketSignalStrength;
   basis: string;
+  /** Where the underlying observations came from. */
+  origin: DataOrigin;
+  /** The badge the UI prints next to this signal. */
+  quality: DataQuality;
+  sourceUrls: string[];
+  /** Human-readable measurement window, e.g. "۱۰ مرداد تا ۹ شهریور ۱۴۰۵". */
+  periodLabel: string;
   periodStart: Date;
   periodEnd: Date;
+}
+
+/**
+ * Provenance of a mixed set of sources.
+ *
+ * Rules, in priority order, because a signal must be labelled by its *weakest* honest
+ * description rather than its most impressive one:
+ *   - anything imported by hand is IMPORTED, however much of it there is;
+ *   - Baimar's own Search Console/analytics is first-party FACT;
+ *   - advertising search terms are an AGGREGATE over many people — never a person;
+ *   - a third-party keyword provider is an aggregate estimate.
+ */
+export function provenanceOf(sources: KeywordSource[]): { origin: DataOrigin; quality: DataQuality } {
+  if (sources.length === 0) return { origin: 'AGGREGATE_SEARCH_SIGNAL', quality: 'UNKNOWN' };
+  if (sources.includes('MANUAL_IMPORT')) return { origin: 'MANUAL_ENTRY', quality: 'IMPORTED' };
+  if (sources.includes('GOOGLE_ADS')) return { origin: 'ADVERTISING_CAMPAIGN', quality: 'AGGREGATE' };
+  if (sources.includes('SEARCH_CONSOLE') || sources.includes('SITE_ANALYTICS')) {
+    return { origin: 'FIRST_PARTY_BAIMAR', quality: 'FACT' };
+  }
+  return { origin: 'AGGREGATE_SEARCH_SIGNAL', quality: 'AGGREGATE' };
+}
+
+/** Persian date range, for the "measurement period" line every signal must carry. */
+export function formatPeriodLabel(start: Date, end: Date): string {
+  const fmt = (d: Date) =>
+    new Intl.DateTimeFormat('fa-IR', { year: 'numeric', month: 'long', day: 'numeric' }).format(d);
+  return `${fmt(start)} تا ${fmt(end)}`;
 }
 
 /**
@@ -114,6 +177,8 @@ export async function computeMarketSignals(
         volumes: [],
         hasClickData: false,
         hasVolumeData: false,
+        hasImportedVolume: false,
+        sourceUrls: new Set<string>(),
       };
       byService.set(id, bucket);
     }
@@ -154,7 +219,9 @@ export async function computeMarketSignals(
     if (typeof signal.searchVolume === 'number') {
       bucket.volumes.push(signal.searchVolume);
       bucket.hasVolumeData = true;
+      if (signal.source === 'MANUAL_IMPORT') bucket.hasImportedVolume = true;
     }
+    if (signal.sourceUrl) bucket.sourceUrls.add(signal.sourceUrl);
   }
 
   // --- Advertising search terms --------------------------------------------
@@ -187,6 +254,7 @@ export async function computeMarketSignals(
     }
     if (typeof term.conversions === 'number') bucket.conversions += term.conversions;
     if (term.costMicros) bucket.costMicros += term.costMicros;
+    if (term.sourceUrl) bucket.sourceUrls.add(term.sourceUrl);
   }
 
   // --- Score and persist ----------------------------------------------------
@@ -215,6 +283,10 @@ export async function computeMarketSignals(
         score: aggregate.score,
         basis: aggregate.basis,
         confidence: aggregate.strength === 'INSUFFICIENT_DATA' ? 'UNKNOWN' : 'CALCULATED',
+        origin: aggregate.origin,
+        quality: aggregate.quality,
+        sourceUrls: aggregate.sourceUrls,
+        periodLabel: aggregate.periodLabel,
         sources: aggregate.sources,
         sampleSize: aggregate.sampleSize,
         totalClicks: aggregate.totalClicks,
@@ -230,6 +302,11 @@ export async function computeMarketSignals(
         strength: aggregate.strength,
         score: aggregate.score,
         basis: aggregate.basis,
+        confidence: aggregate.strength === 'INSUFFICIENT_DATA' ? 'UNKNOWN' : 'CALCULATED',
+        origin: aggregate.origin,
+        quality: aggregate.quality,
+        sourceUrls: aggregate.sourceUrls,
+        periodLabel: aggregate.periodLabel,
         sources: aggregate.sources,
         sampleSize: aggregate.sampleSize,
         totalClicks: aggregate.totalClicks,
@@ -258,6 +335,9 @@ interface DemandBucket {
   volumes: number[];
   hasClickData: boolean;
   hasVolumeData: boolean;
+  /** Whether any volume figure came from a hand-uploaded sheet. */
+  hasImportedVolume: boolean;
+  sourceUrls: Set<string>;
 }
 
 function scoreBucket(
@@ -270,6 +350,21 @@ function scoreBucket(
   const averageVolume = bucket.volumes.length
     ? bucket.volumes.reduce((a, b) => a + b, 0) / bucket.volumes.length
     : null;
+
+  const { origin, quality } = provenanceOf(sources);
+  const periodLabel = formatPeriodLabel(periodStart, periodEnd);
+  const sourceUrls = Array.from(bucket.sourceUrls).slice(0, 20);
+
+  // Patch 17. An absolute search volume is only ever claimed when a source reported one.
+  // With clicks and impressions but no volume we can say demand is relatively strong —
+  // and we say exactly that, rather than inventing a number to fill the column.
+  const volumeQuality: VolumeQuality = bucket.hasVolumeData
+    ? bucket.hasImportedVolume
+      ? 'IMPORTED'
+      : 'REPORTED'
+    : bucket.hasClickData
+      ? 'RELATIVE_SIGNAL'
+      : 'UNKNOWN';
 
   // Not enough observations to say anything. Say exactly that.
   if (bucket.sampleSize < settings.minSampleSize) {
@@ -284,9 +379,16 @@ function scoreBucket(
       totalConversions: bucket.conversions || null,
       totalCostMicros: bucket.costMicros > 0n ? bucket.costMicros : null,
       averageVolume,
+      volumeQuality,
       score: null,
       strength: 'INSUFFICIENT_DATA',
       basis: `فقط ${bucket.sampleSize} مشاهده در بازه — کمتر از حداقل ${settings.minSampleSize} مورد نیاز`,
+      origin,
+      // Too little data to characterise: the label says unknown rather than implying
+      // that a thin sample is a measured fact.
+      quality: 'UNKNOWN',
+      sourceUrls,
+      periodLabel,
       periodStart,
       periodEnd,
     };
@@ -310,7 +412,12 @@ function scoreBucket(
   if (bucket.hasClickData) {
     basisParts.push(`${bucket.impressions.toLocaleString('fa-IR')} نمایش و ${bucket.clicks.toLocaleString('fa-IR')} کلیک`);
   }
-  if (averageVolume !== null) basisParts.push(`میانگین حجم جست‌وجوی گزارش‌شده ${Math.round(averageVolume).toLocaleString('fa-IR')}`);
+  if (averageVolume !== null) {
+    const label = volumeQuality === 'IMPORTED' ? 'حجم جست‌وجوی واردشده (CSV)' : 'میانگین حجم جست‌وجوی گزارش‌شده';
+    basisParts.push(`${label}: ${Math.round(averageVolume).toLocaleString('fa-IR')}`);
+  } else if (volumeQuality === 'RELATIVE_SIGNAL') {
+    basisParts.push('حجم جست‌وجوی مطلق در دسترس نیست — فقط سیگنال نسبی تقاضا');
+  }
   if (bucket.conversions > 0) basisParts.push(`${bucket.conversions.toFixed(1)} تبدیل`);
   basisParts.push(`${bucket.sampleSize} مشاهده از ${sources.map(sourceLabelFa).join('، ')}`);
 
@@ -325,9 +432,14 @@ function scoreBucket(
     totalConversions: bucket.conversions || null,
     totalCostMicros: bucket.costMicros > 0n ? bucket.costMicros : null,
     averageVolume,
+    volumeQuality,
     score,
     strength,
     basis: basisParts.join(' • '),
+    origin,
+    quality,
+    sourceUrls,
+    periodLabel,
     periodStart,
     periodEnd,
   };

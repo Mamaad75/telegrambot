@@ -275,3 +275,91 @@ const STRENGTH_STYLES: Record<string, string> = {
 export function DemandBadge({ strength }: { strength: string }) {
   return <span className={`chip ${STRENGTH_STYLES[strength] ?? STRENGTH_STYLES.LOW}`}>{STRENGTH_LABELS[strength] ?? strength}</span>;
 }
+
+/* -------------------------------------------------------------------------- */
+/*  Data-quality badge (patches 16, 17 and 54)                                 */
+/* -------------------------------------------------------------------------- */
+
+export type DataQuality = 'FACT' | 'AGGREGATE' | 'ESTIMATED' | 'IMPORTED' | 'AI_INSIGHT' | 'UNKNOWN';
+
+const QUALITY_LABELS: Record<DataQuality, string> = {
+  FACT: 'واقعیت',
+  AGGREGATE: 'داده تجمیعی',
+  ESTIMATED: 'تخمینی',
+  IMPORTED: 'واردشده',
+  AI_INSIGHT: 'برداشت هوش مصنوعی',
+  UNKNOWN: 'نامشخص',
+};
+
+/**
+ * The tooltips matter as much as the labels. A salesperson deciding whether to repeat a
+ * number on a call needs to know, in one hover, what kind of thing it is — and the
+ * AGGREGATE wording is deliberate: this platform can say that demand exists, and can
+ * never say who is behind it.
+ */
+const QUALITY_TITLES: Record<DataQuality, string> = {
+  FACT: 'اندازه‌گیری مستقیم از داده‌های خودِ بایمر (سرچ کنسول / آنالیتیکس).',
+  AGGREGATE: 'سیگنال تجمیعی روی تعداد زیادی جست‌وجو — هیچ فرد مشخصی قابل شناسایی نیست.',
+  ESTIMATED: 'تخمین محاسبه‌شده توسط این سامانه، نه یک اندازه‌گیری.',
+  IMPORTED: 'از فایل واردشده توسط کاربر — اعتبارش به اعتبار همان فایل است.',
+  AI_INSIGHT: 'برداشت مدل زبانی از داده‌های موجود — پیش از استناد بررسی شود.',
+  UNKNOWN: 'داده‌ای در دسترس نیست. عدد صفر نیست؛ اندازه‌گیری نشده است.',
+};
+
+const QUALITY_STYLES: Record<DataQuality, string> = {
+  FACT: 'bg-success/10 text-success',
+  AGGREGATE: 'bg-info/10 text-info',
+  ESTIMATED: 'bg-warning/10 text-warning',
+  IMPORTED: 'bg-accent/15 text-accent',
+  AI_INSIGHT: 'bg-accent/15 text-accent',
+  UNKNOWN: 'bg-surface-2 text-subtle',
+};
+
+export function QualityBadge({ quality, className = '' }: { quality: DataQuality; className?: string }) {
+  const key = QUALITY_LABELS[quality] ? quality : 'UNKNOWN';
+  return (
+    <span className={`chip ${QUALITY_STYLES[key]} ${className}`} title={QUALITY_TITLES[key]}>
+      {QUALITY_LABELS[key]}
+    </span>
+  );
+}
+
+/**
+ * Renders a metric that may legitimately have no value.
+ *
+ * The rule from patch 17: a missing search volume is "unknown", never 0 and never an
+ * estimate dressed up as a measurement. When only a relative signal exists, that is what
+ * is shown.
+ */
+export function MetricOrUnknown({
+  value,
+  quality,
+  suffix = '',
+  relativeHint = 'فقط سیگنال نسبی',
+}: {
+  value: number | null | undefined;
+  quality?: DataQuality | 'RELATIVE_SIGNAL';
+  suffix?: string;
+  relativeHint?: string;
+}) {
+  if (quality === 'RELATIVE_SIGNAL') {
+    return (
+      <span className="text-subtle" title="حجم مطلق جست‌وجو در دسترس نیست؛ فقط می‌دانیم تقاضا نسبتاً بالا است.">
+        {relativeHint}
+      </span>
+    );
+  }
+  if (value === null || value === undefined) {
+    return (
+      <span className="text-subtle" title="اندازه‌گیری نشده است — این عدد صفر نیست.">
+        نامشخص
+      </span>
+    );
+  }
+  return (
+    <span className="tnum">
+      {value.toLocaleString('fa-IR')}
+      {suffix}
+    </span>
+  );
+}

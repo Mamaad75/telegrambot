@@ -173,6 +173,9 @@ export async function storeSearchTerms(terms: SearchTermObservation[], opts: { i
       date: t.date ?? null,
       periodStart: t.periodStart ?? null,
       periodEnd: t.periodEnd ?? null,
+      // Provenance travels with the row: a salesperson reading "campaign search-term
+      // signal" can follow it back to the account it came from.
+      sourceUrl: t.sourceUrl ?? null,
       serviceKey: classifyKeyword(t.term, services),
       isDemo: opts.isDemo ?? false,
     }));

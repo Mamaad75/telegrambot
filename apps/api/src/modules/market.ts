@@ -60,8 +60,63 @@ export default async function marketRoutes(app: FastifyInstance) {
       include: { keyword: true },
     });
 
+    // Patch 20: the dashboard separates Baimar's own first-party data from advertising
+    // campaign signals, because they answer different questions and carry different
+    // authority. Neither is ever presented as an individual person's search.
+    const [firstPartyQueries, campaignTerms] = await Promise.all([
+      prisma.keywordSignal.findMany({
+        where: {
+          source: { in: ['SEARCH_CONSOLE', 'SITE_ANALYTICS'] },
+          ...(query.includeDemo ? {} : { isDemo: false }),
+          ...(query.city ? { city: query.city } : {}),
+        },
+        include: { keyword: true },
+        orderBy: [{ impressions: { sort: 'desc', nulls: 'last' } }],
+        take: 15,
+      }),
+      prisma.searchTerm.findMany({
+        where: {
+          source: 'GOOGLE_ADS',
+          ...(query.includeDemo ? {} : { isDemo: false }),
+          ...(query.city ? { city: query.city } : {}),
+        },
+        orderBy: [{ impressions: { sort: 'desc', nulls: 'last' } }],
+        take: 15,
+      }),
+    ]);
+
     return jsonSafe({
       hasData: withData.length > 0,
+      /** Baimar's own Search Console / analytics queries — measured, first-party. */
+      firstPartyQueries: firstPartyQueries.map((k) => ({
+        query: k.keyword.keyword,
+        clicks: k.clicks,
+        impressions: k.impressions,
+        ctr: k.ctr,
+        position: k.averagePosition,
+        city: k.city,
+        date: k.date,
+        quality: 'FACT' as const,
+        origin: k.origin,
+        sourceUrl: k.sourceUrl,
+      })),
+      /**
+       * Search terms that triggered Baimar's own ads. An aggregate over many people —
+       * the platform cannot and does not identify who searched.
+       */
+      campaignSignals: campaignTerms.map((t) => ({
+        term: t.term,
+        clicks: t.clicks,
+        impressions: t.impressions,
+        conversions: t.conversions,
+        campaignName: t.campaignName,
+        matchType: t.matchType,
+        city: t.city,
+        date: t.date,
+        quality: 'AGGREGATE' as const,
+        origin: t.origin,
+        sourceUrl: t.sourceUrl,
+      })),
       kpis: {
         topService: topService
           ? { key: topService.serviceKey, name: serviceName.get(topService.serviceKey ?? '') ?? topService.serviceKey, strength: topService.strength }
@@ -90,6 +145,12 @@ export default async function marketRoutes(app: FastifyInstance) {
         score: s.score,
         basis: s.basis,
         confidence: s.confidence,
+        // Provenance is not optional on a market number: a salesperson may repeat it on
+        // a call, so the UI must always be able to say where it came from and when.
+        origin: s.origin,
+        quality: s.quality,
+        sourceUrls: s.sourceUrls,
+        periodLabel: s.periodLabel,
         sources: s.sources,
         sourceLabels: s.sources.map(sourceLabelFa),
         sampleSize: s.sampleSize,

@@ -35,6 +35,7 @@ const serviceSchema = z.object({
   commonObjections: z.array(z.string().max(300)).default([]),
   objectionResponses: z.array(z.string().max(600)).default([]),
   discoveryQuestions: z.array(z.string().max(300)).default([]),
+  matchKeywords: z.array(z.string().max(120)).max(60).default([]),
 });
 
 export default async function serviceRoutes(app: FastifyInstance) {

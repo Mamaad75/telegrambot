@@ -158,17 +158,53 @@ export interface DetectedTechnology {
   evidence: string;
 }
 
+/**
+ * One claim in the brief, with the observation that supports it.
+ *
+ * A salesperson repeats these sentences on a call, so every one has to be traceable:
+ * "their mobile site is unusable" is only sayable when a specific check found a specific
+ * defect on a specific page. `sourceFa` names where the observation came from, and
+ * `confidence` says whether it was measured, calculated or inferred.
+ */
+export interface BriefClaim {
+  textFa: string;
+  /** The concrete observation: "no viewport meta tag on the home page". */
+  evidenceFa: string;
+  /** Where it came from: the official website, the business listing, our own audit. */
+  sourceFa: string;
+  confidence: Confidence;
+}
+
 export interface SalesBriefContent {
   whyContactFa: string;
+  /** Kept as plain strings for compact views; `keyProblems` carries the evidence. */
   keyProblemsFa: string[];
+  /** The same problems with their evidence and source attached (patch 23). */
+  keyProblems: BriefClaim[];
   recommendedServiceKey: string | null;
   recommendedServiceNameFa: string | null;
   secondaryServiceKeys: string[];
   salesAngleFa: string;
-  openings: Array<{ style: 'PROBLEM' | 'OPPORTUNITY' | 'AUDIT'; textFa: string }>;
+  openings: Array<{
+    style: 'PROBLEM' | 'OPPORTUNITY' | 'AUDIT' | 'NEUTRAL';
+    textFa: string;
+    /**
+     * True when every claim in this sentence is something the system actually observed.
+     *
+     * A false here is not a defect — a neutral opening that asks a question rather than
+     * asserting anything is perfectly good sales copy. What must never happen is a
+     * sentence that *sounds* like an observation without being one, so the flag lets the
+     * UI mark which openings are safe to lean on.
+     */
+    factBased: boolean;
+    /** The observations the sentence rests on, if any. */
+    basedOnFa: string[];
+  }>;
   questionsFa: string[];
   objections: Array<{ objectionFa: string; responseFa: string }>;
   nextActionFa: string;
+  /** ISO date the salesperson should follow up if the call does not happen today. */
+  suggestedFollowUpAt: string | null;
   /** Which parts came from the deterministic engine and which from the model. */
   generatedBy: 'RULES' | 'AI' | 'HYBRID';
   disclaimersFa: string[];

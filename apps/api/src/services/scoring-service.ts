@@ -53,7 +53,8 @@ export async function recalculateLead(
   let signals = extractSignals({ lead, audit, config: scoringConfig, businessValueTier: businessValue.tier });
 
   // 4. Opportunity matching.
-  let matches = matchServices(signals, services, marketBoost);
+  const opportunityContext = { businessValueTier: businessValue.tier, businessValueScore: businessValue.score };
+  let matches = matchServices(signals, services, marketBoost, opportunityContext);
   let { primary, secondary } = pickRecommendations(matches);
 
   // 5. If the primary recommendation is backed by market demand, that is a scoring signal
@@ -68,7 +69,7 @@ export async function recalculateLead(
         businessValueTier: businessValue.tier,
         marketDemandMatch: { matched: true, evidence: boost.reasonFa },
       });
-      matches = matchServices(signals, services, marketBoost);
+      matches = matchServices(signals, services, marketBoost, opportunityContext);
       ({ primary, secondary } = pickRecommendations(matches));
     }
   }
@@ -117,6 +118,7 @@ export async function recalculateLead(
           score: m.score,
           level: m.level,
           reasons: m.reasonsFa,
+          factors: m.factors as unknown as Prisma.InputJsonValue,
           marketBoost: m.marketBoost,
           isPrimary: m.serviceKey === primary?.serviceKey,
         })),
