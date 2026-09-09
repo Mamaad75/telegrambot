@@ -62,6 +62,35 @@ const schema = z.object({
   CRAWLER_DELAY_MS: int(1500),
   CRAWLER_MAX_BYTES: int(2_500_000),
   CRAWLER_CONCURRENCY: int(3),
+  CRAWLER_MAX_REDIRECTS: int(4),
+  /// Allow crawling private/loopback addresses. Only ever switched on for a local
+  /// test fixture; leaving it on in production is a server-side request forgery hole.
+  CRAWLER_ALLOW_PRIVATE_HOSTS: bool(false),
+  /// Days before an existing audit is considered stale and a lead may be recrawled.
+  AUDIT_TTL_DAYS: int(30),
+  AUDIT_TTL_DAYS_HOT: int(14),
+
+  /// Optional real-browser audit. Off by default: Chromium needs ~400 MB of RAM,
+  /// which a 2 CPU / 4 GB VPS cannot spare while a campaign is running.
+  BROWSER_AUDIT_ENABLED: bool(false),
+  BROWSER_AUDIT_CONCURRENCY: int(1),
+  BROWSER_AUDIT_TIMEOUT_MS: int(45000),
+  BROWSER_AUDIT_EXECUTABLE_PATH: str(),
+
+  /// Minimum confidence (0-100) before a searched-for website is attached to a lead.
+  WEBSITE_MATCH_MIN_CONFIDENCE: int(55),
+
+  /// CSV import guard rails.
+  IMPORT_MAX_BYTES: int(5_000_000),
+  IMPORT_MAX_ROWS: int(5000),
+  IMPORT_MAX_COLUMNS: int(60),
+
+  /// Log retention, in days. 0 disables the cleanup for that table.
+  RETENTION_JOB_LOG_DAYS: int(14),
+  RETENTION_AUDIT_LOG_DAYS: int(365),
+  RETENTION_PROVIDER_USAGE_DAYS: int(180),
+  RETENTION_NOTIFICATION_DAYS: int(90),
+  RETENTION_WEBSITE_PAGE_DAYS: int(90),
 
   QUEUE_PREFIX: z.string().default('baimar'),
   WORKER_CONCURRENCY: int(4),
@@ -76,13 +105,21 @@ const schema = z.object({
   AI_MAX_TOKENS: int(2000),
   AI_MONTHLY_BUDGET_USD: int(25),
   AI_MIN_LEAD_SCORE: int(65),
+  /// Bumping this invalidates every cached AI analysis (see core/ai-analysis.ts).
+  AI_PROMPT_VERSION: z.string().default('2026-09-v2'),
+  AI_TIMEOUT_MS: int(60000),
+  AI_CONCURRENCY: int(1),
 
+  // Model identifiers are configuration, never constants. Vendors add and retire model
+  // names on their own schedule, so the app refuses to guess: when no model is named the
+  // adapter reports NOT_CONFIGURED and the deterministic rules engine takes over.
   ANTHROPIC_API_KEY: str(),
-  ANTHROPIC_MODEL: z.string().default('claude-sonnet-5'),
+  ANTHROPIC_MODEL: str(),
   ANTHROPIC_BASE_URL: z.string().default('https://api.anthropic.com'),
+  ANTHROPIC_VERSION: z.string().default('2023-06-01'),
 
   OPENAI_API_KEY: str(),
-  OPENAI_MODEL: z.string().default('gpt-4o-mini'),
+  OPENAI_MODEL: str(),
   OPENAI_BASE_URL: z.string().default('https://api.openai.com/v1'),
 
   COMPATIBLE_AI_API_KEY: str(),

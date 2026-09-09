@@ -83,10 +83,15 @@ enum CampaignStatus {
   CANCELLED
 }
 
+/// A run always reaches a terminal state. COMPLETED_WITH_ERRORS exists because
+/// "finished, but three leads failed and two providers were down" is the honest
+/// answer far more often than either COMPLETED or FAILED — and a run left sitting in
+/// RUNNING forever is the failure mode this enum is shaped to prevent.
 enum RunStatus {
   QUEUED
   RUNNING
   COMPLETED
+  COMPLETED_WITH_ERRORS
   FAILED
   CANCELLED
 }
@@ -101,10 +106,20 @@ enum ProviderKind {
   NOTIFICATION
 }
 
+/// Lifecycle of one integration, as shown in Settings → Integrations.
+///
+///   NOT_CONFIGURED  credentials are missing
+///   DISABLED        an administrator switched it off
+///   CONFIGURED      credentials present, never yet exercised
+///   HEALTHY         a real call succeeded recently
+///   DEGRADED        succeeding, but with failures or rate-limiting in the mix
+///   ERROR           the last call failed
 enum ProviderState {
   CONFIGURED
   NOT_CONFIGURED
   DISABLED
+  HEALTHY
+  DEGRADED
   ERROR
 }
 
@@ -196,6 +211,24 @@ enum DataOrigin {
   AGGREGATE_SEARCH_SIGNAL
   AI_INFERENCE
   MANUAL_ENTRY
+}
+
+/// The badge shown next to a market number. This is what stops the platform from
+/// implying more than it knows:
+///
+///   FACT        measured directly from a first-party property
+///   AGGREGATE   an aggregate signal over many people — never one identifiable person
+///   ESTIMATED   derived or extrapolated by this system, and labelled as such
+///   IMPORTED    supplied by a human via CSV; only as good as the sheet
+///   AI_INSIGHT  a model's interpretation, never a measurement
+///   UNKNOWN     no data — displayed as "unknown", never as zero
+enum DataQuality {
+  FACT
+  AGGREGATE
+  ESTIMATED
+  IMPORTED
+  AI_INSIGHT
+  UNKNOWN
 }
 
 enum Confidence {
@@ -314,6 +347,18 @@ model Lead {
   websiteStatus    WebsiteStatus @default(UNKNOWN)
   websiteDomain    String?
   websiteCheckedAt DateTime?
+  /// How sure we are that this website belongs to *this* business (0-100).
+  /// A website is never attached silently: below WEBSITE_MATCH_MIN_CONFIDENCE the
+  /// candidate is stored as a suggestion for a human to confirm.
+  websiteMatchConfidence Int?
+  /// The individual signals behind that number (name match, phone match, city…),
+  /// so a salesperson can see why we believe it.
+  websiteMatchReasons    Json?
+  /// Which provider produced the match: the lead source itself, a search engine…
+  websiteMatchedBy       String?
+  /// Last successful crawl. Drives the audit cache: a site is not refetched while a
+  /// recent audit exists, unless the caller asks for a forced re-audit.
+  lastCrawledAt          DateTime?
 
   googleMapsUrl String?
   instagramUrl  String?
@@ -386,6 +431,7 @@ model Lead {
   notifications    Notification[]
   opportunities_   Opportunity[]
 
+  // Deduplication ladder — every lookup in core/dedupe.ts, in the order it tries them.
   @@index([normalizedPhone])
   @@index([websiteDomain])
   @@index([nameKey])
@@ -401,6 +447,27 @@ model Lead {
   @@index([websiteStatus])
   @@index([isDemo])
   @@index([createdAt])
+  /// The raw phone is searchable from the lead list ("who is this number?"),
+  /// which the normalized index cannot serve because the user types what they see.
+  @@index([originalPhone])
+
+  // Compound indexes for the queries the application actually runs. Every list and
+  // every analytic starts from the same visibility predicate — isArchived + isDemo —
+  // so putting those columns first lets one index serve the whole family.
+  /// Lead list and dashboard buckets: visible leads ordered by score.
+  @@index([isArchived, isDemo, leadScore(sort: Desc)])
+  /// Pipeline board and "hot leads to call": visible leads by temperature.
+  @@index([isArchived, isDemo, leadTemperature, leadScore(sort: Desc)])
+  /// A salesperson's own queue.
+  @@index([isArchived, isDemo, assignedToId, contactStatus])
+  /// Today view: due and overdue follow-ups, oldest first.
+  @@index([isArchived, isDemo, nextFollowUpAt])
+  /// City + service targeting from a market signal (patch 61).
+  @@index([isArchived, isDemo, city, recommendedService])
+  /// Acquisition reporting over a date range.
+  @@index([isArchived, isDemo, createdAt])
+  /// Campaign run accounting.
+  @@index([campaignId, leadTemperature])
 }
 
 /// Catalogue of places leads can come from (one row per provider adapter, plus CSV/manual).
@@ -490,16 +557,26 @@ model CampaignRun {
   stage      String?
   progress   Int       @default(0)
 
+  /// Records returned by the providers, before deduplication.
   collected Int @default(0)
+  /// Leads created by this run.
   unique    Int @default(0)
+  /// Records that matched an existing lead and were merged into it.
   merged    Int @default(0)
+  /// Records rejected before becoming a lead (unusable name, no contact route…).
+  duplicates Int @default(0)
   qualified Int @default(0)
   hot       Int @default(0)
   warm      Int @default(0)
   medium    Int @default(0)
   low       Int @default(0)
   rejected  Int @default(0)
+  /// Leads whose pipeline exhausted its retries. Counted, never silently dropped:
+  /// every lead this run created is accounted for in exactly one of the buckets.
+  failed    Int @default(0)
   errors    Int @default(0)
+  /// Per-provider outcome for this run, surfaced in the campaign UI.
+  providerResults Json?
 
   /// Per-stage log entries, appended as the pipeline advances.
   log        Json?
@@ -575,8 +652,74 @@ model WebsiteAudit {
   error     String?
   createdAt DateTime @default(now())
 
-  lead  Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  pages WebsitePage[]
+  /// Version of the audit engine that produced this row. When the engine changes,
+  /// an older audit is stale even if it is recent, and the cache must not serve it.
+  engineVersion String @default("1")
+  /// Hash of the crawled content. Identical content on a re-crawl means the scores
+  /// cannot have changed, so the previous findings are reused.
+  contentHash   String?
+  /// Which audit layer produced this row: HTTP always, BROWSER only when enabled.
+  method        String @default("HTTP")
+
+  lead    Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  pages   WebsitePage[]
+  browser BrowserAudit?
+
+  @@index([leadId])
+  @@index([createdAt])
+  /// Audit cache lookup: the newest audit for one lead.
+  @@index([leadId, createdAt(sort: Desc)])
+  @@index([contentHash])
+}
+
+/// Real-browser measurements (patch 12).
+///
+/// Deliberately a separate table from WebsiteAudit, because the two answer different
+/// questions and have different availability. The HTTP audit always runs; the browser
+/// audit only runs when BROWSER_AUDIT_ENABLED is on and Playwright is installed. A
+/// metric that was not measured is stored as NULL and rendered as "not available" —
+/// never as zero, and never estimated from the HTTP audit.
+model BrowserAudit {
+  id      String @id @default(cuid())
+  auditId String @unique
+  leadId  String
+  url     String
+
+  status        String   @default("OK") /// OK | NOT_AVAILABLE | ERROR
+  unavailableReason String?
+
+  /// Core Web Vitals, as measured in this one synthetic run on this one machine.
+  /// They are a laboratory signal, not field data from real users.
+  lcpMs           Float?
+  cls             Float?
+  inpMs           Float?
+  fcpMs           Float?
+  ttfbMs          Float?
+  domContentLoadedMs Float?
+  loadEventMs        Float?
+
+  viewportWidth   Int?
+  viewportHeight  Int?
+  /// True when the page fits the mobile viewport without horizontal scrolling.
+  fitsMobileViewport Boolean?
+  horizontalOverflowPx Int?
+  /// Smallest font size found in rendered body text, in CSS pixels.
+  smallestFontPx  Float?
+  /// Tap targets smaller than the 44x44 CSS-pixel guidance.
+  smallTapTargets Int?
+
+  consoleErrors   Json?
+  failedRequests  Json?
+  requestCount    Int?
+  transferredBytes Int?
+
+  screenshotPath  String?
+  browserName     String?
+  browserVersion  String?
+  durationMs      Int?
+  createdAt       DateTime @default(now())
+
+  audit WebsiteAudit @relation(fields: [auditId], references: [id], onDelete: Cascade)
 
   @@index([leadId])
   @@index([createdAt])
@@ -702,6 +845,16 @@ model AIAnalysis {
   rawOutput     Json?
   /// Hash of the input snapshot: identical input is served from cache, never re-billed.
   inputHash     String?
+  /// Prompt revision. A cache entry is only reused when the prompt version, the
+  /// provider and the model all match — otherwise an edited prompt would be masked
+  /// by a stale hit.
+  promptVersion String @default("1")
+  /// Set when the model's JSON failed schema validation and the deterministic brief
+  /// was used instead. Kept so a bad prompt is visible rather than silently absorbed.
+  validationError String?
+  /// True when this row was produced by the rules engine after AI was unavailable,
+  /// over budget, or invalid.
+  usedFallback  Boolean @default(false)
 
   promptTokens     Int?
   completionTokens Int?
@@ -716,6 +869,8 @@ model AIAnalysis {
   @@index([leadId])
   @@index([inputHash])
   @@index([createdAt])
+  /// Cache lookup: same lead, same input, same prompt, same model.
+  @@index([leadId, inputHash, promptVersion, model])
 }
 
 model SalesBrief {
@@ -777,6 +932,8 @@ model Opportunity {
   @@index([leadId])
   @@index([serviceKey])
   @@index([score])
+  /// Market signal -> call list: best-scoring opportunities for one service.
+  @@index([serviceKey, score(sort: Desc)])
 }
 
 /**
@@ -805,6 +962,10 @@ model SalesActivity {
   @@index([leadId])
   @@index([userId])
   @@index([createdAt])
+  /// Lead timeline, newest first.
+  @@index([leadId, createdAt(sort: Desc)])
+  /// Activity report per salesperson over a period.
+  @@index([userId, type, createdAt])
 }
 
 model Call {
@@ -862,6 +1023,8 @@ model Task {
   @@index([assignedToId])
   @@index([status])
   @@index([dueAt])
+  /// The task list a salesperson opens every morning: mine, open, by due date.
+  @@index([assignedToId, status, dueAt])
 }
 
 model FollowUp {
@@ -881,6 +1044,10 @@ model FollowUp {
   @@index([leadId])
   @@index([dueAt])
   @@index([completedAt])
+  /// Today / Overdue / Upcoming: open follow-ups for one user by due date.
+  @@index([userId, completedAt, dueAt])
+  /// The scheduler's sweep: everything still open and now due, across all users.
+  @@index([completedAt, dueAt])
 }
 
 /**
@@ -953,6 +1120,11 @@ model KeywordSignal {
   @@index([source])
   @@index([city])
   @@index([date])
+  /// Market dashboard: signals for one keyword in one city over a period.
+  /// KeywordSignal has no serviceKey of its own — the service link lives in
+  /// KeywordService, so the join goes keyword -> service and filters here on city+date.
+  @@index([keywordId, city, date])
+  @@index([isDemo, date])
 }
 
 model KeywordTrend {
@@ -1031,6 +1203,9 @@ model SearchTerm {
   @@index([date])
   @@index([serviceKey])
   @@index([city])
+  /// "Which services showed demand in this city last month?"
+  @@index([serviceKey, city, date])
+  @@index([isDemo, date])
 }
 
 /// Aggregated demand signal per service (and optionally per city) over a period.
@@ -1049,6 +1224,16 @@ model MarketSignal {
   confidence Confidence           @default(CALCULATED)
   sources    KeywordSource[]      @default([])
   sampleSize Int                  @default(0)
+
+  /// Provenance is mandatory on a market signal, because a salesperson will repeat
+  /// what it says on a phone call. `origin` records where the underlying observations
+  /// came from; `quality` is the label the UI shows; `sourceUrls` lets anyone follow
+  /// the claim back to its source.
+  origin     DataOrigin  @default(AGGREGATE_SEARCH_SIGNAL)
+  quality    DataQuality @default(AGGREGATE)
+  sourceUrls String[]    @default([])
+  /// Human-readable measurement period, e.g. "1 Aug – 31 Aug 2026".
+  periodLabel String?
 
   totalClicks      Int?
   totalImpressions Int?
@@ -1099,6 +1284,14 @@ model Provider {
   lastError   String?
   lastErrorAt DateTime?
   lastUsedAt  DateTime?
+  /// Last call that actually succeeded — the honest answer to "is this working?".
+  lastSuccessAt DateTime?
+  /// Last explicit health check run from the admin panel.
+  lastCheckAt      DateTime?
+  lastCheckOk      Boolean?
+  lastCheckMessage String?
+  /// Consecutive failures since the last success; drives CONFIGURED -> DEGRADED -> ERROR.
+  consecutiveFailures Int @default(0)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -1229,4 +1422,6 @@ model JobLog {
   @@index([jobName])
   @@index([status])
   @@index([startedAt])
+  /// Retention cleanup deletes by age; the admin view filters by job then age.
+  @@index([jobName, startedAt])
 }

@@ -28,6 +28,15 @@ import { averageOf, check, fail, findingsFrom, pass, scoreArea, unavailable, typ
  *      re-crawling the site.
  */
 
+/**
+ * Version of the audit engine.
+ *
+ * Bump it whenever a check is added, removed or re-weighted. Stored on every audit row
+ * so the cache can tell "this audit is recent" from "this audit is still correct": a
+ * recent row produced by an older engine is stale no matter how young it is.
+ */
+export const AUDIT_ENGINE_VERSION = '2';
+
 export interface AuditResult {
   url: string;
   finalUrl: string | null;

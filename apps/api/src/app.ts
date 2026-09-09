@@ -5,6 +5,8 @@ import jwt from '@fastify/jwt';
 import rateLimit from '@fastify/rate-limit';
 import sensible from '@fastify/sensible';
 import { allowedOrigins, loadEnv } from './config/env';
+import { preflight } from './config/preflight';
+import { APP_VERSION } from './version';
 import { loggerOptions } from './lib/logger';
 import { prisma } from './lib/prisma';
 import { redisHealthy } from './lib/redis';
@@ -55,10 +57,15 @@ export async function buildApp(): Promise<FastifyInstance> {
     origin: (origin, cb) => {
       // Same-origin/server-to-server requests carry no Origin header.
       if (!origin) return cb(null, true);
-      cb(null, allowedOrigins().includes(origin));
+      const allowed = allowedOrigins();
+      // The API sends credentials, so a wildcard is never valid here: reflecting an
+      // arbitrary origin back with Access-Control-Allow-Credentials would let any site
+      // read an authenticated response.
+      cb(null, allowed.includes(origin));
     },
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+    maxAge: 86400,
   });
 
   await app.register(rateLimit, {
@@ -74,6 +81,11 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(authPlugin);
 
   /* ------------------------------- Health -------------------------------- */
+  /**
+   * Liveness. Answers "is this process alive and can it reach its dependencies?".
+   * Always 200 so an orchestrator does not restart the container over a transient
+   * Redis blip — the body carries the detail. Never includes a credential.
+   */
   app.get('/health', async () => {
     const [dbOk, redisOk] = await Promise.all([
       prisma.$queryRaw`SELECT 1`.then(() => true).catch(() => false),
@@ -84,14 +96,45 @@ export async function buildApp(): Promise<FastifyInstance> {
       database: dbOk ? 'up' : 'down',
       // Redis being down degrades queues and caching but the API still serves reads.
       redis: redisOk ? 'up' : 'down',
-      version: '1.0.0',
+      version: APP_VERSION,
+      time: new Date().toISOString(),
+    };
+  });
+
+  /**
+   * Readiness. Answers "should this instance receive traffic?" — and unlike /health it
+   * says no when mandatory infrastructure is missing, so a load balancer drains the
+   * instance instead of serving errors.
+   */
+  app.get('/ready', async (_req, reply) => {
+    const [dbOk, redisOk] = await Promise.all([
+      prisma.$queryRaw`SELECT 1`.then(() => true).catch(() => false),
+      redisHealthy(),
+    ]);
+    const config = preflight();
+    const ready = dbOk && redisOk && config.ok;
+    reply.code(ready ? 200 : 503);
+    return {
+      ready,
+      checks: {
+        database: dbOk ? 'up' : 'down',
+        redis: redisOk ? 'up' : 'down',
+        configuration: config.ok ? 'ok' : 'invalid',
+      },
+      // Names of failing checks only — never the values behind them.
+      problems: [
+        ...(dbOk ? [] : ['database unreachable']),
+        ...(redisOk ? [] : ['redis unreachable']),
+        ...config.fatal,
+      ],
+      version: APP_VERSION,
       time: new Date().toISOString(),
     };
   });
 
   app.get('/', async () => ({
     name: 'Baimar Lead Intelligence API',
-    version: '1.0.0',
+    version: APP_VERSION,
     docs: '/health',
   }));
 

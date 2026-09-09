@@ -5,8 +5,10 @@
 #   docker compose logs -f api    follow the API
 #   docker compose down           stop (data survives in the named volumes)
 #
+# This stack is for development only. Postgres and Redis are bound to 127.0.0.1
+# and the credentials have convenience defaults — both are refused in production.
 # For production use docker-compose.prod.yml, which adds Nginx and a dedicated
-# worker container.
+# worker container and publishes nothing but 80/443.
 # ---------------------------------------------------------------------------
 
 services:
@@ -21,8 +23,10 @@ services:
       POSTGRES_INITDB_ARGS: '--encoding=UTF8'
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    # Bound to the loopback interface: handy for psql/Prisma Studio on the dev
+    # machine, unreachable from the network. Production publishes nothing at all.
     ports:
-      - '${POSTGRES_PORT:-5432}:5432'
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-baimar} -d ${POSTGRES_DB:-baimar}']
       interval: 10s
@@ -42,7 +46,7 @@ services:
     volumes:
       - redis-data:/data
     ports:
-      - '${REDIS_PORT:-6379}:6379'
+      - '127.0.0.1:${REDIS_PORT:-6379}:6379'
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 10s

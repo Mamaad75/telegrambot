@@ -1,5 +1,61 @@
+import { Agent, fetch as undiciFetch } from 'undici';
 import { loadEnv } from '../config/env';
 import { ProviderError } from './errors';
+import { guardUrl, guardedLookup } from './url-guard';
+
+/**
+ * Dispatcher used for every fetch of an attacker-influenced URL.
+ *
+ * The custom `lookup` validates the address at the moment the socket connects, so a
+ * hostname cannot resolve to a public address for our pre-check and to 127.0.0.1 for
+ * the actual connection (DNS rebinding). Built lazily because it reads configuration.
+ */
+let guardedAgent: Agent | null = null;
+function getGuardedAgent(): Agent {
+  if (!guardedAgent) {
+    guardedAgent = new Agent({
+      connect: { lookup: guardedLookup as never, timeout: 10_000 },
+      // A crawl is many hosts, one or two requests each; long-lived pools only tie up memory.
+      keepAliveTimeout: 5_000,
+      keepAliveMaxTimeout: 10_000,
+    });
+  }
+  return guardedAgent;
+}
+
+/** Release the guarded connection pool (tests and graceful shutdown). */
+export async function closeHttpAgent(): Promise<void> {
+  if (guardedAgent) {
+    await guardedAgent.close().catch(() => undefined);
+    guardedAgent = null;
+  }
+}
+
+/**
+ * Content types the crawler is willing to parse.
+ *
+ * Anything else — an installer, an archive, a video — is a download, not a web page, and
+ * is refused before the body is read. This is both a safety rule and a bandwidth rule.
+ */
+const PARSEABLE_CONTENT_TYPES = [
+  'text/html',
+  'application/xhtml+xml',
+  'text/plain',
+  'text/xml',
+  'application/xml',
+  'application/json',
+  'application/rss+xml',
+  'application/atom+xml',
+  'text/css',
+  'application/javascript',
+  'text/javascript',
+];
+
+export function isParseableContentType(contentType: string | undefined): boolean {
+  if (!contentType) return true; // no header: decided by what the body actually contains
+  const mime = contentType.split(';')[0].trim().toLowerCase();
+  return PARSEABLE_CONTENT_TYPES.includes(mime);
+}
 
 export interface HttpRequestOptions {
   method?: string;
@@ -14,6 +70,20 @@ export interface HttpRequestOptions {
   signal?: AbortSignal;
   redirect?: 'follow' | 'manual';
   providerKey?: string;
+  /**
+   * Validate the URL — and every redirect hop — against the SSRF rules, and connect
+   * through the guarded dispatcher.
+   *
+   * Switch this on for anything a user or a third party influenced: a lead's website,
+   * a link found while crawling, a URL from an uploaded CSV. Leave it off for calls to
+   * a provider endpoint an administrator configured deliberately, since one of those
+   * (a local model server on 127.0.0.1) is legitimately private.
+   */
+  ssrfGuard?: boolean;
+  /** Redirect hops to follow when `ssrfGuard` is on. Defaults to CRAWLER_MAX_REDIRECTS. */
+  maxRedirects?: number;
+  /** Refuse bodies whose content-type is not parseable as a web document. */
+  requireParseableContentType?: boolean;
 }
 
 export interface HttpResponse {
@@ -47,6 +117,7 @@ export async function httpRequest(url: string, opts: HttpRequestOptions = {}): P
   const retries = opts.retries ?? 2;
   const retryBase = opts.retryBaseMs ?? 500;
   const maxBytes = opts.maxBytes ?? env.CRAWLER_MAX_BYTES;
+  const maxRedirects = opts.maxRedirects ?? env.CRAWLER_MAX_REDIRECTS;
   const providerKey = opts.providerKey ?? 'http';
 
   let lastError: Error | null = null;
@@ -59,13 +130,25 @@ export async function httpRequest(url: string, opts: HttpRequestOptions = {}): P
     opts.signal?.addEventListener('abort', onAbort);
 
     try {
-      const res = await fetch(url, {
-        method: opts.method ?? 'GET',
-        headers: { 'user-agent': env.CRAWLER_USER_AGENT, ...(opts.headers ?? {}) },
-        body: opts.body,
-        signal: controller.signal,
-        redirect: opts.redirect ?? 'follow',
-      });
+      const res = opts.ssrfGuard
+        ? await guardedFetch(url, opts, controller.signal, env.CRAWLER_USER_AGENT, maxRedirects)
+        : await fetch(url, {
+            method: opts.method ?? 'GET',
+            headers: { 'user-agent': env.CRAWLER_USER_AGENT, ...(opts.headers ?? {}) },
+            body: opts.body,
+            signal: controller.signal,
+            redirect: opts.redirect ?? 'follow',
+          });
+
+      if (opts.requireParseableContentType && !isParseableContentType(res.headers.get('content-type') ?? undefined)) {
+        // Never download an executable, an archive or a video: cancel before reading.
+        await res.body?.cancel().catch(() => undefined);
+        throw new ProviderError(
+          providerKey,
+          `Refusing to download ${res.headers.get('content-type')} from ${new URL(url).host} — not a web document.`,
+          { retryable: false },
+        );
+      }
 
       const { text, bytes, truncated } = await readBody(res, maxBytes);
       const headers: Record<string, string> = {};
@@ -97,6 +180,9 @@ export async function httpRequest(url: string, opts: HttpRequestOptions = {}): P
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       const aborted = lastError.name === 'AbortError';
+      // A refusal by the SSRF guard is a permanent verdict, not a transient fault:
+      // retrying it would only repeat the same decision three times.
+      if (err instanceof ProviderError && !err.retryable) throw err;
       if (attempt < retries && !opts.signal?.aborted) {
         await sleep(backoff(retryBase, attempt));
         continue;
@@ -111,6 +197,71 @@ export async function httpRequest(url: string, opts: HttpRequestOptions = {}): P
   }
 
   throw new ProviderError(providerKey, lastError?.message ?? 'Request failed', { retryable: true });
+}
+
+/**
+ * Fetch with the SSRF guard applied to the initial URL and to every redirect hop.
+ *
+ * Redirects are followed by hand rather than by `fetch`, because `redirect: 'follow'`
+ * hides the intermediate URLs: a permitted page that 302s to
+ * http://169.254.169.254/latest/meta-data/ would be fetched with nobody looking. Each
+ * hop here is re-validated as if a user had typed it.
+ */
+async function guardedFetch(
+  url: string,
+  opts: HttpRequestOptions,
+  signal: AbortSignal,
+  userAgent: string,
+  maxRedirects: number,
+): Promise<Response> {
+  const providerKey = opts.providerKey ?? 'http';
+  let current = url;
+
+  for (let hop = 0; hop <= maxRedirects; hop++) {
+    const verdict = await guardUrl(current);
+    if (!verdict.allowed) {
+      throw new ProviderError(providerKey, `Blocked: ${verdict.reason ?? 'unsafe URL'}`, {
+        retryable: false,
+        statusCode: 400,
+      });
+    }
+
+    // undici's own fetch, not the global one: the dispatcher must come from the same
+    // copy of undici that consumes it, and this way the guarded Agent is guaranteed to
+    // be the one doing the connecting. The Response it returns is API-compatible with
+    // the global Response, which is all the caller uses.
+    const res = (await undiciFetch(verdict.url!.href, {
+      method: opts.method ?? 'GET',
+      headers: { 'user-agent': userAgent, ...(opts.headers ?? {}) },
+      body: opts.body,
+      signal,
+      redirect: 'manual',
+      dispatcher: getGuardedAgent(),
+    })) as unknown as Response;
+
+    const location = res.headers.get('location');
+    if (res.status >= 300 && res.status < 400 && location) {
+      await res.body?.cancel().catch(() => undefined);
+      if (hop === maxRedirects) {
+        throw new ProviderError(providerKey, `Too many redirects (more than ${maxRedirects}) from ${url}`, {
+          retryable: false,
+        });
+      }
+      // A relative Location is resolved against the hop we just fetched.
+      try {
+        current = new URL(location, verdict.url!.href).toString();
+      } catch {
+        throw new ProviderError(providerKey, `Unusable redirect target "${location}"`, { retryable: false });
+      }
+      continue;
+    }
+
+    // `res.url` is empty under redirect: 'manual'; report the URL actually fetched.
+    Object.defineProperty(res, 'url', { value: verdict.url!.href, configurable: true });
+    return res;
+  }
+
+  throw new ProviderError(providerKey, `Too many redirects from ${url}`, { retryable: false });
 }
 
 function backoff(base: number, attempt: number): number {

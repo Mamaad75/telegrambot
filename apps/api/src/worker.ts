@@ -1,4 +1,5 @@
 import { loadEnv } from './config/env';
+import { preflight } from './config/preflight';
 import { prisma } from './lib/prisma';
 import { syncProviders } from './providers/registry';
 import { closeQueues } from './queue/queues';
@@ -12,7 +13,21 @@ import { startSchedules, stopSchedules } from './schedules';
  * slice with request handling.
  */
 async function main(): Promise<void> {
-  loadEnv();
+  const env = loadEnv();
+
+  // The worker enforces the same configuration contract as the API: it writes to the
+  // same database with the same secrets, so a weak production secret is just as fatal here.
+  const config = preflight(env);
+  if (!config.ok) {
+    // eslint-disable-next-line no-console
+    console.error(['[worker] refusing to start — invalid configuration:', ...config.fatal.map((f) => `  - ${f}`)].join('\n'));
+    process.exit(1);
+  }
+  for (const warning of config.warnings) {
+    // eslint-disable-next-line no-console
+    console.warn(`[worker] ${warning}`);
+  }
+
   await prisma.$connect();
   await syncProviders().catch(() => undefined);
 

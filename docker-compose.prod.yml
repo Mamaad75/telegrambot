@@ -7,8 +7,13 @@
 #   * a dedicated worker container, so a long crawl never competes with an HTTP
 #     request for CPU;
 #   * Nginx terminates TLS and is the only exposed port;
-#   * Postgres and Redis are not published to the host;
+#   * Postgres and Redis have NO `ports:` mapping — they are reachable only over
+#     the internal Docker network. Do not add one: exposing 5432 or 6379 on a
+#     public VPS is the single most common way these deployments get breached;
+#   * every secret must be set explicitly — no `:-default` fallbacks;
 #   * memory limits sized for a 2 CPU / 4 GB VPS.
+#
+# Copy .env.production.example to .env first, then `npm run production:check`.
 # ---------------------------------------------------------------------------
 
 services:
@@ -34,15 +39,25 @@ services:
   redis:
     image: redis:7-alpine
     restart: always
+    # Queues must survive a restart, so persistence stays on. maxmemory-policy is
+    # noeviction: silently dropping a queued job would lose a lead's pipeline run.
+    # Redis is a cache and a queue here, never the source of truth — see
+    # docs/DEPLOYMENT.md § Backups.
     command: >
       redis-server
       --appendonly yes
-      --maxmemory 256mb
+      --maxmemory ${REDIS_MAXMEMORY:-256mb}
       --maxmemory-policy noeviction
+      ${REDIS_EXTRA_ARGS:-}
     volumes:
       - redis-data:/data
+    # Redis listens only on the internal network. To add a password anyway, set
+    # REDIS_EXTRA_ARGS=--requirepass yourpassword and point REDIS_URL at
+    # redis://:yourpassword@redis:6379 (REDISCLI_AUTH keeps it out of `ps`).
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD:-}
     healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
+      test: ['CMD-SHELL', 'redis-cli ping | grep -q PONG']
       interval: 10s
       timeout: 5s
       retries: 10
@@ -66,14 +81,25 @@ services:
       API_PORT: 4000
       API_HOST: 0.0.0.0
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-baimar}?schema=public
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       TRUST_PROXY: 'true'
+      # Fail the deploy, not the security review: compose refuses to start when a
+      # secret is missing rather than letting a default slip into production.
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env — openssl rand -base64 48}
+      APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:?set APP_ENCRYPTION_KEY in .env — openssl rand -base64 48}
       # Workers run in their own container.
       RUN_WORKERS_IN_API: 'false'
     env_file:
       - .env
+    # `expose` publishes nothing to the host: only Nginx can reach this port.
     expose:
       - '4000'
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
     deploy:
       resources:
         limits:
@@ -95,7 +121,12 @@ services:
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-baimar}?schema=public
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:?set APP_ENCRYPTION_KEY in .env}
+      # This container *is* the worker (dist/worker.js), so the in-API flag is
+      # irrelevant here; it is set false to keep the two containers symmetrical.
+      RUN_WORKERS_IN_API: 'false'
       # The API container already ran them.
       RUN_MIGRATIONS: 'false'
       RUN_SEED: 'false'
@@ -133,7 +164,9 @@ services:
       - '443:443'
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/locations.conf:/etc/nginx/locations.conf:ro
       - ./nginx/certs:/etc/nginx/certs:ro
+      - ./nginx/certbot:/var/www/certbot
       - nginx-cache:/var/cache/nginx
     deploy:
       resources:

@@ -26,13 +26,15 @@ export class AnthropicProvider implements AIProvider {
 
   constructor(
     private readonly apiKey: string | undefined,
-    private readonly modelName: string,
+    /** No default: an unnamed model is a configuration gap, not something to guess at. */
+    private readonly modelName: string | undefined,
     private readonly baseUrl: string,
+    private readonly apiVersion: string,
     private readonly pricing?: Record<string, ModelPrice>,
   ) {}
 
   get model(): string {
-    return this.modelName;
+    return this.modelName ?? 'not-configured';
   }
 
   isConfigured(): boolean {
@@ -66,10 +68,10 @@ export class AnthropicProvider implements AIProvider {
       headers: {
         'content-type': 'application/json',
         'x-api-key': this.apiKey!,
-        'anthropic-version': '2023-06-01',
+        'anthropic-version': this.apiVersion,
       },
       body: JSON.stringify({
-        model: this.modelName,
+        model: this.modelName!,
         max_tokens: req.maxTokens ?? 2000,
         temperature: req.temperature ?? 0.2,
         system: req.system,
@@ -89,7 +91,7 @@ export class AnthropicProvider implements AIProvider {
       .trim();
     if (!text) throw new ProviderError(this.descriptor.key, 'Model returned an empty response', { retryable: true });
 
-    const model = data.model ?? this.modelName;
+    const model = data.model ?? this.modelName!;
     const promptTokens = data.usage?.input_tokens;
     const completionTokens = data.usage?.output_tokens;
 

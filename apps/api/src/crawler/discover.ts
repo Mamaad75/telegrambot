@@ -1,9 +1,10 @@
-import { extractDomain, nameSimilarity, normalizeBusinessName, normalizePhone, normalizeText } from '@baimar/shared';
+import { extractDomain } from '@baimar/shared';
 import type { WebsiteStatus } from '@prisma/client';
 import { loadEnv } from '../config/env';
 import { callProvider } from '../providers/registry';
 import type { SearchProvider, WebsiteProvider } from '../providers/types';
 import { analyzePage } from './parse';
+import { MATCH_THRESHOLDS, scoreWebsiteMatch, type MatchResult } from './website-match';
 
 /**
  * Website discovery.
@@ -18,7 +19,11 @@ export interface DiscoveryInput {
   businessName: string;
   city?: string | null;
   province?: string | null;
+  address?: string | null;
   phone?: string | null;
+  extraPhones?: string[];
+  instagramUrl?: string | null;
+  telegramUrl?: string | null;
   category?: string | null;
   /** Domains we already know are not this business (previously rejected). */
   excludeDomains?: string[];
@@ -36,6 +41,16 @@ export interface WebsiteDiscoveryResult {
   searchProviderUsed: string | null;
   /** Present when nothing was found and we want to explain why. */
   note?: string;
+  /** 0-100. Null when no candidate was scored at all. */
+  matchConfidence: number | null;
+  /** Per-signal breakdown behind that number, stored on the lead for the UI. */
+  matchSignals: MatchResult['signals'];
+  matchReasons: string[];
+  /**
+   * Candidates that scored above WEAK but below the acceptance threshold. They are
+   * offered to a salesperson as "is this them?" rather than silently attached.
+   */
+  suggestions: Array<{ url: string; domain: string; confidence: number; reasons: string[] }>;
 }
 
 const EXCLUDED_HOSTS = [
@@ -66,6 +81,10 @@ export async function discoverWebsite(
     evidence: '',
     candidatesConsidered: 0,
     searchProviderUsed: null,
+    matchConfidence: null,
+    matchSignals: [],
+    matchReasons: [],
+    suggestions: [],
   };
 
   const candidates: Array<{ url: string; domain: string; source: 'search' | 'probe'; rank: number; provider?: string }> = [];
@@ -112,10 +131,18 @@ export async function discoverWebsite(
   }
 
   // --- 3. Verify candidates by actually reading them ----------------------
-  const normalizedPhone = normalizePhone(input.phone ?? null);
-  const nameNorm = normalizeBusinessName(input.businessName);
+  //
+  // Never "first result wins". Each candidate is fetched and scored on independent
+  // signals (phone, name, domain, city, address, shared social profile), and the best
+  // score decides what the system is willing to claim. Attaching the wrong website to a
+  // lead is worse than attaching none: the salesperson would open the call with a fact
+  // about a stranger's site.
+  const minConfidence = Math.max(
+    MATCH_THRESHOLDS.WEAK,
+    Math.min(100, loadEnv().WEBSITE_MATCH_MIN_CONFIDENCE),
+  );
 
-  let bestWeak: WebsiteDiscoveryResult | null = null;
+  const scored: Array<{ result: MatchResult; page: ReturnType<typeof analyzePage>; source: 'search' | 'probe' }> = [];
 
   for (const candidate of candidates.slice(0, 5)) {
     let page;
@@ -132,54 +159,65 @@ export async function discoverWebsite(
         truncated: fetched.truncated,
       });
     } catch {
+      // A candidate we cannot read teaches us nothing; it is not evidence either way.
       continue;
     }
 
-    const haystack = normalizeText(`${page.title ?? ''} ${page.textSample}`);
-
-    // Strong evidence: the phone number we already hold appears on the page.
-    if (normalizedPhone.valid && normalizedPhone.e164) {
-      if (page.phones.includes(normalizedPhone.e164)) {
-        return {
-          url: page.finalUrl,
-          domain: extractDomain(page.finalUrl),
-          status: 'ACTIVE',
-          method: candidate.source === 'search' ? 'search' : 'domain-probe',
-          confidence: 'FACT',
-          evidence: `The business phone number ${normalizedPhone.e164} appears on ${extractDomain(page.finalUrl)}`,
-          candidatesConsidered: candidates.length,
-          searchProviderUsed: base.searchProviderUsed,
-        };
-      }
-    }
-
-    // Medium evidence: the business name appears in the page title or body.
-    const titleSim = page.title ? nameSimilarity(input.businessName, page.title) : 0;
-    const nameInBody = nameNorm.length >= 4 && haystack.includes(nameNorm);
-    if (titleSim >= 0.6 || nameInBody) {
-      const weak: WebsiteDiscoveryResult = {
-        url: page.finalUrl,
-        domain: extractDomain(page.finalUrl),
-        // Deliberately NOT "ACTIVE": a human confirms before the salesperson relies on it.
-        status: 'NOT_VERIFIED',
-        method: candidate.source === 'search' ? 'search' : 'domain-probe',
-        confidence: 'ESTIMATED',
-        evidence: nameInBody
-          ? `The business name appears in the page content of ${extractDomain(page.finalUrl)}`
-          : `Page title matches the business name (similarity ${titleSim.toFixed(2)})`,
-        candidatesConsidered: candidates.length,
-        searchProviderUsed: base.searchProviderUsed,
-        note: 'Needs verification — matched on name only, not on a phone number.',
-      };
-      if (!bestWeak) bestWeak = weak;
-    }
+    const domain = extractDomain(page.finalUrl) ?? candidate.domain;
+    const result = scoreWebsiteMatch(input, page, domain);
+    scored.push({ result, page, source: candidate.source });
   }
 
-  if (bestWeak) return bestWeak;
+  scored.sort((a, b) => b.result.confidence - a.result.confidence);
+  const best = scored[0];
+
+  const suggestions = scored
+    .filter((s) => s.result.confidence >= MATCH_THRESHOLDS.WEAK && s.result.confidence < minConfidence)
+    .map((s) => ({
+      url: s.page.finalUrl,
+      domain: extractDomain(s.page.finalUrl) ?? '',
+      confidence: s.result.confidence,
+      reasons: s.result.reasons,
+    }));
+
+  if (!best || best.result.confidence < minConfidence) {
+    return {
+      ...base,
+      candidatesConsidered: candidates.length,
+      matchConfidence: best?.result.confidence ?? null,
+      matchSignals: best?.result.signals ?? [],
+      matchReasons: best?.result.reasons ?? [],
+      suggestions,
+      evidence: best
+        ? `${scored.length} نامزد بررسی شد؛ بهترین امتیاز ${best.result.confidence} از حد لازم ${minConfidence} کمتر بود.`
+        : `${Math.min(candidates.length, 5)} نامزد بررسی شد؛ هیچ‌کدام قابل خواندن نبود.`,
+      note:
+        suggestions.length > 0
+          ? 'نامزدهایی با اطمینان پایین یافت شد — برای تأیید انسانی ثبت شدند، اما به سرنخ متصل نشدند.'
+          : undefined,
+    };
+  }
+
+  // Above the acceptance threshold but below CONFIRMED: attach it, and say out loud
+  // that a human should confirm before the salesperson quotes anything from it.
+  const isConfirmed = best.result.verdict === 'CONFIRMED';
 
   return {
-    ...base,
-    evidence: `Checked ${Math.min(candidates.length, 5)} candidate site(s); none mentioned this business`,
+    url: best.page.finalUrl,
+    domain: extractDomain(best.page.finalUrl),
+    status: isConfirmed ? 'ACTIVE' : 'NOT_VERIFIED',
+    method: best.source === 'search' ? 'search' : 'domain-probe',
+    confidence: isConfirmed ? 'FACT' : 'ESTIMATED',
+    evidence: best.result.reasons.join(' • ') || 'بدون شواهد مستقیم',
+    candidatesConsidered: candidates.length,
+    searchProviderUsed: base.searchProviderUsed,
+    matchConfidence: best.result.confidence,
+    matchSignals: best.result.signals,
+    matchReasons: best.result.reasons,
+    suggestions,
+    note: isConfirmed
+      ? undefined
+      : `اطمینان ${best.result.confidence} از ۱۰۰ — پیش از استناد در تماس، توسط کارشناس تأیید شود.`,
   };
 }
 

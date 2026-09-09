@@ -89,7 +89,9 @@ function buildInstances(): AnyProvider[] {
     new HttpWebsiteProvider(),
 
     // AI
-    new AnthropicProvider(e.ANTHROPIC_API_KEY, e.ANTHROPIC_MODEL, e.ANTHROPIC_BASE_URL),
+    // AI_MODEL is a single override for whichever AI provider is selected, so a model
+    // can be swapped without touching the per-vendor variable.
+    new AnthropicProvider(e.ANTHROPIC_API_KEY, e.AI_MODEL ?? e.ANTHROPIC_MODEL, e.ANTHROPIC_BASE_URL, e.ANTHROPIC_VERSION),
     new OpenAiCompatibleProvider({
       key: 'openai',
       displayName: 'OpenAI',
@@ -99,7 +101,7 @@ function buildInstances(): AnyProvider[] {
       docsUrl: 'https://platform.openai.com/docs/api-reference/chat',
       baseUrl: e.OPENAI_BASE_URL,
       apiKey: e.OPENAI_API_KEY,
-      model: e.OPENAI_MODEL,
+      model: e.AI_MODEL ?? e.OPENAI_MODEL,
       priority: 80,
     }),
     new OpenAiCompatibleProvider({
@@ -110,7 +112,7 @@ function buildInstances(): AnyProvider[] {
       cost: 'PAID',
       baseUrl: e.COMPATIBLE_AI_BASE_URL,
       apiKey: e.COMPATIBLE_AI_API_KEY,
-      model: e.COMPATIBLE_AI_MODEL,
+      model: e.AI_MODEL ?? e.COMPATIBLE_AI_MODEL,
       priority: 60,
     }),
     new OpenAiCompatibleProvider({
@@ -123,7 +125,7 @@ function buildInstances(): AnyProvider[] {
       baseUrl: e.LOCAL_AI_BASE_URL,
       apiKey: undefined,
       apiKeyOptional: true,
-      model: e.LOCAL_AI_MODEL,
+      model: e.AI_MODEL ?? e.LOCAL_AI_MODEL,
       priority: 40,
     }),
 

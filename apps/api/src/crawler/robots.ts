@@ -132,6 +132,9 @@ export async function fetchRobots(origin: string, userAgent: string): Promise<Ro
       retries: 1,
       maxBytes: 512_000,
       providerKey: 'website_crawler',
+      // robots.txt is fetched from a host somebody else chose, and it can redirect
+      // anywhere, so it goes through the same address guard as the pages themselves.
+      ssrfGuard: true,
     });
 
     if (res.status === 401 || res.status === 403) {

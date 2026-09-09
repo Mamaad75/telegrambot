@@ -1,10 +1,15 @@
+import { createHash } from 'node:crypto';
 import { extractDomain } from '@baimar/shared';
 import type { Lead, Prisma, WebsiteAudit } from '@prisma/client';
-import { auditWebsite } from '../audit/engine';
+import { auditWebsite, AUDIT_ENGINE_VERSION } from '../audit/engine';
+import { browserAuditAvailability, runBrowserAudit } from '../audit/browser';
 import { discoverWebsite } from '../crawler/discover';
+import { loadEnv } from '../config/env';
 import { prisma } from '../lib/prisma';
+import { jobLogger } from '../lib/logger';
 import { trackUsage } from '../lib/provider-usage';
 import { getCrawlerSettings } from '../lib/settings';
+import { withLock } from '../lib/lock';
 import { activeSearchProviders, websiteProvider } from '../providers/registry';
 
 /**
@@ -35,7 +40,11 @@ export async function discoverWebsiteForLead(leadId: string, opts: { force?: boo
       businessName: lead.businessName,
       city: lead.city,
       province: lead.province,
+      address: lead.address,
       phone: lead.normalizedPhone,
+      extraPhones: lead.extraPhones,
+      instagramUrl: lead.instagramUrl,
+      telegramUrl: lead.telegramUrl,
       category: lead.category,
     },
     { searchProviders, website: websiteProvider() },
@@ -48,6 +57,17 @@ export async function discoverWebsiteForLead(leadId: string, opts: { force?: boo
       websiteDomain: result.domain ?? lead.websiteDomain,
       websiteStatus: result.status,
       websiteCheckedAt: new Date(),
+      // The confidence and its per-signal breakdown are stored so the lead page can
+      // answer "why do you think this is their website?" without re-running discovery.
+      websiteMatchConfidence: result.matchConfidence,
+      websiteMatchReasons: {
+        signals: result.matchSignals,
+        reasons: result.matchReasons,
+        suggestions: result.suggestions,
+        method: result.method,
+        searchProvider: result.searchProviderUsed,
+      } as unknown as Prisma.InputJsonValue,
+      websiteMatchedBy: result.searchProviderUsed ?? (result.method === 'domain-probe' ? 'domain_probe' : null),
     },
   });
 
@@ -55,11 +75,16 @@ export async function discoverWebsiteForLead(leadId: string, opts: { force?: boo
     data: {
       leadId,
       type: 'SYSTEM',
-      title: result.url ? 'وب‌سایت پیدا شد' : 'وب‌سایتی یافت نشد',
+      title: result.url
+        ? `وب‌سایت پیدا شد (اطمینان ${result.matchConfidence ?? '—'}٪)`
+        : 'وب‌سایتی یافت نشد',
       body: result.evidence || (result.note ?? ''),
       metadata: {
         method: result.method,
         confidence: result.confidence,
+        matchConfidence: result.matchConfidence,
+        matchReasons: result.matchReasons,
+        suggestions: result.suggestions,
         candidatesConsidered: result.candidatesConsidered,
         searchProvider: result.searchProviderUsed,
       },
@@ -76,18 +101,68 @@ export interface AuditOutcome {
 
 export async function auditLeadWebsite(leadId: string, opts: { force?: boolean } = {}): Promise<AuditOutcome> {
   const lead = await prisma.lead.findUniqueOrThrow({ where: { id: leadId } });
-  const settings = await getCrawlerSettings();
 
   if (!lead.website && !lead.websiteDomain) {
     return { audit: null, skipped: 'This lead has no website to audit.' };
   }
 
-  if (!opts.force) {
-    const recent = await prisma.websiteAudit.findFirst({
-      where: { leadId, createdAt: { gte: new Date(Date.now() - settings.reauditAfterHours * 3600 * 1000) } },
-      orderBy: { createdAt: 'desc' },
-    });
-    if (recent) return { audit: recent, skipped: 'A recent audit already exists; pass force to re-run.' };
+  const domain = lead.websiteDomain ?? extractDomain(lead.website ?? '') ?? leadId;
+
+  // Two leads can share a website — a chain with two branches, a franchise, a group of
+  // clinics under one site. Without this lock both pipelines would crawl the same pages
+  // at the same time: twice the load on somebody else's server, and two audit rows that
+  // disagree because the site changed in between.
+  const outcome = await withLock(`audit:domain:${domain}`, 15 * 60, () => runAudit(lead, opts));
+  if (!outcome.ran) {
+    const existing = await prisma.websiteAudit.findFirst({ where: { leadId }, orderBy: { createdAt: 'desc' } });
+    return { audit: existing, skipped: `An audit of ${domain} is already running; this one was skipped.` };
+  }
+  return outcome.result;
+}
+
+/**
+ * Decide whether a stored audit is still good enough to reuse.
+ *
+ * Re-crawling a site that has not changed costs bandwidth, annoys the site owner and
+ * produces an identical result — but a stale audit is worse: the salesperson would open
+ * a call with a fact about a website that has since been redesigned. So freshness is
+ * tied to how much the answer matters: a hot lead is refreshed sooner than a cold one,
+ * and any change to the audit engine invalidates every previous row.
+ */
+export async function auditCacheDecision(
+  lead: Lead,
+  force: boolean,
+): Promise<{ reuse: WebsiteAudit | null; reason: string }> {
+  if (force) return { reuse: null, reason: 'forced re-audit requested' };
+
+  const latest = await prisma.websiteAudit.findFirst({ where: { leadId: lead.id }, orderBy: { createdAt: 'desc' } });
+  if (!latest) return { reuse: null, reason: 'no previous audit' };
+
+  if (latest.engineVersion !== AUDIT_ENGINE_VERSION) {
+    return { reuse: null, reason: `audit engine changed (${latest.engineVersion} -> ${AUDIT_ENGINE_VERSION})` };
+  }
+  if (!latest.reachable) return { reuse: null, reason: 'previous audit could not reach the site' };
+
+  const env = loadEnv();
+  const ttlDays = lead.leadTemperature === 'HOT' ? env.AUDIT_TTL_DAYS_HOT : env.AUDIT_TTL_DAYS;
+  const ageMs = Date.now() - latest.createdAt.getTime();
+  const ttlMs = ttlDays * 24 * 3600 * 1000;
+
+  if (ageMs < ttlMs) {
+    const ageDays = Math.floor(ageMs / (24 * 3600 * 1000));
+    return { reuse: latest, reason: `audit is ${ageDays} day(s) old; the limit for this lead is ${ttlDays}` };
+  }
+  return { reuse: null, reason: `audit is older than ${ttlDays} days` };
+}
+
+async function runAudit(lead: Lead, opts: { force?: boolean }): Promise<AuditOutcome> {
+  const leadId = lead.id;
+  const log = jobLogger({ leadId, jobName: 'audit_website' });
+
+  const cache = await auditCacheDecision(lead, Boolean(opts.force));
+  if (cache.reuse) {
+    log.info({ auditId: cache.reuse.id, reason: cache.reason }, 'reusing cached audit');
+    return { audit: cache.reuse, skipped: `Reusing the stored audit — ${cache.reason}. Pass force to re-run.` };
   }
 
   const url = lead.website ?? `https://${lead.websiteDomain}`;
@@ -142,6 +217,11 @@ export async function auditLeadWebsite(leadId: string, opts: { force?: boolean }
       discoveredPhones: result.discoveredPhones,
       discoveredEmails: result.discoveredEmails,
       error: result.error,
+      engineVersion: AUDIT_ENGINE_VERSION,
+      // Hash of what was actually read. When a later crawl produces the same hash the
+      // site has not changed, so the previous findings still hold.
+      contentHash: contentHashOf(result),
+      method: 'HTTP',
       pages: {
         create: result.pages.slice(0, 20).map((p) => ({
           url: p.finalUrl,
@@ -165,8 +245,56 @@ export async function auditLeadWebsite(leadId: string, opts: { force?: boolean }
     },
   });
 
+  // ---------------------------------------------------------------------
+  // Optional browser layer.
+  //
+  // Runs only when it is switched on AND Playwright is installed. When it does not run,
+  // a BrowserAudit row is still written with status NOT_AVAILABLE and every metric null,
+  // so the UI can say "not measured" and explain why — rather than leaving the reader to
+  // guess whether the site simply scored zero.
+  // ---------------------------------------------------------------------
+  const availability = await browserAuditAvailability();
+  const browserUrl = result.finalUrl ?? url;
+  const browser = availability.available
+    ? await runBrowserAudit(browserUrl)
+    : null;
+
+  await prisma.browserAudit
+    .create({
+      data: {
+        auditId: audit.id,
+        leadId,
+        url: browserUrl,
+        status: browser?.status ?? 'NOT_AVAILABLE',
+        unavailableReason: browser?.unavailableReason ?? availability.reason,
+        lcpMs: browser?.lcpMs ?? null,
+        cls: browser?.cls ?? null,
+        inpMs: browser?.inpMs ?? null,
+        fcpMs: browser?.fcpMs ?? null,
+        ttfbMs: browser?.ttfbMs ?? null,
+        domContentLoadedMs: browser?.domContentLoadedMs ?? null,
+        loadEventMs: browser?.loadEventMs ?? null,
+        viewportWidth: browser?.viewportWidth ?? null,
+        viewportHeight: browser?.viewportHeight ?? null,
+        fitsMobileViewport: browser?.fitsMobileViewport ?? null,
+        horizontalOverflowPx: browser?.horizontalOverflowPx ?? null,
+        smallestFontPx: browser?.smallestFontPx ?? null,
+        smallTapTargets: browser?.smallTapTargets ?? null,
+        consoleErrors: (browser?.consoleErrors ?? []) as unknown as Prisma.InputJsonValue,
+        failedRequests: (browser?.failedRequests ?? []) as unknown as Prisma.InputJsonValue,
+        requestCount: browser?.requestCount ?? null,
+        transferredBytes: browser?.transferredBytes ?? null,
+        browserName: browser?.browserName ?? null,
+        browserVersion: browser?.browserVersion ?? null,
+        durationMs: browser?.durationMs ?? null,
+      },
+    })
+    .catch((err) => {
+      jobLogger({ leadId, jobName: 'audit_website' }).warn({ err: String(err) }, 'could not store the browser audit row');
+    });
+
   // Fold what the crawl learned back into the lead record.
-  const leadUpdate: Prisma.LeadUpdateInput = { websiteCheckedAt: new Date() };
+  const leadUpdate: Prisma.LeadUpdateInput = { websiteCheckedAt: new Date(), lastCrawledAt: new Date() };
   if (result.reachable) {
     leadUpdate.websiteStatus = isParked(result) ? 'PARKED' : 'ACTIVE';
     if (result.finalUrl) {
@@ -227,4 +355,21 @@ function platformOf(url: string): string | null {
   if (/youtube\.com/i.test(url)) return 'youtube';
   if (/(twitter\.com|x\.com)/i.test(url)) return 'twitter';
   return null;
+}
+
+
+/**
+ * Fingerprint of the crawled content.
+ *
+ * Built from the page URLs, titles and word counts rather than the raw HTML: a site that
+ * prints the current date, a session id or a rotating banner would produce a different
+ * hash on every crawl and defeat the whole point of the cache, while a genuine redesign
+ * changes titles and structure and is caught.
+ */
+function contentHashOf(result: Awaited<ReturnType<typeof auditWebsite>>): string {
+  const material = result.pages
+    .map((p) => `${p.finalUrl}|${p.title ?? ''}|${p.wordCount}|${p.h1.join('~')}`)
+    .sort()
+    .join('\n');
+  return createHash('sha256').update(material).digest('hex').slice(0, 32);
 }

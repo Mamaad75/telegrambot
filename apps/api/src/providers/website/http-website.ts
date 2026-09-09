@@ -4,6 +4,7 @@ import { httpRequest } from '../../lib/http';
 import { waitForHostSlot } from '../../lib/rate-limiter';
 import { getCrawlerSettings } from '../../lib/settings';
 import { fetchRobots, isPathAllowed } from '../../crawler/robots';
+import { guardUrl } from '../../lib/url-guard';
 import type { FetchedPage, ProviderDescriptor, WebsiteProvider } from '../types';
 
 /**
@@ -45,21 +46,26 @@ export class HttpWebsiteProvider implements WebsiteProvider {
     }
   }
 
-  /** Check robots.txt before any fetch. Callers must not fetch when this returns false. */
+  /**
+   * Two independent gates, in this order:
+   *
+   *   1. The SSRF guard — is this address one we are allowed to contact at all? This
+   *      one is not configurable away: turning off robots.txt compliance must never
+   *      turn off the network protection.
+   *   2. robots.txt — does the site owner permit this path?
+   *
+   * Callers must not fetch when this returns false.
+   */
   async isAllowed(url: string): Promise<{ allowed: boolean; reason?: string }> {
     const env = loadEnv();
+
+    const guard = await guardUrl(url);
+    if (!guard.allowed) return { allowed: false, reason: guard.code ?? 'blocked-url' };
+
     const settings = await getCrawlerSettings();
     if (!settings.respectRobots) return { allowed: true };
 
-    let parsed: URL;
-    try {
-      parsed = new URL(url);
-    } catch {
-      return { allowed: false, reason: 'invalid-url' };
-    }
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-      return { allowed: false, reason: 'unsupported-protocol' };
-    }
+    const parsed = new URL(guard.url!.href);
 
     const rules = await fetchRobots(parsed.origin, env.CRAWLER_USER_AGENT);
     if (rules.blockAll) return { allowed: false, reason: 'robots-disallow-all' };
@@ -76,7 +82,8 @@ export class HttpWebsiteProvider implements WebsiteProvider {
 
     const allowed = await this.isAllowed(url);
     if (!allowed.allowed) {
-      throw new ProviderError(this.descriptor.key, `Blocked by robots.txt (${allowed.reason})`, { retryable: false });
+      const why = allowed.reason?.startsWith('robots-') ? 'robots.txt' : 'the URL safety rules';
+      throw new ProviderError(this.descriptor.key, `Blocked by ${why} (${allowed.reason})`, { retryable: false });
     }
 
     const parsed = new URL(url);
@@ -91,6 +98,12 @@ export class HttpWebsiteProvider implements WebsiteProvider {
       retries: 1,
       providerKey: this.descriptor.key,
       signal: opts.signal,
+      // Everything below this line is what makes the crawler safe to point at a URL
+      // somebody else chose: address validation on every redirect hop, a redirect
+      // ceiling, and a refusal to download anything that is not a web document.
+      ssrfGuard: true,
+      requireParseableContentType: true,
+      maxRedirects: loadEnv().CRAWLER_MAX_REDIRECTS,
       headers: {
         accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'accept-language': 'fa-IR,fa;q=0.9,en;q=0.8',

@@ -1,4 +1,5 @@
 import { loadEnv } from './config/env';
+import { preflight } from './config/preflight';
 import { buildApp } from './app';
 import { prisma } from './lib/prisma';
 import { syncProviders } from './providers/registry';
@@ -16,7 +17,25 @@ import { seedDefaultsIfEmpty } from './bootstrap';
  */
 async function main(): Promise<void> {
   const env = loadEnv();
+
+  // Configuration is validated before anything expensive happens. Mandatory
+  // infrastructure and — in production — weak secrets abort the boot; a missing optional
+  // provider is only reported, because every integration in this platform is optional.
+  const config = preflight(env);
+  if (!config.ok) {
+    // eslint-disable-next-line no-console
+    console.error(
+      ['Refusing to start — invalid configuration:', ...config.fatal.map((f) => `  - ${f}`), '', 'See .env.example / .env.production.example.'].join('\n'),
+    );
+    process.exit(1);
+  }
+
   const app = await buildApp();
+
+  for (const warning of config.warnings) app.log.warn({ scope: 'preflight' }, warning);
+  for (const check of config.checks) {
+    app.log.info({ scope: 'preflight', check: check.key, status: check.status }, `${check.label}: ${check.detail}`);
+  }
 
   try {
     await prisma.$connect();

@@ -77,11 +77,22 @@ export function normalizePhone(raw: string | null | undefined, defaultCountry = 
   }
 
   if (isIran) {
-    if (rest.startsWith(IRAN_COUNTRY_CODE) && rest.length >= 12) {
-      rest = rest.slice(IRAN_COUNTRY_CODE.length);
+    // The same number is written +98…, 0098…, 98…, 098… and 0…, and the two prefixes
+    // can appear together ("098 912 …"). Peel the country code and the trunk prefix in
+    // whichever order they occur, until neither applies.
+    //
+    // The length >= 12 guard matters: a mobile such as 0982 123 4567 becomes the
+    // national number 9821234567, which also starts with "98". Only a string long
+    // enough to still hold a full national number after the cut is treated as prefixed.
+    for (let pass = 0; pass < 2; pass++) {
+      if (rest.startsWith(IRAN_COUNTRY_CODE) && rest.length >= 12) {
+        rest = rest.slice(IRAN_COUNTRY_CODE.length);
+      } else if (rest.startsWith('0')) {
+        rest = rest.replace(/^0+/, '');
+      } else {
+        break;
+      }
     }
-    // A leading trunk prefix "0" is dropped once the country code is gone.
-    if (rest.startsWith('0')) rest = rest.replace(/^0+/, '');
 
     const kind = classifyIranNational(rest);
     if (kind === 'UNKNOWN') {
