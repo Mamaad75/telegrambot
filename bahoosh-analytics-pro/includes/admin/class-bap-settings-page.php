@@ -159,19 +159,39 @@ class BAP_Settings_Page {
 				<h2><?php esc_html_e( 'اتصال', 'bahoosh-analytics-pro' ); ?></h2>
 				<table class="form-table" role="presentation">
 					<tr>
+						<td colspan="2">
+							<p class="description">
+								<?php if ( BAP_Settings::is_configured() ) : ?>
+									<?php esc_html_e( 'کالکتور بیرونی متصل است. داده هم به آن ارسال می‌شود و هم در پایگاه داده همین سایت نگه داشته می‌شود، تا اگر کالکتور در دسترس نبود گزارش‌ها خالی نمانند.', 'bahoosh-analytics-pro' ); ?>
+								<?php else : ?>
+									<strong><?php esc_html_e( 'این بخش اختیاری است.', 'bahoosh-analytics-pro' ); ?></strong>
+									<?php esc_html_e( 'همین حالا افزونه داده را در پایگاه داده سایت شما جمع می‌کند و همه گزارش‌ها از روی آن ساخته می‌شوند. این سه فیلد فقط زمانی لازم‌اند که بخواهید داده به یک کالکتور بیرونی (ASP.NET) هم ارسال شود.', 'bahoosh-analytics-pro' ); ?>
+								<?php endif; ?>
+							</p>
+						</td>
+					</tr>
+					<tr>
 						<th scope="row"><label for="bap-api-url"><?php esc_html_e( 'آدرس API کالکتور', 'bahoosh-analytics-pro' ); ?></label></th>
 						<td>
 							<input type="url" class="regular-text code" id="bap-api-url" name="bap[api_url]"
 								value="<?php echo esc_attr( $settings['api_url'] ); ?>"
-								placeholder="https://api.example.com/api/v2" />
-							<p class="description"><?php esc_html_e( 'آدرس پایه کالکتور باهوش را بدون اسلش انتهایی وارد کنید. مسیرهای /events، /identity/link و /dashboard به آن افزوده می‌شوند.', 'bahoosh-analytics-pro' ); ?></p>
+								placeholder="<?php esc_attr_e( 'خالی = فقط پایگاه داده همین سایت', 'bahoosh-analytics-pro' ); ?>" />
+							<p class="description"><?php esc_html_e( 'آدرس پایه کالکتور باهوش را بدون اسلش انتهایی وارد کنید. مسیرهای /events، /identity/link و /dashboard به آن افزوده می‌شوند. خالی بگذارید تا افزونه مستقل کار کند.', 'bahoosh-analytics-pro' ); ?></p>
 						</td>
 					</tr>
 					<tr>
 						<th scope="row"><label for="bap-site-id"><?php esc_html_e( 'شناسه سایت', 'bahoosh-analytics-pro' ); ?></label></th>
 						<td>
 							<input type="text" class="regular-text code" id="bap-site-id" name="bap[site_id]"
-								value="<?php echo esc_attr( $settings['site_id'] ); ?>" />
+								value="<?php echo esc_attr( $settings['site_id'] ); ?>"
+								placeholder="<?php echo esc_attr( BAP_Settings::resolved_site_id() ); ?>" />
+							<p class="description"><?php
+								printf(
+									/* translators: %s: the automatically derived site id. */
+									esc_html__( 'کالکتور این شناسه را به شما می‌دهد. اگر خالی باشد، افزونه از شناسه محلی %s استفاده می‌کند.', 'bahoosh-analytics-pro' ),
+									'<code>' . esc_html( BAP_Settings::resolved_site_id() ) . '</code>'
+								);
+							?></p>
 						</td>
 					</tr>
 					<tr>

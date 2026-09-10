@@ -398,10 +398,11 @@
           setStatus(config.i18n.error, true);
           return;
         }
-        renderCards(result.body.metrics || {}, result.body.comparison);
-        renderPanels(result.body.metrics || {});
-        renderChart(result.body.metrics || {}, result.body.has_timeseries);
-        setStatus(new Date().toLocaleTimeString("fa-IR"), false);
+        var metrics = result.body.metrics || {};
+        renderCards(metrics, result.body.comparison);
+        renderPanels(metrics);
+        renderChart(metrics, result.body.has_timeseries);
+        setStatus(describeSource(result.body, metrics), false);
       })
       .catch(function () {
         setStatus(config.i18n.error, true);
@@ -411,6 +412,32 @@
       });
 
     return inFlight;
+  }
+
+  // The status line is the only place that says where the numbers came from.
+  // Without it, local figures and collector figures look identical, and an
+  // administrator whose collector quietly stopped answering would never know
+  // they were reading a different dataset.
+  function describeSource(body, metrics) {
+    var parts = [new Date().toLocaleTimeString("fa-IR")];
+
+    if (body.source === "local") {
+      parts.push(body.upstream_error ? config.i18n.localFallback : config.i18n.localSource);
+
+      if (!metrics.total_events) {
+        parts.push(config.i18n.noLocalData);
+      } else if (body.collecting_since && config.i18n.collectingSince) {
+        var since = body.collecting_since;
+        if (window.BAPJalali) since = window.BAPJalali.formatISO(since, true);
+        parts.push(config.i18n.collectingSince.replace("%s", since));
+      }
+    }
+
+    (metrics.notes || []).forEach(function (note) {
+      parts.push(note);
+    });
+
+    return parts.join(" · ");
   }
 
   function syncCustomVisibility() {

@@ -894,4 +894,385 @@ test( 'agent: approving a recommendation actually changes the shop', function ()
 	ok( count( BAP_Commerce_Agent::history() ) > 0, 'and it is in the change log, revertible' );
 } );
 
+/* ============================================================ */
+/* The site's own backend                                       */
+/* ============================================================ */
+
+/** One validated event, of the shape the ingest route produces. */
+function bap_event( array $overrides = array() ): array {
+	static $counter = 0;
+	$counter++;
+
+	return array_merge(
+		array(
+			'event_id'         => 'evt_' . $counter,
+			'event_type'       => 'page_view',
+			'page_view_id'     => 'pv_' . $counter,
+			'identity'         => array( 'anonymous_id' => 'anon_a' ),
+			'timestamp_server' => gmdate( 'Y-m-d\TH:i:s\Z' ),
+			'page'             => array( 'path' => '/', 'url' => 'https://shop.test/', 'referrer' => '' ),
+			'context'          => array( 'device_type' => 'mobile' ),
+			'data'             => array(),
+		),
+		$overrides
+	);
+}
+
+test( 'local store: an event is recorded and countable', function () {
+	is_same( true, BAP_Local_Store::record( bap_event() ) );
+	is_same( 1, BAP_Local_Store::count( gmdate( 'Y-m-d' ), gmdate( 'Y-m-d' ) ) );
+} );
+
+test( 'local store: a retried event cannot be counted twice', function () {
+	$event = bap_event();
+
+	is_same( true, BAP_Local_Store::record( $event ) );
+	is_same( false, BAP_Local_Store::record( $event ), 'the unique key rejects the repeat' );
+	is_same( 1, BAP_Local_Store::count( gmdate( 'Y-m-d' ), gmdate( 'Y-m-d' ) ) );
+} );
+
+test( 'local store: nothing identifying is written', function () {
+	BAP_Local_Store::record( bap_event( array(
+		'page'    => array(
+			'path'     => '/checkout?token=secret&email=a@b.c',
+			'referrer' => 'https://google.com/search?q=private+thing',
+		),
+		'context' => array( 'device_type' => 'mobile', 'ip' => '203.0.113.9' ),
+	) ) );
+
+	$row  = $GLOBALS['wpdb']->local[0];
+	$json = json_encode( $row );
+
+	is_same( '/checkout', $row['page_path'], 'the query string is dropped' );
+	is_same( 'google.com', $row['referrer_host'], 'only the referring host is kept' );
+	ok( ! str_contains( $json, '203.0.113.9' ), 'no IP address' );
+	ok( ! str_contains( $json, 'a@b.c' ), 'no email' );
+	ok( ! str_contains( $json, 'private+thing' ), 'no third-party search terms' );
+} );
+
+test( 'local store: a referrer from the site itself is not a traffic source', function () {
+	is_same( '', BAP_Local_Store::referrer_host( 'https://shop.test/cart' ), 'internal navigation' );
+	is_same( '', BAP_Local_Store::referrer_host( '' ), 'direct' );
+	is_same( 'instagram.com', BAP_Local_Store::referrer_host( 'https://www.instagram.com/p/xyz' ), 'www is stripped' );
+} );
+
+test( 'local store: money is read only from a purchase', function () {
+	BAP_Local_Store::record( bap_event( array( 'event_type' => 'add_to_cart', 'data' => array( 'value' => 999999 ) ) ) );
+	BAP_Local_Store::record( bap_event( array( 'event_type' => 'purchase', 'data' => array( 'value' => 250000 ) ) ) );
+
+	$values = array_column( $GLOBALS['wpdb']->local, 'value', 'event_type' );
+
+	is_same( 0.0, $values['add_to_cart'], 'an abandoned basket is not revenue' );
+	is_same( 250000.0, $values['purchase'] );
+} );
+
+test( 'local store: a browser clock set to 1999 cannot move an event out of range', function () {
+	BAP_Local_Store::record( bap_event( array(
+		'timestamp_client' => '1999-01-01T00:00:00Z',
+		'timestamp_server' => gmdate( 'Y-m-d\TH:i:s\Z' ),
+	) ) );
+
+	is_same( gmdate( 'Y-m-d' ), substr( $GLOBALS['wpdb']->local[0]['occurred_at'], 0, 10 ) );
+} );
+
+test( 'local reports: the dashboard is not empty once anything has happened', function () {
+	$today = gmdate( 'Y-m-d' );
+
+	BAP_Local_Store::record( bap_event( array( 'identity' => array( 'anonymous_id' => 'anon_a' ), 'page' => array( 'path' => '/' ) ) ) );
+	BAP_Local_Store::record( bap_event( array( 'identity' => array( 'anonymous_id' => 'anon_a' ), 'page' => array( 'path' => '/shop' ) ) ) );
+	BAP_Local_Store::record( bap_event( array( 'identity' => array( 'anonymous_id' => 'anon_b' ), 'page' => array( 'path' => '/shop' ) ) ) );
+
+	$metrics = BAP_Local_Reports::metrics( $today, $today );
+
+	is_same( 3, $metrics['total_events'] );
+	is_same( 3, $metrics['page_views'] );
+	is_same( 2, $metrics['unique_users'] );
+	is_same( 'local', $metrics['source'] );
+	is_same( '/shop', $metrics['top_pages'][0]['url'], 'the busiest page leads' );
+	is_same( 2, $metrics['top_pages'][0]['views'] );
+} );
+
+test( 'local reports: a visitor who comes back after a long gap is two sessions', function () {
+	$today = gmdate( 'Y-m-d' );
+	$base  = strtotime( $today . ' 09:00:00 UTC' );
+
+	// Two clicks a minute apart, then a return three hours later.
+	foreach ( array( 0, 60, 3 * HOUR_IN_SECONDS ) as $offset ) {
+		BAP_Local_Store::record( bap_event( array(
+			'timestamp_server' => gmdate( 'Y-m-d\TH:i:s\Z', $base + $offset ),
+		) ) );
+	}
+
+	is_same( 2, BAP_Local_Reports::metrics( $today, $today )['sessions'] );
+} );
+
+test( 'local reports: countries are left empty rather than guessed', function () {
+	$today = gmdate( 'Y-m-d' );
+	BAP_Local_Store::record( bap_event() );
+
+	is_same( array(), BAP_Local_Reports::metrics( $today, $today )['countries'] );
+} );
+
+test( 'local reports: direct traffic is named, not blank', function () {
+	$today = gmdate( 'Y-m-d' );
+
+	BAP_Local_Store::record( bap_event( array( 'page' => array( 'path' => '/', 'referrer' => '' ) ) ) );
+	BAP_Local_Store::record( bap_event( array(
+		'identity' => array( 'anonymous_id' => 'anon_b' ),
+		'page'     => array( 'path' => '/', 'referrer' => 'https://instagram.com/x' ),
+	) ) );
+
+	$sources = array_column( BAP_Local_Reports::metrics( $today, $today )['traffic_sources'], 'sessions', 'source' );
+
+	is_same( 1, $sources['direct'] );
+	is_same( 1, $sources['instagram.com'] );
+} );
+
+test( 'local reports: revenue comes from orders, not from purchase events', function () {
+	$today = gmdate( 'Y-m-d' );
+	seed_shop();
+
+	// A purchase event with a wrong figure. WooCommerce is the record, so the
+	// card must show the orders total and ignore this.
+	BAP_Local_Store::record( bap_event( array( 'event_type' => 'purchase', 'data' => array( 'value' => 5 ) ) ) );
+
+	$metrics = BAP_Local_Reports::metrics( $today, $today );
+
+	is_same( 26, $metrics['conversions'], 'every paid order in the window' );
+	ok( $metrics['revenue'] > 1000, 'and their real total, not the event value' );
+	is_same( 'IRT', $metrics['currency'] );
+} );
+
+test( 'local reports: the chart has a row for every day, including quiet ones', function () {
+	$to   = gmdate( 'Y-m-d' );
+	$from = gmdate( 'Y-m-d', strtotime( $to ) - ( 6 * DAY_IN_SECONDS ) );
+
+	BAP_Local_Store::record( bap_event() );
+
+	$series = BAP_Local_Reports::metrics( $from, $to )['timeseries'];
+
+	is_same( 7, count( $series ), 'seven days requested, seven rows returned' );
+	is_same( $from, $series[0]['date'] );
+	is_same( 1, $series[6]['events'], 'today has the event' );
+	is_same( 0, $series[0]['events'], 'and a quiet day is a zero, not a gap' );
+} );
+
+test( 'local reports: an empty store reports zeros rather than inventing a start', function () {
+	$today   = gmdate( 'Y-m-d' );
+	$metrics = BAP_Local_Reports::metrics( $today, $today );
+
+	is_same( 0, $metrics['total_events'] );
+	is_same( 0, $metrics['sessions'] );
+	is_same( 0.0, $metrics['conversion_rate'] );
+	is_same( array(), $metrics['top_pages'] );
+	is_same( '', BAP_Local_Store::first_day() );
+} );
+
+test( 'local reports: the funnel comes from the rollup', function () {
+	$today = BAP_Rollup::today();
+
+	foreach ( range( 1, 100 ) as $i ) { BAP_Rollup::record( 'view_item', 'mobile', '/p' ); }
+	foreach ( range( 1, 40 ) as $i )  { BAP_Rollup::record( 'add_to_cart', 'mobile', '/p' ); }
+
+	$steps = array_column( BAP_Local_Reports::funnel( $today, $today )['steps'], null, 'step' );
+
+	is_same( 100, $steps['view_item']['count'] );
+	is_same( 60.0, $steps['view_item']['drop_pc'], '60 of 100 stopped after viewing' );
+	is_same( 40.0, $steps['add_to_cart']['of_first_pc'] );
+} );
+
+test( 'local reports: experience says which signals are switched off', function () {
+	$today = gmdate( 'Y-m-d' );
+	BAP_Local_Store::record( bap_event( array( 'event_type' => 'js_error', 'page' => array( 'path' => '/checkout' ) ) ) );
+
+	$report = BAP_Local_Reports::experience( $today, $today );
+
+	is_same( 1, $report['totals']['js_error'] );
+	is_same( '/checkout', $report['pages'][0]['page_path'] );
+	// Every experience switch is off by default, so the report must say so
+	// rather than let an empty panel read as "no problems found".
+	ok( count( $report['notes'] ) > 0, 'the disabled options are named' );
+} );
+
+test( 'local reports: journeys are the paths visitors actually walked', function () {
+	$today = gmdate( 'Y-m-d' );
+
+	foreach ( array( '/', '/shop', '/product/x' ) as $path ) {
+		BAP_Local_Store::record( bap_event( array(
+			'identity' => array( 'anonymous_id' => 'anon_a' ),
+			'page'     => array( 'path' => $path ),
+		) ) );
+	}
+
+	$report = BAP_Local_Reports::journeys( $today, $today );
+
+	is_same( '/ → /shop → /product/x', $report['paths'][0]['path'] );
+	is_same( '/', $report['entries'][0]['page_path'] );
+	is_same( '/product/x', $report['exits'][0]['page_path'] );
+} );
+
+test( 'local store: retention drops what is past its window', function () {
+	set_settings( array( 'data_retention_days' => 30 ) );
+
+	BAP_Local_Store::record( bap_event( array(
+		'timestamp_server' => gmdate( 'Y-m-d\TH:i:s\Z', time() - ( 90 * DAY_IN_SECONDS ) ),
+	) ) );
+	BAP_Local_Store::record( bap_event() );
+
+	is_same( 2, BAP_Local_Store::size() );
+	BAP_Local_Store::prune();
+	is_same( 1, BAP_Local_Store::size(), 'only the recent event survives' );
+} );
+
+test( 'settings: tracking no longer depends on having a collector', function () {
+	// The regression this whole change exists for: with no collector URL the
+	// tracker was never enqueued, so nothing was ever measured and the
+	// dashboard stayed empty forever.
+	is_same( false, BAP_Settings::is_configured(), 'no collector is configured' );
+	is_same( true, BAP_Settings::tracking_enabled(), 'and the tracker still runs' );
+
+	set_settings( array( 'enabled' => false ) );
+	is_same( false, BAP_Settings::tracking_enabled(), 'the off switch is the only thing that stops it' );
+} );
+
+test( 'settings: a site without a collector still has a stable identifier', function () {
+	$id = BAP_Settings::resolved_site_id();
+
+	ok( str_starts_with( $id, 'local_' ), 'derived from the site address' );
+	is_same( $id, BAP_Settings::resolved_site_id(), 'and it does not change between calls' );
+
+	set_settings( array( 'site_id' => 'given-by-collector' ) );
+	is_same( 'given-by-collector', BAP_Settings::resolved_site_id(), 'a real one always wins' );
+} );
+
+test( 'plugin: the front end is never gated on collector configuration again', function () {
+	$source = file_get_contents( BAP_PLUGIN_DIR . 'includes/integrations/class-bap-wordpress.php' );
+
+	ok( ! str_contains( $source, 'BAP_Settings::is_configured()' ), 'the tracker gate must be tracking_enabled()' );
+	ok( str_contains( $source, 'BAP_Settings::tracking_enabled()' ) );
+} );
+
+/* ============================================================ */
+/* The routes, end to end                                       */
+/* ============================================================ */
+
+/** Posts one event through the real ingest route. */
+function bap_post_event( array $payload ): WP_REST_Response {
+	return BAP_REST_Controller::handle_events( new WP_REST_Request( array(), json_encode( $payload ) ) );
+}
+
+test( 'route: an event is accepted and stored when there is no collector', function () {
+	// The exact reported symptom: no collector configured, so the route used to
+	// answer 503 `not_configured`, the browser retried forever, and the site
+	// recorded nothing.
+	is_same( false, BAP_Settings::is_configured() );
+
+	$response = bap_post_event( array(
+		'event_id'     => 'evt_abcdef1234567890',
+		'event_type'   => 'page_view',
+		'page_view_id' => 'pv_abcdef123456',
+		'identity'     => array( 'anonymous_id' => 'anon_abcdef1234567890abcdef12345678' ),
+		'page'         => array( 'path' => '/shop', 'url' => 'https://shop.test/shop' ),
+		'context'      => array( 'device_type' => 'mobile' ),
+	) );
+
+	is_same( 200, $response->get_status(), 'settled, not retried' );
+	is_same( 1, BAP_Local_Store::count( gmdate( 'Y-m-d' ), gmdate( 'Y-m-d' ) ), 'and actually written' );
+} );
+
+test( 'route: tracking switched off still refuses, and says so', function () {
+	set_settings( array( 'enabled' => false ) );
+
+	$response = bap_post_event( array(
+		'event_id'     => 'evt_abcdef1234567890',
+		'event_type'   => 'page_view',
+		'page_view_id' => 'pv_abcdef123456',
+		'identity'     => array( 'anonymous_id' => 'anon_abcdef1234567890abcdef12345678' ),
+		'page'         => array( 'path' => '/' ),
+	) );
+
+	is_same( 0, BAP_Local_Store::size(), 'nothing is recorded when tracking is off' );
+	is_same( 202, $response->get_status() );
+} );
+
+test( 'route: the dashboard answers with real numbers and no collector', function () {
+	foreach ( array( '/', '/shop', '/shop' ) as $index => $path ) {
+		bap_post_event( array(
+			'event_id'     => 'evt_abcdef123456789' . $index,
+			'event_type'   => 'page_view',
+			'page_view_id' => 'pv_abcdef12345' . $index,
+			'identity'     => array( 'anonymous_id' => 'anon_abcdef1234567890abcdef1234567' . $index ),
+			'page'         => array( 'path' => $path, 'url' => 'https://shop.test' . $path ),
+			'context'      => array( 'device_type' => 'desktop' ),
+		) );
+	}
+
+	$body = BAP_REST_Controller::handle_dashboard( new WP_REST_Request( array( 'range' => 'last_7_days' ) ) )->get_data();
+
+	is_same( true, $body['success'], 'no more 503' );
+	is_same( 'local', $body['source'] );
+	is_same( 3, $body['metrics']['total_events'] );
+	is_same( 3, $body['metrics']['unique_users'] );
+	is_same( '/shop', $body['metrics']['top_pages'][0]['url'] );
+	is_same( true, $body['has_timeseries'], 'the trend chart has something to draw' );
+	is_same( gmdate( 'Y-m-d' ), $body['collecting_since'] );
+} );
+
+test( 'route: a configured collector that fails degrades to local data', function () {
+	set_settings( array( 'api_url' => 'https://collector.test/api/v2', 'site_id' => 'abc' ) );
+	is_same( true, BAP_Settings::is_configured() );
+
+	// No HTTP response configured, so wp_remote_post returns a WP_Error — an
+	// unreachable collector.
+	BAP_Local_Store::record( bap_event() );
+
+	$body = BAP_REST_Controller::handle_dashboard( new WP_REST_Request( array( 'range' => 'last_7_days' ) ) )->get_data();
+
+	is_same( true, $body['success'], 'the screen still renders' );
+	is_same( 'local', $body['source'] );
+	ok( '' !== $body['upstream_error'], 'and the collector failure is reported, not hidden' );
+	is_same( 1, $body['metrics']['total_events'] );
+} );
+
+test( 'route: a working collector is preferred over local data', function () {
+	set_settings( array( 'api_url' => 'https://collector.test/api/v2', 'site_id' => 'abc' ) );
+
+	// Local store says one event; the collector says a thousand. The collector
+	// wins, because it sees more than this one site does.
+	BAP_Local_Store::record( bap_event() );
+	fake_http( 200, array( 'metrics' => array( 'total_events' => 1000, 'unique_users' => 400 ) ) );
+
+	$body = BAP_REST_Controller::handle_dashboard( new WP_REST_Request( array( 'range' => 'last_7_days', 'skip_compare' => 'true' ) ) )->get_data();
+
+	is_same( 'collector', $body['source'] );
+	is_same( 1000, $body['metrics']['total_events'] );
+} );
+
+test( 'route: journeys and experience fall back instead of erroring', function () {
+	BAP_Local_Store::record( bap_event( array( 'event_type' => 'js_error', 'page' => array( 'path' => '/checkout' ) ) ) );
+
+	$experience = BAP_REST_Controller::handle_experience( new WP_REST_Request( array( 'range' => 'last_7_days' ) ) )->get_data();
+	$journeys   = BAP_REST_Controller::handle_journeys( new WP_REST_Request( array( 'range' => 'last_7_days' ) ) )->get_data();
+
+	is_same( true, $experience['success'] );
+	is_same( 'local', $experience['source'] );
+	is_same( 1, $experience['totals']['js_error'] );
+
+	is_same( true, $journeys['success'] );
+	is_same( 'local', $journeys['source'] );
+} );
+
+test( 'local reports: a conversion rate above 100% is capped and explained', function () {
+	$today = gmdate( 'Y-m-d' );
+	seed_shop(); // 26 orders.
+
+	// One tracked visitor. Without the cap this reports 2600%.
+	BAP_Local_Store::record( bap_event() );
+
+	$metrics = BAP_Local_Reports::metrics( $today, $today );
+
+	is_same( 100.0, $metrics['conversion_rate'] );
+	ok( count( $metrics['notes'] ) > 0, 'and the mismatch is explained, not hidden' );
+} );
+
 run_tests();

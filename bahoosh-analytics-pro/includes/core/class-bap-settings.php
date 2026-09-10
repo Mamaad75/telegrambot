@@ -381,6 +381,52 @@ class BAP_Settings {
 	}
 
 	/**
+	 * Whether the tracker should run on the front end.
+	 *
+	 * Deliberately not the same question as `is_configured()`. That one asks
+	 * whether there is a collector to forward to; this one asks whether to
+	 * measure at all — and the answer no longer depends on the first.
+	 *
+	 * Until 4.3.1 it did, and the consequence was severe: a site with no
+	 * collector URL loaded no tracker, recorded no events, and showed an empty
+	 * dashboard forever, while the settings screen only said a URL was missing.
+	 * The plugin now stores events itself, so it has somewhere to put them
+	 * whether or not a collector exists.
+	 *
+	 * @return bool
+	 */
+	public static function tracking_enabled() {
+		/**
+		 * Filters whether the tracker is active.
+		 *
+		 * @since 4.3.1
+		 *
+		 * @param bool $enabled Whether to track.
+		 */
+		return (bool) apply_filters( 'bap_tracking_enabled', (bool) self::get( 'enabled', true ) );
+	}
+
+	/**
+	 * A site identifier that is always present.
+	 *
+	 * The collector assigns one, but a site running without a collector still
+	 * needs something stable to label its own data with. Derived from the site
+	 * address so it survives a database move and never collides with another
+	 * installation.
+	 *
+	 * @return string
+	 */
+	public static function resolved_site_id() {
+		$site_id = (string) self::get( 'site_id', '' );
+
+		if ( '' !== $site_id ) {
+			return $site_id;
+		}
+
+		return 'local_' . substr( md5( home_url() ), 0, 16 );
+	}
+
+	/**
 	 * Builds a collector endpoint URL.
 	 *
 	 * @param string $path Path relative to the API root, e.g. 'events'.

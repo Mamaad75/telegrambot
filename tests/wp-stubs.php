@@ -104,3 +104,51 @@ function add_query_arg( $args, $url = '' ) {
 	return $url . $sep . http_build_query( (array) $args );
 }
 function wp_remote_get( $url, $args = array() ) { return $GLOBALS['bap_http_response'] ?? new WP_Error( 'no_stub', 'no response configured' ); }
+
+// --- REST stubs, so the ingest and dashboard routes can be called for real ---
+
+if ( ! class_exists( 'WP_REST_Request' ) ) {
+	class WP_REST_Request {
+		public array $params = array();
+		public array $headers = array();
+		public string $body = '';
+		public function __construct( array $params = array(), string $body = '' ) {
+			$this->params = $params;
+			$this->body   = $body;
+		}
+		public function get_param( $key ) { return $this->params[ $key ] ?? null; }
+		public function offsetGet( $key ) { return $this->get_param( $key ); }
+		public function get_json_params() { return json_decode( $this->body, true ); }
+		public function get_body() { return $this->body; }
+		public function get_header( $key ) { return $this->headers[ strtolower( $key ) ] ?? ''; }
+		public function get_route() { return '/bahoosh/v2/events'; }
+	}
+}
+
+if ( ! class_exists( 'WP_REST_Response' ) ) {
+	class WP_REST_Response {
+		public $data;
+		public int $status;
+		public array $headers = array();
+		public function __construct( $data = null, $status = 200 ) { $this->data = $data; $this->status = $status; }
+		public function header( $k, $v ) { $this->headers[ $k ] = $v; }
+		public function get_data() { return $this->data; }
+		public function get_status() { return $this->status; }
+	}
+}
+
+function rest_url( $path = '' ) { return 'https://shop.test/wp-json/' . ltrim( (string) $path, '/' ); }
+function rest_authorization_required_code() { return 401; }
+function is_user_logged_in() { return false; }
+function wp_create_nonce( $a = '' ) { return 'nonce'; }
+function human_time_diff( $from, $to = 0 ) { return '1 دقیقه'; }
+function wp_clear_scheduled_hook( $hook ) { return true; }
+
+function wp_using_ext_object_cache() { return false; }
+function untrailingslashit( $s ) { return rtrim( (string) $s, '/\\' ); }
+function trailingslashit( $s ) { return untrailingslashit( $s ) . '/'; }
+function wp_cache_get( $k, $g = '' ) { return $GLOBALS['bap_cache'][ $g ][ $k ] ?? false; }
+function wp_cache_set( $k, $v, $g = '', $e = 0 ) { $GLOBALS['bap_cache'][ $g ][ $k ] = $v; return true; }
+function wp_cache_delete( $k, $g = '' ) { unset( $GLOBALS['bap_cache'][ $g ][ $k ] ); return true; }
+
+function wp_remote_retrieve_header( $r, $h ) { return is_array( $r ) && isset( $r['headers'][ $h ] ) ? $r['headers'][ $h ] : ''; }

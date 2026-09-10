@@ -396,6 +396,10 @@ class BAP_Admin {
 						'error'         => __( 'داده‌های تحلیلی بارگذاری نشد.', 'bahoosh-analytics-pro' ),
 						'noData'        => __( 'برای این بازه داده‌ای وجود ندارد.', 'bahoosh-analytics-pro' ),
 						'notConfigured' => __( 'آدرس کالکتور، شناسه سایت و کلید API را در تنظیمات وارد کنید.', 'bahoosh-analytics-pro' ),
+						'localSource'   => __( 'این اعداد از داده‌های خود همین سایت محاسبه شده‌اند؛ کالکتور بیرونی تنظیم نشده است.', 'bahoosh-analytics-pro' ),
+						'localFallback' => __( 'کالکتور پاسخ نداد، بنابراین اعداد از داده‌های محلی همین سایت محاسبه شد.', 'bahoosh-analytics-pro' ),
+						'collectingSince' => __( 'جمع‌آوری داده از %s آغاز شده است.', 'bahoosh-analytics-pro' ),
+						'noLocalData'   => __( 'هنوز رویدادی ثبت نشده است. یک صفحه از سایت را در مرورگر باز کنید و چند ثانیه بعد این صفحه را به‌روزرسانی کنید.', 'bahoosh-analytics-pro' ),
 						'noTimeseries'  => __( 'کالکتور برای این بازه داده روزانه برنگردانده، بنابراین نمودار روند قابل ترسیم نیست. پاسخ API داشبورد باید آرایه `timeseries` داشته باشد.', 'bahoosh-analytics-pro' ),
 						'chartLabel'    => __( 'رویدادها، کاربران، نشست‌ها و بازدیدهای روزانه', 'bahoosh-analytics-pro' ),
 						'viewData'      => __( 'نمایش به‌صورت جدول', 'bahoosh-analytics-pro' ),
@@ -549,12 +553,18 @@ class BAP_Admin {
 	}
 
 	/**
-	 * Warns when the plugin cannot send data.
+	 * Warns only when the plugin genuinely cannot collect anything.
+	 *
+	 * This used to fire whenever no collector URL was set, and it said the
+	 * plugin was collecting nothing — which was true then and is not now. The
+	 * plugin measures the site by itself; a collector is an addition, not a
+	 * requirement, and telling an administrator their working installation is
+	 * broken sends them to fix something that is not wrong.
 	 *
 	 * @return void
 	 */
 	public static function configuration_notice() {
-		if ( ! current_user_can( self::settings_capability() ) || BAP_Settings::is_configured() ) {
+		if ( ! current_user_can( self::settings_capability() ) || BAP_Settings::tracking_enabled() ) {
 			return;
 		}
 		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
@@ -564,7 +574,7 @@ class BAP_Admin {
 
 		printf(
 			'<div class="notice notice-warning"><p>%s <a href="%s">%s</a></p></div>',
-			esc_html__( 'باهوش آنالیتیکس هنوز داده‌ای جمع‌آوری نمی‌کند.', 'bahoosh-analytics-pro' ),
+			esc_html__( 'رهگیری باهوش خاموش است، بنابراین داده‌ای جمع‌آوری نمی‌شود.', 'bahoosh-analytics-pro' ),
 			esc_url( admin_url( 'admin.php?page=' . self::SETTINGS_SLUG ) ),
 			esc_html__( 'باز کردن تنظیمات', 'bahoosh-analytics-pro' )
 		);

@@ -83,7 +83,7 @@ class BAP_WordPress {
 	 * @return void
 	 */
 	public static function print_api_stub() {
-		if ( ! BAP_Settings::is_configured() || ! BAP_Identity::should_track_current_user() ) {
+		if ( ! BAP_Settings::tracking_enabled() || ! BAP_Identity::should_track_current_user() ) {
 			return;
 		}
 
@@ -103,7 +103,7 @@ class BAP_WordPress {
 	 * @return void
 	 */
 	public static function enqueue() {
-		if ( ! BAP_Settings::is_configured() || ! BAP_Identity::should_track_current_user() ) {
+		if ( ! BAP_Settings::tracking_enabled() || ! BAP_Identity::should_track_current_user() ) {
 			return;
 		}
 
@@ -245,7 +245,9 @@ class BAP_WordPress {
 
 		$config = array(
 			'schema_version'          => BAP_SCHEMA_VERSION,
-			'site_id'                 => $settings['site_id'],
+			// Resolved rather than raw: a site with no collector still needs a
+			// stable label for its own data.
+			'site_id'                 => BAP_Settings::resolved_site_id(),
 			'endpoint'                => $direct
 				? BAP_Settings::endpoint( 'events' )
 				: rest_url( BAP_REST_Controller::NAMESPACE_V2 . '/events' ),

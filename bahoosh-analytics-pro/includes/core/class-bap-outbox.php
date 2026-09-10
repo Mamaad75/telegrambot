@@ -149,6 +149,20 @@ class BAP_Outbox {
 			return false;
 		}
 
+		// Server-side events — a completed purchase, a refund — are recorded in
+		// the site's own tables here, for the same reason browser events are
+		// recorded at the ingest route: the shop's numbers should not depend on
+		// a collector being reachable. Both stores reject a repeated event id,
+		// so a delivery retry cannot double-count an order.
+		BAP_Rollup::observe( $event );
+		BAP_Local_Store::record( $event );
+
+		// With no collector there is nothing to deliver to, and queueing would
+		// only grow a table of rows that can never drain.
+		if ( ! BAP_Settings::is_configured() ) {
+			return true;
+		}
+
 		$payload = wp_json_encode( $event );
 		if ( false === $payload ) {
 			BAP_Logger::error( 'outbox: could not encode event ' . $event['event_id'] );
@@ -242,6 +256,16 @@ class BAP_Outbox {
 			'failed'    => 0,
 			'purged'    => 0,
 		);
+
+		// Housekeeping for the site's own tables runs whether or not a collector
+		// exists — they fill up either way, and a site with no collector is
+		// precisely the one whose local tables are doing all the work. Once a
+		// day is enough; both are bounded by row count as well as by age.
+		if ( false === get_transient( 'bap_local_pruned' ) ) {
+			set_transient( 'bap_local_pruned', 1, DAY_IN_SECONDS );
+			BAP_Local_Store::prune();
+			BAP_Rollup::prune();
+		}
 
 		if ( ! BAP_Settings::is_configured() ) {
 			return $summary;

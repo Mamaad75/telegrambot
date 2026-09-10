@@ -194,12 +194,40 @@ class BAP_Dashboard_Page {
 				<h2><?php esc_html_e( 'وضعیت افزونه', 'bahoosh-analytics-pro' ); ?></h2>
 				<table class="form-table">
 					<tr>
+						<th><?php esc_html_e( 'منبع داده', 'bahoosh-analytics-pro' ); ?></th>
+						<td>
+							<?php if ( BAP_Settings::is_configured() ) : ?>
+								<?php esc_html_e( 'کالکتور بیرونی، با داده محلی به‌عنوان پشتیبان', 'bahoosh-analytics-pro' ); ?>
+							<?php else : ?>
+								<?php esc_html_e( 'داده‌های همین سایت (بدون کالکتور بیرونی)', 'bahoosh-analytics-pro' ); ?>
+							<?php endif; ?>
+							<p class="description"><?php
+								$first_day = BAP_Local_Store::first_day();
+								$rows      = BAP_Local_Store::size();
+
+								if ( $rows > 0 ) {
+									printf(
+										/* translators: 1: event count, 2: first date. */
+										esc_html__( '%1$s رویداد در پایگاه داده این سایت، از تاریخ %2$s.', 'bahoosh-analytics-pro' ),
+										esc_html( number_format_i18n( $rows ) ),
+										esc_html( $first_day )
+									);
+								} else {
+									esc_html_e( 'هنوز رویدادی ثبت نشده است. یک صفحه از سایت را در مرورگر باز کنید تا جمع‌آوری شروع شود.', 'bahoosh-analytics-pro' );
+								}
+							?></p>
+						</td>
+					</tr>
+					<tr>
 						<th><?php esc_html_e( 'شناسه سایت', 'bahoosh-analytics-pro' ); ?></th>
-						<td><code><?php echo esc_html( $settings['site_id'] ? $settings['site_id'] : '—' ); ?></code></td>
+						<td><code><?php echo esc_html( BAP_Settings::resolved_site_id() ); ?></code></td>
 					</tr>
 					<tr>
 						<th><?php esc_html_e( 'آدرس کالکتور', 'bahoosh-analytics-pro' ); ?></th>
-						<td><code><?php echo esc_html( $settings['api_url'] ? $settings['api_url'] : '—' ); ?></code></td>
+						<td>
+							<code><?php echo esc_html( $settings['api_url'] ? $settings['api_url'] : '—' ); ?></code>
+							<p class="description"><?php esc_html_e( 'اختیاری. اگر خالی باشد، افزونه داده را در پایگاه داده همین سایت نگه می‌دارد و همه گزارش‌ها از روی آن ساخته می‌شوند.', 'bahoosh-analytics-pro' ); ?></p>
+						</td>
 					</tr>
 					<tr>
 						<th><?php esc_html_e( 'روش ارسال داده', 'bahoosh-analytics-pro' ); ?></th>
@@ -230,12 +258,12 @@ class BAP_Dashboard_Page {
 					<tr>
 						<th><?php esc_html_e( 'وضعیت', 'bahoosh-analytics-pro' ); ?></th>
 						<td>
-							<span class="bap-badge <?php echo BAP_Settings::is_configured() ? 'is-active' : 'is-inactive'; ?>">
+							<span class="bap-badge <?php echo BAP_Settings::tracking_enabled() ? 'is-active' : 'is-inactive'; ?>">
 								<?php
 								echo esc_html(
-									BAP_Settings::is_configured()
-										? __( 'فعال', 'bahoosh-analytics-pro' )
-										: __( 'پیکربندی نشده', 'bahoosh-analytics-pro' )
+									BAP_Settings::tracking_enabled()
+										? __( 'در حال جمع‌آوری', 'bahoosh-analytics-pro' )
+										: __( 'خاموش', 'bahoosh-analytics-pro' )
 								);
 								?>
 							</span>

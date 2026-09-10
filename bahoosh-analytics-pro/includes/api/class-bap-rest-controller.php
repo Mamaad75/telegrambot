@@ -325,21 +325,15 @@ class BAP_REST_Controller {
 			);
 		}
 
-		if ( ! BAP_Settings::is_configured() ) {
-			// Retryable on purpose: the site is misconfigured, not the event.
-			// Once an administrator sets the collector URL the queued events
-			// still go out, which is exactly what the outbox is for.
-			return new WP_REST_Response(
-				array(
-					'status'    => 'error',
-					'error'     => 'not_configured',
-					'retryable' => true,
-				),
-				503
-			);
-		}
+		// There used to be a `not_configured` rejection here, returning 503 with
+		// `retryable: true` whenever no collector URL was set. It was the single
+		// reason a site without a collector measured nothing at all: every event
+		// bounced, every browser kept retrying, the queue never drained, and the
+		// dashboard read `——` forever. The plugin has its own store now, so a
+		// missing collector is not a reason to refuse an event — only a reason
+		// not to forward it, which is decided further down.
 
-		if ( ! BAP_Settings::get( 'enabled' ) ) {
+		if ( ! BAP_Settings::tracking_enabled() ) {
 			return self::settled_response( 'rejected', 'tracking_disabled', 202 );
 		}
 
@@ -370,7 +364,7 @@ class BAP_REST_Controller {
 		$event = BAP_Event_Validator::validate_event(
 			$body,
 			array(
-				'site_id'                 => BAP_Settings::get( 'site_id' ),
+				'site_id'                 => BAP_Settings::resolved_site_id(),
 				'wp_user_id'              => $identity_context['wp_user_id'],
 				'woocommerce_customer_id' => $identity_context['woocommerce_customer_id'],
 				'ip'                      => BAP_Event_Factory::client_ip(),
@@ -398,6 +392,21 @@ class BAP_REST_Controller {
 		// measurable, and a bucket that was incremented for an event which is
 		// later retried is off by one on a number in the thousands.
 		BAP_Rollup::observe( $event );
+
+		// The full row, which is what makes the dashboard work without a
+		// collector. Duplicate ids are rejected by the table's unique key, so a
+		// retry cannot inflate anything.
+		BAP_Local_Store::record( $event );
+
+		// With no collector configured there is nothing to forward to, and this
+		// is a settled outcome rather than a failure. Answering 502 here — as
+		// this route used to — told every browser to keep the event and retry
+		// forever, so a site without a collector recorded nothing at all and
+		// every dashboard card stayed empty. The event is stored; the client is
+		// told so; it moves on.
+		if ( ! BAP_Settings::is_configured() ) {
+			return self::settled_response( 'ذخیره‌شده', '', 200 );
+		}
 
 		$result = BAP_Transport::send_event( $event );
 
@@ -686,64 +695,72 @@ class BAP_REST_Controller {
 	 * @return WP_REST_Response
 	 */
 	public static function handle_dashboard( WP_REST_Request $request ) {
-		if ( ! BAP_Settings::is_configured() ) {
-			return new WP_REST_Response(
-				array(
-					'success' => false,
-					'error'   => 'not_configured',
-				),
-				503
-			);
-		}
-
 		$range = BAP_Reports::normalize_range(
 			$request->get_param( 'range' ),
 			$request->get_param( 'from' ),
 			$request->get_param( 'to' )
 		);
 
-		$result = BAP_Transport::dashboard(
-			array(
-				'range' => $range['range'],
-				'from'  => $range['from'],
-				'to'    => $range['to'],
-			)
-		);
+		$previous = BAP_Reports::previous_period( $range['from'], $range['to'] );
+		$compare  = 'true' !== $request->get_param( 'skip_compare' );
 
-		if ( empty( $result['ok'] ) ) {
-			return new WP_REST_Response(
-				array(
-					'success'  => false,
-					'error'    => 'upstream_error',
-					'message'  => $result['error'],
-					'upstream' => (int) $result['status'],
-				),
-				! empty( $result['retryable'] ) ? 503 : 502
-			);
-		}
-
-		$metrics = BAP_Reports::normalize_metrics( $result['body'] );
-
-		// Period-over-period comparison is a second real query against the same
-		// endpoint — never an estimate. A failure here degrades the response to
-		// "no comparison available" rather than failing the whole request.
+		$metrics    = null;
 		$comparison = null;
-		$previous   = BAP_Reports::previous_period( $range['from'], $range['to'] );
+		$source     = 'local';
+		$upstream   = '';
 
-		if ( 'true' !== $request->get_param( 'skip_compare' ) ) {
-			$previous_result = BAP_Transport::dashboard(
+		// The collector is tried first when one is configured, because a central
+		// service sees things a single site cannot — the same visitor on two
+		// devices, retention beyond this site's own window, heavier modelling.
+		// When there is no collector, or it does not answer, the site's own data
+		// answers instead. Either way the shape is identical and the response
+		// says which one produced it.
+		if ( BAP_Settings::is_configured() ) {
+			$result = BAP_Transport::dashboard(
 				array(
-					'range' => 'custom',
-					'from'  => $previous['from'],
-					'to'    => $previous['to'],
+					'range' => $range['range'],
+					'from'  => $range['from'],
+					'to'    => $range['to'],
 				)
 			);
 
-			if ( ! empty( $previous_result['ok'] ) ) {
-				$previous_metrics = BAP_Reports::normalize_metrics( $previous_result['body'] );
-				$comparison       = array(
+			if ( ! empty( $result['ok'] ) ) {
+				$metrics = BAP_Reports::normalize_metrics( $result['body'] );
+				$source  = 'collector';
+
+				// Period-over-period comparison is a second real query against
+				// the same endpoint — never an estimate. A failure here degrades
+				// to "no comparison" rather than failing the whole request.
+				if ( $compare ) {
+					$previous_result = BAP_Transport::dashboard(
+						array(
+							'range' => 'custom',
+							'from'  => $previous['from'],
+							'to'    => $previous['to'],
+						)
+					);
+
+					if ( ! empty( $previous_result['ok'] ) ) {
+						$comparison = array(
+							'range'  => $previous,
+							'deltas' => BAP_Reports::compare( $metrics, BAP_Reports::normalize_metrics( $previous_result['body'] ) ),
+						);
+					}
+				}
+			} else {
+				$upstream = (string) $result['error'];
+				BAP_Logger::warn( 'dashboard falling back to local data: ' . $upstream );
+			}
+		}
+
+		if ( null === $metrics ) {
+			$metrics = BAP_Local_Reports::metrics( $range['from'], $range['to'] );
+			$source  = 'local';
+
+			if ( $compare ) {
+				$comparison = array(
 					'range'  => $previous,
-					'deltas' => BAP_Reports::compare( $metrics, $previous_metrics ),
+					'deltas' => BAP_Reports::compare( $metrics, BAP_Local_Reports::metrics( $previous['from'], $previous['to'] ) ),
 				);
 			}
 		}
@@ -757,13 +774,16 @@ class BAP_REST_Controller {
 				// Stated explicitly so the dashboard never has to guess whether
 				// an empty series means "no traffic" or "not supported".
 				'has_timeseries' => ! empty( $metrics['timeseries'] ),
+				'source'         => $source,
+				'collecting_since' => BAP_Local_Store::first_day(),
+				'upstream_error' => $upstream,
 			),
 			200
 		);
 	}
 
 	/**
-	 * Proxies UX/experience analytics from the ASP.NET backend.
+	 * Experience analytics, from the collector when there is one.
 	 *
 	 * @param WP_REST_Request $request Request.
 	 * @return WP_REST_Response
@@ -776,28 +796,85 @@ class BAP_REST_Controller {
 			'url'    => substr( sanitize_text_field( (string) $request->get_param( 'url' ) ), 0, 1024 ),
 			'device' => sanitize_key( (string) $request->get_param( 'device' ) ),
 		);
-		$result = BAP_Transport::get( 'reports/experience', array_filter( $query ) );
-		return self::proxy_report_result( $result );
+
+		return self::report_with_local_fallback(
+			BAP_Settings::is_configured() ? BAP_Transport::get( 'reports/experience', array_filter( $query ) ) : null,
+			static function () use ( $range ) {
+				return BAP_Local_Reports::experience( $range['from'], $range['to'] );
+			},
+			$range
+		);
 	}
 
 	/**
-	 * Proxies path/journey analytics from the backend.
+	 * Journey analytics, from the collector when there is one.
 	 *
 	 * @param WP_REST_Request $request Request.
 	 * @return WP_REST_Response
 	 */
 	public static function handle_journeys( WP_REST_Request $request ) {
 		$range = BAP_Reports::normalize_range( $request->get_param( 'range' ), $request->get_param( 'from' ), $request->get_param( 'to' ) );
-		$result = BAP_Transport::get(
-			'reports/journeys',
-			array(
-				'from'       => $range['from'],
-				'to'         => $range['to'],
-				'entry'      => substr( sanitize_text_field( (string) $request->get_param( 'entry' ) ), 0, 512 ),
-				'conversion' => sanitize_key( (string) $request->get_param( 'conversion' ) ),
-			)
+
+		$upstream = null;
+
+		if ( BAP_Settings::is_configured() ) {
+			$upstream = BAP_Transport::get(
+				'reports/journeys',
+				array(
+					'from'       => $range['from'],
+					'to'         => $range['to'],
+					'entry'      => substr( sanitize_text_field( (string) $request->get_param( 'entry' ) ), 0, 512 ),
+					'conversion' => sanitize_key( (string) $request->get_param( 'conversion' ) ),
+				)
+			);
+		}
+
+		return self::report_with_local_fallback(
+			$upstream,
+			static function () use ( $range ) {
+				return BAP_Local_Reports::journeys( $range['from'], $range['to'] );
+			},
+			$range
 		);
-		return self::proxy_report_result( $result );
+	}
+
+	/**
+	 * Returns a collector report, or the site's own answer when there is none.
+	 *
+	 * The three studio reports all had the same shape of bug: with no collector
+	 * they returned an error and the screen showed a permanent "the backend does
+	 * not provide this yet" message, even though the site had the data to answer
+	 * the question itself.
+	 *
+	 * @param array|null $upstream Collector result, or null when not attempted.
+	 * @param callable   $local    Produces the local answer.
+	 * @param array      $range    Normalised range.
+	 * @return WP_REST_Response
+	 */
+	private static function report_with_local_fallback( $upstream, callable $local, array $range ) {
+		if ( is_array( $upstream ) && ! empty( $upstream['ok'] ) ) {
+			$body = is_array( $upstream['body'] ) ? $upstream['body'] : array();
+
+			return new WP_REST_Response(
+				array_merge( array( 'success' => true, 'range' => $range, 'source' => 'collector' ), $body ),
+				200
+			);
+		}
+
+		$payload = call_user_func( $local );
+
+		return new WP_REST_Response(
+			array_merge(
+				array(
+					'success'          => true,
+					'range'            => $range,
+					'collecting_since' => BAP_Local_Store::first_day(),
+					'upstream_error'   => is_array( $upstream ) ? (string) $upstream['error'] : '',
+				),
+				is_array( $payload ) ? $payload : array()
+			),
+			200
+		);
 	}
 
 	/** Returns local funnel definitions. */
@@ -822,23 +899,42 @@ class BAP_REST_Controller {
 		return new WP_REST_Response( array( 'success' => (bool) $deleted ), $deleted ? 200 : 404 );
 	}
 
-	/** Requests one funnel report from the backend. */
+	/** Requests one funnel report, from the collector or from the local rollup. */
 	public static function handle_funnel_report( WP_REST_Request $request ) {
 		$funnel = BAP_Workspace::funnel( $request['id'] );
 		if ( ! $funnel ) {
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'not_found' ), 404 );
 		}
 		$range = BAP_Reports::normalize_range( $request->get_param( 'range' ), $request->get_param( 'from' ), $request->get_param( 'to' ) );
-		$result = BAP_Transport::request(
-			'reports/funnel',
-			array(
-				'site_id' => BAP_Settings::get( 'site_id' ),
-				'from'    => $range['from'],
-				'to'      => $range['to'],
-				'funnel'  => $funnel,
-			)
+
+		$upstream = null;
+
+		if ( BAP_Settings::is_configured() ) {
+			$upstream = BAP_Transport::request(
+				'reports/funnel',
+				array(
+					'site_id' => BAP_Settings::get( 'site_id' ),
+					'from'    => $range['from'],
+					'to'      => $range['to'],
+					'funnel'  => $funnel,
+				)
+			);
+		}
+
+		return self::report_with_local_fallback(
+			$upstream,
+			static function () use ( $range, $funnel ) {
+				// The local answer is the shop's standard commerce funnel, which
+				// is the one the rollup counts. A custom funnel over arbitrary
+				// events is a collector feature; saying so is better than
+				// returning the wrong funnel under the right name.
+				return array_merge(
+					BAP_Local_Reports::funnel( $range['from'], $range['to'] ),
+					array( 'funnel' => $funnel, 'standard_funnel' => true )
+				);
+			},
+			$range
 		);
-		return self::proxy_report_result( $result );
 	}
 
 	/** Returns global dashboard layout preferences. */

@@ -79,7 +79,7 @@ class BAP_Analysis_Packet {
 
 		return array(
 			'schema_version' => self::SCHEMA_VERSION,
-			'site_id'        => (string) BAP_Settings::get( 'site_id' ),
+			'site_id'        => BAP_Settings::resolved_site_id(),
 			'run_id'         => 'run_' . substr( str_replace( '-', '', wp_generate_uuid4() ), 0, 24 ),
 			'focus'          => in_array( $focus, array( 'growth', 'conversion', 'ux', 'retention', 'revenue', 'performance' ), true ) ? $focus : 'revenue',
 			'period'         => array(

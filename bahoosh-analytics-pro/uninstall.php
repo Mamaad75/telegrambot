@@ -21,8 +21,14 @@ defined( 'WP_UNINSTALL_PLUGIN' ) || exit;
 function bap_uninstall_site() {
 	global $wpdb;
 
-	$table = $wpdb->prefix . 'bap_outbox';
-	$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB
+	// Every table the plugin owns. `bap_local_events` and `bap_rollup` hold this
+	// site's own analytics history, so dropping them is a real loss of data —
+	// which is exactly what uninstalling a plugin is understood to mean, and why
+	// the admin screens point at the export tools before you get here.
+	foreach ( array( 'bap_outbox', 'bap_rollup', 'bap_local_events' ) as $suffix ) {
+		$table = $wpdb->prefix . $suffix;
+		$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB
+	}
 
 	$options = array(
 		'bap_settings',
@@ -53,6 +59,7 @@ function bap_uninstall_site() {
 
 	delete_transient( 'bap_connection_test' );
 	delete_transient( 'bap_outbox_purged' );
+	delete_transient( 'bap_local_pruned' );
 	delete_transient( 'bap_ga4_token' );
 
 	// Product meta the agent writes before changing a sale price, so a revert

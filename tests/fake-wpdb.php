@@ -30,9 +30,29 @@ class Fake_WPDB {
 		return array( 'sql' => $query, 'args' => $args );
 	}
 
+	/** @var array<int,array<string,mixed>> Rows in wp_bap_local_events. */
+	public array $local = array();
+
+	public function suppress_errors( $suppress = true ) { return false; }
+
 	public function query( $prepared ) {
 		[ $sql, $args ] = $this->unpack( $prepared );
 		$this->log[]    = $sql;
+
+		if ( str_contains( $sql, 'bap_local_events' ) && str_contains( $sql, 'DELETE FROM' ) ) {
+			$before = count( $this->local );
+
+			if ( str_contains( $sql, 'occurred_at <' ) ) {
+				$cutoff      = (string) $args[0];
+				$this->local = array_values(
+					array_filter( $this->local, static fn( $row ) => $row['occurred_at'] >= $cutoff )
+				);
+			} elseif ( str_contains( $sql, 'ORDER BY id ASC LIMIT' ) ) {
+				$this->local = array_slice( $this->local, (int) $args[0] );
+			}
+
+			return $before - count( $this->local );
+		}
 
 		if ( str_contains( $sql, 'INSERT INTO' ) && str_contains( $sql, 'ON DUPLICATE KEY UPDATE' ) ) {
 			// (date, device, step, path, value, updated, value, updated)
@@ -58,6 +78,18 @@ class Fake_WPDB {
 	public function get_results( $prepared, $output = OBJECT ) {
 		[ $sql, $args ] = $this->unpack( $prepared );
 		$this->log[]    = $sql;
+
+		if ( str_contains( $sql, 'bap_local_events' ) ) {
+			[ $from, $to, $limit ] = $args;
+			$rows = array_values(
+				array_filter(
+					$this->local,
+					static fn( $row ) => $row['occurred_at'] >= $from && $row['occurred_at'] <= $to
+				)
+			);
+			usort( $rows, static fn( $a, $b ) => strcmp( $a['occurred_at'], $b['occurred_at'] ) );
+			return array_slice( $rows, 0, (int) $limit );
+		}
 
 		if ( str_contains( $sql, 'GROUP BY step, device' ) ) {
 			[ $from, $to ] = $args;
@@ -97,6 +129,34 @@ class Fake_WPDB {
 		[ $sql, $args ] = $this->unpack( $prepared );
 		$this->log[]    = $sql;
 
+		if ( str_contains( $sql, 'bap_local_events' ) ) {
+			if ( str_contains( $sql, 'MIN(occurred_at)' ) ) {
+				$stamps = array_column( $this->local, 'occurred_at' );
+				sort( $stamps );
+				return $stamps ? $stamps[0] : '';
+			}
+
+			if ( str_contains( $sql, 'COUNT(DISTINCT anonymous_id)' ) ) {
+				$since = (string) $args[0];
+				$seen  = array();
+				foreach ( $this->local as $row ) {
+					if ( $row['occurred_at'] >= $since ) { $seen[ $row['anonymous_id'] ] = true; }
+				}
+				return (string) count( $seen );
+			}
+
+			if ( ! $args ) {
+				return (string) count( $this->local );
+			}
+
+			[ $from, $to ] = $args;
+			$total = 0;
+			foreach ( $this->local as $row ) {
+				if ( $row['occurred_at'] >= $from && $row['occurred_at'] <= $to ) { $total++; }
+			}
+			return (string) $total;
+		}
+
 		if ( str_contains( $sql, 'SELECT SUM(hits)' ) ) {
 			[ $from, $to ] = $args;
 			$total = 0;
@@ -111,7 +171,22 @@ class Fake_WPDB {
 	}
 
 	public function get_row( $p = null, $o = OBJECT, $y = 0 ) { return null; }
-	public function insert( $t, $d, $f = null ) { $this->tables[ $t ][] = $d; return 1; }
+	public function insert( $t, $d, $f = null ) {
+		if ( str_contains( (string) $t, 'bap_local_events' ) ) {
+			// The real table has UNIQUE(event_id) and the insert fails on a
+			// repeat. Modelled here because that constraint is what stops a
+			// retried delivery from being counted twice, and a test that could
+			// not see it would not be testing the defence.
+			foreach ( $this->local as $row ) {
+				if ( '' !== $d['event_id'] && $row['event_id'] === $d['event_id'] ) { return false; }
+			}
+			$this->local[] = $d;
+			return 1;
+		}
+
+		$this->tables[ $t ][] = $d;
+		return 1;
+	}
 	public function update( $t, $d, $w, $f = null, $wf = null ) { return 1; }
 	public function delete( $t, $w, $f = null ) { return 1; }
 	public function esc_like( $t ) { return addcslashes( (string) $t, '_%\\' ); }

@@ -12,7 +12,7 @@ defined( 'ABSPATH' ) || exit;
  */
 class BAP_Installer {
 
-	const DB_VERSION = 7;
+	const DB_VERSION = 8;
 
 	/**
 	 * Runs on activation.
@@ -23,6 +23,7 @@ class BAP_Installer {
 		$installed = (int) get_option( BAP_Settings::OPTION_DB_VERSION, 0 );
 		BAP_Outbox::install();
 		BAP_Rollup::install();
+		BAP_Local_Store::install();
 		self::migrate_from_v1();
 		self::migrate_to_v3( $installed );
 		BAP_Settings::ensure_ai_webhook_secret();
@@ -53,6 +54,7 @@ class BAP_Installer {
 
 		BAP_Outbox::install();
 		BAP_Rollup::install();
+		BAP_Local_Store::install();
 		self::migrate_from_v1();
 		self::migrate_to_v3( $installed );
 		BAP_Settings::ensure_ai_webhook_secret();

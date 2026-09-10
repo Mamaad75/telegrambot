@@ -214,21 +214,47 @@ class BAP_Diagnostics_Page {
 	private static function check_configured( array $settings ) {
 		if ( BAP_Settings::is_configured() ) {
 			return self::result(
-				__( 'کالکتور پیکربندی شده', 'bahoosh-analytics-pro' ),
+				__( 'منبع داده', 'bahoosh-analytics-pro' ),
 				self::STATUS_GOOD,
 				sprintf(
 					/* translators: %s: collector URL. */
-					__( 'در حال ارسال به %s.', 'bahoosh-analytics-pro' ),
+					__( 'در حال ارسال به %s، و هم‌زمان نگهداری نسخه محلی برای زمانی که کالکتور در دسترس نیست.', 'bahoosh-analytics-pro' ),
 					$settings['api_url']
 				)
 			);
 		}
 
+		// Missing collector is no longer a fault. The plugin measures the site
+		// on its own; this check reports which mode is in use, and only warns
+		// when neither source has anything in it.
+		$rows = BAP_Local_Store::size();
+
+		if ( $rows > 0 ) {
+			return self::result(
+				__( 'منبع داده', 'bahoosh-analytics-pro' ),
+				self::STATUS_GOOD,
+				sprintf(
+					/* translators: %s: number of stored events. */
+					__( 'کالکتور بیرونی تنظیم نشده و افزونه داده را در پایگاه داده همین سایت نگه می‌دارد (%s رویداد).', 'bahoosh-analytics-pro' ),
+					number_format_i18n( $rows )
+				)
+			);
+		}
+
+		if ( ! BAP_Settings::tracking_enabled() ) {
+			return self::result(
+				__( 'منبع داده', 'bahoosh-analytics-pro' ),
+				self::STATUS_CRITICAL,
+				__( 'رهگیری خاموش است، بنابراین هیچ داده‌ای جمع‌آوری نمی‌شود.', 'bahoosh-analytics-pro' ),
+				__( 'در تنظیمات، گزینه فعال‌سازی رهگیری را روشن کنید.', 'bahoosh-analytics-pro' )
+			);
+		}
+
 		return self::result(
-			__( 'کالکتور پیکربندی شده', 'bahoosh-analytics-pro' ),
-			self::STATUS_CRITICAL,
-			__( 'آدرس کالکتور یا شناسه سایت تنظیم نشده و داده‌ای جمع‌آوری نمی‌شود.', 'bahoosh-analytics-pro' ),
-			__( 'تنظیمات را باز کنید و آدرس کالکتور و شناسه سایت را وارد کنید.', 'bahoosh-analytics-pro' )
+			__( 'منبع داده', 'bahoosh-analytics-pro' ),
+			self::STATUS_RECOMMENDED,
+			__( 'رهگیری روشن است ولی هنوز رویدادی ثبت نشده.', 'bahoosh-analytics-pro' ),
+			__( 'یک صفحه از سایت را در مرورگری که وارد پیشخوان نشده باز کنید؛ رویداد باید ظرف چند ثانیه ثبت شود.', 'bahoosh-analytics-pro' )
 		);
 	}
 
