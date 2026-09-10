@@ -108,7 +108,7 @@ function wp_remote_get( $url, $args = array() ) { return $GLOBALS['bap_http_resp
 // --- REST stubs, so the ingest and dashboard routes can be called for real ---
 
 if ( ! class_exists( 'WP_REST_Request' ) ) {
-	class WP_REST_Request {
+	class WP_REST_Request implements ArrayAccess {
 		public array $params = array();
 		public array $headers = array();
 		public string $body = '';
@@ -117,7 +117,12 @@ if ( ! class_exists( 'WP_REST_Request' ) ) {
 			$this->body   = $body;
 		}
 		public function get_param( $key ) { return $this->params[ $key ] ?? null; }
-		public function offsetGet( $key ) { return $this->get_param( $key ); }
+		// The real class implements ArrayAccess, and the routes use $request['id']
+		// for path parameters. Modelled so a route can be called as it really is.
+		public function offsetGet( $key ): mixed { return $this->get_param( $key ); }
+		public function offsetExists( $key ): bool { return isset( $this->params[ $key ] ); }
+		public function offsetSet( $key, $value ): void { $this->params[ $key ] = $value; }
+		public function offsetUnset( $key ): void { unset( $this->params[ $key ] ); }
 		public function get_json_params() { return json_decode( $this->body, true ); }
 		public function get_body() { return $this->body; }
 		public function get_header( $key ) { return $this->headers[ strtolower( $key ) ] ?? ''; }

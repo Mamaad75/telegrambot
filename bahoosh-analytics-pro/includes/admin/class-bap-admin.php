@@ -16,9 +16,8 @@ class BAP_Admin {
 	const SETTINGS_SLUG    = 'bahoosh-analytics-settings';
 	const DIAGNOSTICS_SLUG = 'bahoosh-analytics-diagnostics';
 	const INSPECTOR_SLUG   = 'bahoosh-analytics-inspector';
-	const EXPERIENCE_SLUG  = 'bahoosh-analytics-experience';
+	const EXPLORER_SLUG    = 'bahoosh-analytics-explorer';
 	const FUNNELS_SLUG     = 'bahoosh-analytics-funnels';
-	const JOURNEYS_SLUG    = 'bahoosh-analytics-journeys';
 	const AI_SLUG          = 'bahoosh-analytics-ai';
 
 	/**
@@ -98,44 +97,40 @@ class BAP_Admin {
 			array( 'BAP_Dashboard_Page', 'render' )
 		);
 
-		if ( BAP_Settings::get( 'module_experience' ) ) {
-			add_submenu_page(
-				self::MENU_SLUG,
-				__( 'هوش تجربه کاربری', 'bahoosh-analytics-pro' ),
-				__( 'تجربه کاربری', 'bahoosh-analytics-pro' ),
-				self::reports_capability(),
-				self::EXPERIENCE_SLUG,
-				array( 'BAP_Studio_Page', 'render_experience' )
-			);
-		}
+		// Four screens, each answering one question: how much, what exactly,
+		// where the money leaks, and what to do about it.
+		//
+		// There used to be eight. "Experience", "Funnels" and "Journeys" were
+		// three separate screens that each proxied a different collector report
+		// and each showed the same placeholder when there was no collector; the
+		// funnel builder in particular offered to define a funnel the plugin had
+		// no way to measure. They are now one screen backed by data this site
+		// actually holds, which is both fewer clicks and fewer lies.
+		add_submenu_page(
+			self::MENU_SLUG,
+			__( 'رویدادها و صفحات', 'bahoosh-analytics-pro' ),
+			__( 'رویدادها و صفحات', 'bahoosh-analytics-pro' ),
+			self::reports_capability(),
+			self::EXPLORER_SLUG,
+			array( 'BAP_Explorer_Page', 'render' )
+		);
 
 		if ( BAP_Settings::get( 'module_funnels' ) ) {
 			add_submenu_page(
 				self::MENU_SLUG,
-				__( 'قیف‌های بدون کدنویسی', 'bahoosh-analytics-pro' ),
-				__( 'قیف‌ها', 'bahoosh-analytics-pro' ),
+				__( 'قیف خرید و رها کردن', 'bahoosh-analytics-pro' ),
+				__( 'قیف خرید', 'bahoosh-analytics-pro' ),
 				self::reports_capability(),
 				self::FUNNELS_SLUG,
 				array( 'BAP_Studio_Page', 'render_funnels' )
 			);
 		}
 
-		if ( BAP_Settings::get( 'module_journeys' ) ) {
-			add_submenu_page(
-				self::MENU_SLUG,
-				__( 'مسیر سفر کاربر', 'bahoosh-analytics-pro' ),
-				__( 'سفر کاربران', 'bahoosh-analytics-pro' ),
-				self::reports_capability(),
-				self::JOURNEYS_SLUG,
-				array( 'BAP_Studio_Page', 'render_journeys' )
-			);
-		}
-
 		if ( BAP_Settings::get( 'module_ai' ) ) {
 			add_submenu_page(
 				self::MENU_SLUG,
-				__( 'مرکز هوش مصنوعی باهوش', 'bahoosh-analytics-pro' ),
-				__( 'مرکز هوش مصنوعی', 'bahoosh-analytics-pro' ),
+				__( 'پیشنهادهای هوشمند فروش', 'bahoosh-analytics-pro' ),
+				__( 'پیشنهادهای فروش', 'bahoosh-analytics-pro' ),
 				self::reports_capability(),
 				self::AI_SLUG,
 				array( 'BAP_Studio_Page', 'render_ai' )
@@ -151,14 +146,19 @@ class BAP_Admin {
 			array( 'BAP_Settings_Page', 'render' )
 		);
 
-		add_submenu_page(
-			self::MENU_SLUG,
-			__( 'بازرس رویدادها', 'bahoosh-analytics-pro' ),
-			__( 'بازرس رویدادها', 'bahoosh-analytics-pro' ),
-			self::reports_capability(),
-			self::INSPECTOR_SLUG,
-			array( 'BAP_Inspector_Page', 'render' )
-		);
+		// The queue inspector inspects the delivery queue to a collector. With
+		// no collector there is no queue, and the screen would only ever be
+		// empty, so it appears when it has something to show.
+		if ( BAP_Settings::is_configured() ) {
+			add_submenu_page(
+				self::MENU_SLUG,
+				__( 'صف ارسال به کالکتور', 'bahoosh-analytics-pro' ),
+				__( 'صف ارسال', 'bahoosh-analytics-pro' ),
+				self::reports_capability(),
+				self::INSPECTOR_SLUG,
+				array( 'BAP_Inspector_Page', 'render' )
+			);
+		}
 
 		add_submenu_page(
 			self::MENU_SLUG,
@@ -178,14 +178,13 @@ class BAP_Admin {
 	 */
 	public static function navigation_items() {
 		return array(
-			array( 'slug' => self::MENU_SLUG,        'label' => __( 'داشبورد', 'bahoosh-analytics-pro' ),          'capability' => self::reports_capability(),  'enabled' => true ),
-			array( 'slug' => self::EXPERIENCE_SLUG,  'label' => __( 'تجربه کاربری', 'bahoosh-analytics-pro' ),     'capability' => self::reports_capability(),  'enabled' => (bool) BAP_Settings::get( 'module_experience' ) ),
-			array( 'slug' => self::FUNNELS_SLUG,     'label' => __( 'قیف‌ها', 'bahoosh-analytics-pro' ),           'capability' => self::reports_capability(),  'enabled' => (bool) BAP_Settings::get( 'module_funnels' ) ),
-			array( 'slug' => self::JOURNEYS_SLUG,    'label' => __( 'سفر کاربران', 'bahoosh-analytics-pro' ),      'capability' => self::reports_capability(),  'enabled' => (bool) BAP_Settings::get( 'module_journeys' ) ),
-			array( 'slug' => self::AI_SLUG,          'label' => __( 'مرکز هوش مصنوعی', 'bahoosh-analytics-pro' ),  'capability' => self::reports_capability(),  'enabled' => (bool) BAP_Settings::get( 'module_ai' ) ),
-			array( 'slug' => self::INSPECTOR_SLUG,   'label' => __( 'بازرس رویدادها', 'bahoosh-analytics-pro' ),   'capability' => self::reports_capability(),  'enabled' => true ),
-			array( 'slug' => self::DIAGNOSTICS_SLUG, 'label' => __( 'عیب‌یابی', 'bahoosh-analytics-pro' ),          'capability' => self::settings_capability(), 'enabled' => true ),
-			array( 'slug' => self::SETTINGS_SLUG,    'label' => __( 'تنظیمات', 'bahoosh-analytics-pro' ),          'capability' => self::settings_capability(), 'enabled' => true ),
+			array( 'slug' => self::MENU_SLUG,        'label' => __( 'داشبورد', 'bahoosh-analytics-pro' ),           'capability' => self::reports_capability(),  'enabled' => true ),
+			array( 'slug' => self::EXPLORER_SLUG,    'label' => __( 'رویدادها و صفحات', 'bahoosh-analytics-pro' ),  'capability' => self::reports_capability(),  'enabled' => true ),
+			array( 'slug' => self::FUNNELS_SLUG,     'label' => __( 'قیف خرید', 'bahoosh-analytics-pro' ),          'capability' => self::reports_capability(),  'enabled' => (bool) BAP_Settings::get( 'module_funnels' ) ),
+			array( 'slug' => self::AI_SLUG,          'label' => __( 'پیشنهادهای فروش', 'bahoosh-analytics-pro' ),   'capability' => self::reports_capability(),  'enabled' => (bool) BAP_Settings::get( 'module_ai' ) ),
+			array( 'slug' => self::INSPECTOR_SLUG,   'label' => __( 'صف ارسال', 'bahoosh-analytics-pro' ),          'capability' => self::reports_capability(),  'enabled' => BAP_Settings::is_configured() ),
+			array( 'slug' => self::DIAGNOSTICS_SLUG, 'label' => __( 'عیب‌یابی', 'bahoosh-analytics-pro' ),           'capability' => self::settings_capability(), 'enabled' => true ),
+			array( 'slug' => self::SETTINGS_SLUG,    'label' => __( 'تنظیمات', 'bahoosh-analytics-pro' ),           'capability' => self::settings_capability(), 'enabled' => true ),
 		);
 	}
 
@@ -254,9 +253,8 @@ class BAP_Admin {
 			self::SETTINGS_SLUG,
 			self::DIAGNOSTICS_SLUG,
 			self::INSPECTOR_SLUG,
-			self::EXPERIENCE_SLUG,
+			self::EXPLORER_SLUG,
 			self::FUNNELS_SLUG,
-			self::JOURNEYS_SLUG,
 			self::AI_SLUG,
 		);
 	}
@@ -328,7 +326,12 @@ class BAP_Admin {
 		$density = 'compact' === BAP_Settings::get( 'admin_density' ) ? 'compact' : 'comfortable';
 		wp_add_inline_style( 'bahoosh-admin', '.bap-wrap{--bap-accent:' . $accent . ';--bap-density:' . ( 'compact' === $density ? '0.82' : '1' ) . ';}' );
 
-		$studio_pages = array( self::EXPERIENCE_SLUG, self::FUNNELS_SLUG, self::JOURNEYS_SLUG, self::AI_SLUG );
+		if ( self::EXPLORER_SLUG === $page ) {
+			self::enqueue_explorer();
+			return;
+		}
+
+		$studio_pages = array( self::FUNNELS_SLUG, self::AI_SLUG );
 		if ( in_array( $page, $studio_pages, true ) ) {
 			self::enqueue_studio();
 			return;
@@ -425,6 +428,46 @@ class BAP_Admin {
 	 *
 	 * @return void
 	 */
+	/**
+	 * Assets for the events-and-pages explorer.
+	 *
+	 * @return void
+	 */
+	private static function enqueue_explorer() {
+		wp_enqueue_script(
+			'bahoosh-explorer',
+			BAP_PLUGIN_URL . 'assets/admin/explorer.js',
+			array(),
+			BAP_VERSION,
+			true
+		);
+
+		wp_localize_script(
+			'bahoosh-explorer',
+			'BAP_EXPLORER',
+			array(
+				'restUrl' => rest_url( BAP_REST_Controller::NAMESPACE_V2 . '/explore' ),
+				'nonce'   => wp_create_nonce( 'wp_rest' ),
+				'i18n'    => array(
+					'loading'    => __( 'در حال بارگذاری…', 'bahoosh-analytics-pro' ),
+					'error'      => __( 'داده‌ها بارگذاری نشد.', 'bahoosh-analytics-pro' ),
+					'empty'      => __( 'در این بازه رویدادی ثبت نشده است.', 'bahoosh-analytics-pro' ),
+					'noEvents'   => __( 'هنوز هیچ رویدادی ثبت نشده. یک صفحه از سایت را در مرورگری که وارد پیشخوان نشده باز کنید و چند ثانیه بعد این صفحه را تازه کنید.', 'bahoosh-analytics-pro' ),
+					'views'      => __( 'بازدید', 'bahoosh-analytics-pro' ),
+					'events'     => __( 'رویداد', 'bahoosh-analytics-pro' ),
+					'visitors'   => __( 'کاربر', 'bahoosh-analytics-pro' ),
+					'revenue'    => __( 'درآمد', 'bahoosh-analytics-pro' ),
+					'lastSeen'   => __( 'آخرین بار', 'bahoosh-analytics-pro' ),
+					'searchTerm' => __( 'عبارت جست‌وجو', 'bahoosh-analytics-pro' ),
+					'times'      => __( 'بار', 'bahoosh-analytics-pro' ),
+					'truncated'  => __( 'تعداد رویدادها از سقف خواندن بیشتر است؛ بازه کوتاه‌تری انتخاب کنید.', 'bahoosh-analytics-pro' ),
+					'since'      => __( 'جمع‌آوری از %s', 'bahoosh-analytics-pro' ),
+					'stored'     => __( '%s رویداد ذخیره‌شده', 'bahoosh-analytics-pro' ),
+				),
+			)
+		);
+	}
+
 	private static function enqueue_studio() {
 		wp_enqueue_script(
 			'bahoosh-studio',

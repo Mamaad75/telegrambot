@@ -302,6 +302,7 @@ class BAP_Settings_Page {
 							<option value="local" <?php selected( 'local', $settings['ai_provider'] ); ?>><?php esc_html_e( 'بدون مدل — فقط موتور قانون‌محور داخلی', 'bahoosh-analytics-pro' ); ?></option>
 						</select>
 						<p class="description"><?php esc_html_e( 'اگر مدل در دسترس نباشد، موتور قانون‌محور داخلی همان اعداد را تحلیل می‌کند و صفحه خالی نمی‌ماند. در نتیجه همیشه مشخص است پاسخ را کدام منبع تولید کرده.', 'bahoosh-analytics-pro' ); ?></p>
+						<p class="description"><?php esc_html_e( 'راهنمای نصب روی همین سرور: docs/LOCAL-LLAMA-SETUP.md — راهنمای نصب روی سرور جداگانه به همراه ایمن‌سازی: docs/REMOTE-LLAMA-SERVER.md', 'bahoosh-analytics-pro' ); ?></p>
 					</td></tr>
 
 					<tr><th scope="row"><label for="bap-ai-provider-url"><?php esc_html_e( 'آدرس سرویس مدل', 'bahoosh-analytics-pro' ); ?></label></th><td>

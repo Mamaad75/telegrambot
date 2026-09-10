@@ -12,7 +12,7 @@ defined( 'ABSPATH' ) || exit;
  */
 class BAP_Installer {
 
-	const DB_VERSION = 8;
+	const DB_VERSION = 9;
 
 	/**
 	 * Runs on activation.

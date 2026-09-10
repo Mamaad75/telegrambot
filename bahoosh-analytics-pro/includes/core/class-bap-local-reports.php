@@ -515,6 +515,179 @@ class BAP_Local_Reports {
 	}
 
 	/**
+	 * Everything that happened, itemised.
+	 *
+	 * The dashboard answers "how much"; this answers "what". A page-view count
+	 * of 812 is a number to look at once. The list of which 812 pages, which
+	 * events fired on them, and what people typed into the search box is the
+	 * thing an owner acts on — an empty-result search is a product they could
+	 * stock, and a page nobody reaches is a link nobody found.
+	 *
+	 * @param string $from Y-m-d.
+	 * @param string $to   Y-m-d.
+	 * @return array
+	 */
+	public static function explorer( $from, $to ) {
+		$from   = BAP_Reports::sanitize_date( $from );
+		$to     = BAP_Reports::sanitize_date( $to );
+		$loaded = BAP_Local_Store::events( $from, $to );
+
+		$pages    = array();
+		$types    = array();
+		$searches = array();
+		$devices  = array();
+		$feed     = array();
+
+		foreach ( $loaded['rows'] as $row ) {
+			$type = (string) $row['event_type'];
+			$path = '' !== $row['page_path'] ? (string) $row['page_path'] : '/';
+
+			if ( ! isset( $types[ $type ] ) ) {
+				$types[ $type ] = array( 'count' => 0, 'visitors' => array() );
+			}
+			$types[ $type ]['count']++;
+
+			if ( '' !== $row['anonymous_id'] ) {
+				$types[ $type ]['visitors'][ $row['anonymous_id'] ] = true;
+			}
+
+			if ( ! isset( $pages[ $path ] ) ) {
+				$pages[ $path ] = array(
+					'page_path' => $path,
+					'views'     => 0,
+					'events'    => 0,
+					'visitors'  => array(),
+					'revenue'   => 0.0,
+					'last_seen' => '',
+					'by_type'   => array(),
+				);
+			}
+
+			$pages[ $path ]['events']++;
+			$pages[ $path ]['by_type'][ $type ] = ( $pages[ $path ]['by_type'][ $type ] ?? 0 ) + 1;
+			$pages[ $path ]['last_seen']        = (string) $row['occurred_at'];
+			$pages[ $path ]['revenue']         += (float) $row['value'];
+
+			if ( '' !== $row['anonymous_id'] ) {
+				$pages[ $path ]['visitors'][ $row['anonymous_id'] ] = true;
+			}
+
+			if ( 'page_view' === $type ) {
+				$pages[ $path ]['views']++;
+			}
+
+			if ( 'search' === $type && '' !== $row['label'] ) {
+				$term = (string) $row['label'];
+
+				if ( ! isset( $searches[ $term ] ) ) {
+					$searches[ $term ] = array( 'term' => $term, 'count' => 0, 'visitors' => array() );
+				}
+
+				$searches[ $term ]['count']++;
+
+				if ( '' !== $row['anonymous_id'] ) {
+					$searches[ $term ]['visitors'][ $row['anonymous_id'] ] = true;
+				}
+			}
+
+			$device = '' !== $row['device'] ? (string) $row['device'] : 'unknown';
+			$devices[ $device ] = ( $devices[ $device ] ?? 0 ) + 1;
+
+			// A rolling window of the most recent events. Kept short on purpose:
+			// this is a "is it working right now" view, not an archive.
+			$feed[] = array(
+				'event_type' => $type,
+				'page_path'  => $path,
+				'label'      => (string) $row['label'],
+				'device'     => $device,
+				'value'      => (float) $row['value'],
+				'at'         => (string) $row['occurred_at'],
+			);
+
+			if ( count( $feed ) > 400 ) {
+				array_shift( $feed );
+			}
+		}
+
+		// Counted visitors collapse to numbers here: the identifiers were only
+		// ever needed to count distinct people, and nothing downstream should be
+		// handed a list of who was on which page.
+		foreach ( $pages as $path => $page ) {
+			$pages[ $path ]['visitors'] = count( $page['visitors'] );
+			$pages[ $path ]['revenue']  = round( $page['revenue'], 2 );
+			arsort( $pages[ $path ]['by_type'] );
+		}
+
+		foreach ( $types as $type => $row ) {
+			$types[ $type ] = array(
+				'event_type' => $type,
+				'label'      => self::event_label( $type ),
+				'count'      => $row['count'],
+				'visitors'   => count( $row['visitors'] ),
+			);
+		}
+
+		foreach ( $searches as $term => $row ) {
+			$searches[ $term ]['visitors'] = count( $row['visitors'] );
+		}
+
+		uasort( $pages, static fn( $a, $b ) => $b['events'] <=> $a['events'] );
+		uasort( $types, static fn( $a, $b ) => $b['count'] <=> $a['count'] );
+		uasort( $searches, static fn( $a, $b ) => $b['count'] <=> $a['count'] );
+
+		return array(
+			'pages'     => array_values( array_slice( $pages, 0, 100 ) ),
+			'types'     => array_values( $types ),
+			'searches'  => array_values( array_slice( $searches, 0, 50 ) ),
+			'devices'   => self::panel( $devices, 'device_type', 'events' ),
+			'feed'      => array_reverse( array_slice( $feed, -100 ) ),
+			'paths'     => self::journeys( $from, $to )['paths'],
+			'truncated' => $loaded['truncated'],
+			'source'    => 'local',
+			// Search only produces rows when visitors use the site's own search.
+			// Said explicitly, because an empty panel otherwise reads as a bug.
+			'notes'     => $searches ? array() : array(
+				__( 'هنوز جست‌وجویی ثبت نشده است. این پنل وقتی پر می‌شود که بازدیدکننده‌ای از جست‌وجوی خود سایت (پارامتر ?s=) استفاده کند.', 'bahoosh-analytics-pro' ),
+			),
+		);
+	}
+
+	/**
+	 * Persian label for an event type.
+	 *
+	 * @param string $type Event type.
+	 * @return string
+	 */
+	public static function event_label( $type ) {
+		$labels = array(
+			'page_view'        => __( 'بازدید صفحه', 'bahoosh-analytics-pro' ),
+			'click'            => __( 'کلیک', 'bahoosh-analytics-pro' ),
+			'scroll'           => __( 'اسکرول', 'bahoosh-analytics-pro' ),
+			'search'           => __( 'جست‌وجو', 'bahoosh-analytics-pro' ),
+			'form_submit'      => __( 'ارسال فرم', 'bahoosh-analytics-pro' ),
+			'time_on_page'     => __( 'زمان روی صفحه', 'bahoosh-analytics-pro' ),
+			'rage_click'       => __( 'کلیک عصبی', 'bahoosh-analytics-pro' ),
+			'dead_click'       => __( 'کلیک بی‌اثر', 'bahoosh-analytics-pro' ),
+			'js_error'         => __( 'خطای جاوااسکریپت', 'bahoosh-analytics-pro' ),
+			'web_vital'        => __( 'شاخص عملکرد', 'bahoosh-analytics-pro' ),
+			'view_item'        => __( 'مشاهده محصول', 'bahoosh-analytics-pro' ),
+			'add_to_cart'      => __( 'افزودن به سبد', 'bahoosh-analytics-pro' ),
+			'remove_from_cart' => __( 'حذف از سبد', 'bahoosh-analytics-pro' ),
+			'view_cart'        => __( 'مشاهده سبد', 'bahoosh-analytics-pro' ),
+			'begin_checkout'   => __( 'شروع تسویه‌حساب', 'bahoosh-analytics-pro' ),
+			'add_payment_info' => __( 'ورود اطلاعات پرداخت', 'bahoosh-analytics-pro' ),
+			'purchase'         => __( 'خرید', 'bahoosh-analytics-pro' ),
+			'refund'           => __( 'بازپرداخت', 'bahoosh-analytics-pro' ),
+			'login'            => __( 'ورود کاربر', 'bahoosh-analytics-pro' ),
+			'signup'           => __( 'ثبت‌نام', 'bahoosh-analytics-pro' ),
+			'media'            => __( 'پخش رسانه', 'bahoosh-analytics-pro' ),
+			'copy'             => __( 'کپی متن', 'bahoosh-analytics-pro' ),
+		);
+
+		return $labels[ $type ] ?? $type;
+	}
+
+	/**
 	 * Whether the local store holds anything for a window.
 	 *
 	 * @param string $from Y-m-d.

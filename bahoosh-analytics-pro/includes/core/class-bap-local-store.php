@@ -112,6 +112,7 @@ class BAP_Local_Store {
 			referrer_host VARCHAR(190) NOT NULL DEFAULT '',
 			device VARCHAR(16) NOT NULL DEFAULT '',
 			browser VARCHAR(60) NOT NULL DEFAULT '',
+			label VARCHAR(190) NOT NULL DEFAULT '',
 			value DECIMAL(18,4) NOT NULL DEFAULT 0,
 			occurred_at DATETIME NOT NULL,
 			PRIMARY KEY  (id),
@@ -161,6 +162,7 @@ class BAP_Local_Store {
 			'referrer_host' => self::referrer_host( (string) ( $page['referrer'] ?? '' ) ),
 			'device'        => BAP_Rollup::normalize_device( (string) ( $context['device_type'] ?? '' ) ),
 			'browser'       => substr( sanitize_text_field( (string) ( $context['browser'] ?? '' ) ), 0, 60 ),
+			'label'         => self::label( $type, $data ),
 			'value'         => $value,
 			'occurred_at'   => self::occurred_at( $event ),
 		);
@@ -191,7 +193,7 @@ class BAP_Local_Store {
 		$rows = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$wpdb->prepare(
 				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name is not user input.
-				"SELECT event_type, anonymous_id, page_view_id, page_path, referrer_host, device, value, occurred_at
+				"SELECT event_type, anonymous_id, page_view_id, page_path, referrer_host, device, browser, label, value, occurred_at
 				 FROM {$table}
 				 WHERE occurred_at >= %s AND occurred_at <= %s
 				 ORDER BY occurred_at ASC
@@ -322,6 +324,48 @@ class BAP_Local_Store {
 		}
 
 		return $removed;
+	}
+
+	/**
+	 * A short, human-readable descriptor for one event.
+	 *
+	 * Without this a shop owner can see that eleven searches happened and not
+	 * what anybody searched for, which is the half of the number that is
+	 * actually useful — a search with no results is a product they could stock.
+	 *
+	 * Only a few event types get one, and only from fields the site itself
+	 * produced: a search term, a product name, an error message. Never free
+	 * text a visitor typed into a form, and never anything from a field the
+	 * plugin does not control the meaning of.
+	 *
+	 * @param string $type Event type.
+	 * @param array  $data Event data.
+	 * @return string
+	 */
+	private static function label( $type, array $data ) {
+		$source = '';
+
+		switch ( $type ) {
+			case 'search':
+				$source = (string) ( $data['query'] ?? '' );
+				break;
+
+			case 'view_item':
+			case 'add_to_cart':
+			case 'remove_from_cart':
+				$source = (string) ( $data['item_name'] ?? ( $data['name'] ?? '' ) );
+				break;
+
+			case 'js_error':
+				$source = (string) ( $data['message'] ?? '' );
+				break;
+
+			case 'web_vital':
+				$source = (string) ( $data['metric'] ?? '' );
+				break;
+		}
+
+		return substr( sanitize_text_field( $source ), 0, 190 );
 	}
 
 	/**

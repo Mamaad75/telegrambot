@@ -922,3 +922,34 @@ body.bap-admin-page .bap-wrap p.description{color:var(--bap-muted)!important}
 .bap-ai-artifact>code.bap-evidence-chip{grid-column:1/2;justify-self:start;font-size:10px;opacity:.8}
 .bap-ai-artifact>.bap-fact-value{grid-column:1/3;margin:0;padding:8px 10px;border-radius:10px;background:rgba(0,0,0,.22);font-size:10.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word;max-height:180px;overflow:auto;direction:ltr;text-align:left}
 .bap-ai-artifact>button.button{grid-column:2;grid-row:1;justify-self:end}
+
+/* Events-and-pages explorer (v4.4.0).
+   Two-column on wide screens, stacked on narrow ones; each row is a label and
+   a set of stat chips, so pages, event types, searches and paths all read the
+   same way without four separate table layouts. */
+.bap-explorer-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px;margin-bottom:14px}
+.bap-explorer-table{display:grid;gap:6px;max-height:420px;overflow:auto}
+.bap-explorer-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 11px;border:1px solid var(--bap-border-soft);border-radius:11px;background:rgba(255,255,255,.02)}
+.bap-explorer-row__main{min-width:0;display:grid;gap:2px}
+.bap-explorer-row__main strong{font-size:12px;word-break:break-all}
+.bap-explorer-row__main .bap-muted{font-size:10px;line-height:1.7}
+.bap-explorer-row__stats{display:flex;gap:10px;flex-shrink:0}
+.bap-explorer-stat{display:grid;justify-items:center;line-height:1.3}
+.bap-explorer-stat b{font-size:13px;font-weight:700}
+.bap-explorer-stat i{font-size:9.5px;font-style:normal;opacity:.65}
+.bap-explorer-feed{display:grid;gap:5px;max-height:460px;overflow:auto}
+.bap-feed-row{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:7px 10px;border:1px solid var(--bap-border-soft);border-radius:10px;font-size:11px}
+.bap-feed-row code{font-size:10.5px;opacity:.85;word-break:break-all}
+.bap-feed-label{font-size:10.5px;padding:1px 7px;border-radius:6px;background:color-mix(in srgb,var(--bap-accent) 22%,transparent)}
+.bap-feed-row .bap-muted{margin-inline-start:auto;font-size:10px;white-space:nowrap}
+
+/* Purchase funnel (v4.4.0): the bar is proportional to the first step, so the
+   shape of the drop-off is visible before any number is read. */
+.bap-funnel-step{padding:10px 12px;border:1px solid var(--bap-border-soft);border-radius:12px;margin-bottom:7px;background:rgba(255,255,255,.02)}
+.bap-funnel-step__head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px}
+.bap-funnel-step__head strong{font-size:12.5px}
+.bap-funnel-bar{height:8px;border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden}
+.bap-funnel-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--bap-accent),color-mix(in srgb,var(--bap-accent) 55%,#fff))}
+.bap-funnel-step__foot{display:flex;justify-content:space-between;gap:10px;margin-top:6px;font-size:10.5px}
+.bap-drop{padding:1px 8px;border-radius:7px;background:rgba(255,255,255,.06)}
+.bap-drop.is-bad{background:rgba(255,86,86,.18);color:#ffb4b4}

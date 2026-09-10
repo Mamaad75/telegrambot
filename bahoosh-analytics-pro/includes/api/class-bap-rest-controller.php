@@ -108,6 +108,16 @@ class BAP_REST_Controller {
 
 		register_rest_route(
 			self::NAMESPACE_V2,
+			'/explore',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( __CLASS__, 'handle_explore' ),
+				'permission_callback' => array( __CLASS__, 'can_view_reports' ),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE_V2,
 			'/journeys',
 			array(
 				'methods'             => 'GET',
@@ -807,6 +817,34 @@ class BAP_REST_Controller {
 	}
 
 	/**
+	 * Everything recorded in a window, itemised.
+	 *
+	 * Always answered from the site's own store. Unlike the metric cards there
+	 * is no collector equivalent to prefer: this is the raw record of what this
+	 * installation saw, which is exactly the thing an administrator opens when
+	 * they want to check that tracking is working at all.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response
+	 */
+	public static function handle_explore( WP_REST_Request $request ) {
+		$range = BAP_Reports::normalize_range( $request->get_param( 'range' ), $request->get_param( 'from' ), $request->get_param( 'to' ) );
+
+		return new WP_REST_Response(
+			array_merge(
+				array(
+					'success'          => true,
+					'range'            => $range,
+					'collecting_since' => BAP_Local_Store::first_day(),
+					'stored_events'    => BAP_Local_Store::size(),
+				),
+				BAP_Local_Reports::explorer( $range['from'], $range['to'] )
+			),
+			200
+		);
+	}
+
+	/**
 	 * Journey analytics, from the collector when there is one.
 	 *
 	 * @param WP_REST_Request $request Request.
@@ -901,11 +939,30 @@ class BAP_REST_Controller {
 
 	/** Requests one funnel report, from the collector or from the local rollup. */
 	public static function handle_funnel_report( WP_REST_Request $request ) {
+		$range = BAP_Reports::normalize_range( $request->get_param( 'range' ), $request->get_param( 'from' ), $request->get_param( 'to' ) );
+
+		// `standard` is the shop's built-in purchase funnel — view, cart,
+		// checkout, payment, purchase — which is what the rollup counts and what
+		// the funnel screen asks for. It is not a saved definition and never
+		// needs to be created, so it is answered directly.
+		if ( 'standard' === (string) $request['id'] ) {
+			return new WP_REST_Response(
+				array_merge(
+					array(
+						'success'          => true,
+						'range'            => $range,
+						'collecting_since' => BAP_Local_Store::first_day(),
+					),
+					BAP_Local_Reports::funnel( $range['from'], $range['to'] )
+				),
+				200
+			);
+		}
+
 		$funnel = BAP_Workspace::funnel( $request['id'] );
 		if ( ! $funnel ) {
 			return new WP_REST_Response( array( 'success' => false, 'error' => 'not_found' ), 404 );
 		}
-		$range = BAP_Reports::normalize_range( $request->get_param( 'range' ), $request->get_param( 'from' ), $request->get_param( 'to' ) );
 
 		$upstream = null;
 

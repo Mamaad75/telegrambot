@@ -50,298 +50,191 @@
   }
 
   /* ------------------------------------------------------------------ */
-  /* Experience                                                         */
+  /* Purchase funnel — where buyers stop, and what was broken there     */
   /* ------------------------------------------------------------------ */
-
-  function initExperience() {
-    var button = root.querySelector("[data-bap-load]");
-    if (button) button.addEventListener("click", loadExperience);
-    loadExperience();
-  }
-
-  function loadExperience() {
-    status(cfg.i18n.loading, false);
-    var range = value("#bap-studio-range") || "last_7_days";
-    var url = value("#bap-experience-url");
-    var device = value("#bap-experience-device");
-    var query = "?range=" + encodeURIComponent(range);
-    if (url) query += "&url=" + encodeURIComponent(url);
-    if (device) query += "&device=" + encodeURIComponent(device);
-
-    request("/experience" + query).then(function (body) {
-      var data = body.experience || body.data || body;
-      renderExperienceSummary(data.summary || {});
-      renderHeatmap(data.heatmap || {});
-      renderIssues(data.top_issues || data.issues || []);
-      status(cfg.i18n.ready, false);
-    }).catch(function (error) {
-      renderExperienceSummary({});
-      renderHeatmap({});
-      renderIssues([]);
-      status(backendMessage(error), true);
-    });
-  }
-
-  function renderExperienceSummary(summary) {
-    root.querySelectorAll("[data-experience-metric]").forEach(function (node) {
-      node.textContent = formatNumber(summary[node.getAttribute("data-experience-metric")]);
-    });
-  }
-
-  function renderHeatmap(heatmap) {
-    var box = document.getElementById("bap-heatmap");
-    if (!box) return;
-    box.textContent = "";
-    var points = heatmap.points || [];
-    if (!points.length) {
-      box.appendChild(el("div", "bap-empty-state", cfg.i18n.noHeatmap));
-      return;
-    }
-
-    var stage = el("div", "bap-heatmap-stage");
-    points.slice(0, 400).forEach(function (point) {
-      var x = Number(point.x_ratio !== undefined ? point.x_ratio : point.x);
-      var y = Number(point.y_ratio !== undefined ? point.y_ratio : point.y);
-      var count = Number(point.count || point.value || 1);
-      if (!isFinite(x) || !isFinite(y)) return;
-      if (x > 1) x = x / 100;
-      if (y > 1) y = y / 100;
-      x = Math.max(0, Math.min(1, x));
-      y = Math.max(0, Math.min(1, y));
-      var dot = el("span", "bap-heat-dot");
-      dot.style.left = (x * 100).toFixed(2) + "%";
-      dot.style.top = (y * 100).toFixed(2) + "%";
-      var size = Math.max(14, Math.min(58, 14 + Math.sqrt(Math.max(1, count)) * 5));
-      dot.style.width = size + "px";
-      dot.style.height = size + "px";
-      dot.title = count.toLocaleString() + " کلیک";
-      stage.appendChild(dot);
-    });
-    box.appendChild(stage);
-  }
-
-  function renderIssues(issues) {
-    var box = document.getElementById("bap-issues");
-    if (!box) return;
-    box.textContent = "";
-    if (!issues.length) {
-      box.appendChild(el("div", "bap-empty-state", cfg.i18n.noIssues));
-      return;
-    }
-    issues.slice(0, 12).forEach(function (issue) {
-      var item = el("article", "bap-issue");
-      var meta = el("div", "bap-issue-meta");
-      meta.appendChild(el("span", "bap-severity is-" + safeClass(issue.severity || "medium"), faStatus(issue.severity || "medium")));
-      meta.appendChild(el("strong", "", formatNumber(issue.count || 0)));
-      item.appendChild(meta);
-      item.appendChild(el("h3", "", issue.label || issue.type || "مشکل تجربه کاربری"));
-      if (issue.url) item.appendChild(el("p", "bap-muted bap-truncate", issue.url));
-      box.appendChild(item);
-    });
-  }
-
-  /* ------------------------------------------------------------------ */
-  /* Funnels                                                            */
-  /* ------------------------------------------------------------------ */
-
-  var selectedFunnel = null;
-  var funnelCache = [];
 
   function initFunnels() {
-    var add = document.getElementById("bap-add-step");
-    var save = document.getElementById("bap-save-funnel");
-    var range = document.getElementById("bap-funnel-range");
-    if (add) add.addEventListener("click", function () { addFunnelStep(); });
-    if (save) save.addEventListener("click", saveFunnel);
-    if (range) range.addEventListener("change", function () { if (selectedFunnel) loadFunnelReport(selectedFunnel); });
-    addFunnelStep("بازدید صفحه", "page_view");
-    addFunnelStep("خرید", "purchase");
-    loadFunnels();
+    var button = root.querySelector("[data-bap-load]");
+    if (button) button.addEventListener("click", loadFunnel);
+    var range = document.getElementById("bap-studio-range");
+    if (range) range.addEventListener("change", loadFunnel);
+    loadFunnel();
   }
 
-  function addFunnelStep(labelValue, typeValue) {
-    var box = document.getElementById("bap-funnel-steps");
-    if (!box) return;
-    var row = el("div", "bap-funnel-step");
-    var index = box.children.length + 1;
-    row.appendChild(el("span", "bap-step-number", index));
-    var label = document.createElement("input");
-    label.type = "text";
-    label.className = "bap-step-label";
-    label.placeholder = "عنوان مرحله";
-    label.value = labelValue || "";
-    row.appendChild(label);
-    var select = document.createElement("select");
-    select.className = "bap-step-event";
-    (cfg.eventTypes || []).forEach(function (type) {
-      var option = document.createElement("option");
-      option.value = type;
-      option.textContent = type;
-      if (type === typeValue) option.selected = true;
-      select.appendChild(option);
-    });
-    row.appendChild(select);
-    var path = document.createElement("input");
-    path.type = "text";
-    path.className = "bap-step-path";
-    path.placeholder = "فیلتر مسیر (اختیاری)";
-    row.appendChild(path);
-    var remove = el("button", "button bap-icon-button", "×");
-    remove.type = "button";
-    remove.addEventListener("click", function () {
-      row.remove();
-      renumberSteps();
-    });
-    row.appendChild(remove);
-    box.appendChild(row);
-  }
+  function loadFunnel() {
+    status(cfg.i18n.loading, false);
+    var range = "?range=" + encodeURIComponent(value("#bap-studio-range") || "last_7_days");
 
-  function renumberSteps() {
-    document.querySelectorAll("#bap-funnel-steps .bap-step-number").forEach(function (node, i) { node.textContent = i + 1; });
-  }
-
-  function saveFunnel() {
-    var name = value("#bap-funnel-name");
-    var steps = [];
-    document.querySelectorAll("#bap-funnel-steps .bap-funnel-step").forEach(function (row) {
-      steps.push({
-        label: row.querySelector(".bap-step-label").value,
-        event_type: row.querySelector(".bap-step-event").value,
-        path: row.querySelector(".bap-step-path").value,
-      });
-    });
-    status(cfg.i18n.saving, false);
-    request("/funnels", { method: "POST", body: JSON.stringify({ name: name, steps: steps }) })
-      .then(function () {
-        status(cfg.i18n.saved, false);
-        document.getElementById("bap-funnel-name").value = "";
-        loadFunnels();
+    // Two independent requests: the funnel itself, and the friction signals
+    // that explain it. Either can be empty without blanking the other.
+    request("/funnels/standard/report" + range)
+      .then(function (body) {
+        renderFunnel(body.steps || []);
+        status(cfg.i18n.ready, false);
       })
-      .catch(function (error) { status(backendMessage(error), true); });
-  }
-
-  function loadFunnels() {
-    request("/funnels").then(function (body) {
-      funnelCache = body.funnels || [];
-      renderFunnelList(funnelCache);
-    }).catch(function (error) { status(backendMessage(error), true); });
-  }
-
-  function renderFunnelList(funnels) {
-    var box = document.getElementById("bap-funnel-list");
-    if (!box) return;
-    box.textContent = "";
-    if (!funnels.length) {
-      box.appendChild(el("div", "bap-empty-state", cfg.i18n.noFunnels));
-      return;
-    }
-    funnels.forEach(function (funnel) {
-      var item = el("article", "bap-funnel-item");
-      var copy = el("button", "bap-funnel-select", "");
-      copy.type = "button";
-      copy.appendChild(el("strong", "", funnel.name));
-      copy.appendChild(el("span", "", (funnel.steps || []).length + " مرحله"));
-      copy.addEventListener("click", function () { selectedFunnel = funnel.id; loadFunnelReport(funnel.id); });
-      item.appendChild(copy);
-      var remove = el("button", "button-link-delete bap-delete", cfg.i18n.delete);
-      remove.type = "button";
-      remove.addEventListener("click", function () {
-        request("/funnels/" + encodeURIComponent(funnel.id), { method: "DELETE" }).then(loadFunnels);
-      });
-      item.appendChild(remove);
-      box.appendChild(item);
-    });
-  }
-
-  function loadFunnelReport(id) {
-    var funnel = funnelCache.find(function (item) { return item.id === id; });
-    var title = document.getElementById("bap-funnel-report-title");
-    if (title && funnel) title.textContent = funnel.name;
-    var report = document.getElementById("bap-funnel-report");
-    if (report) report.innerHTML = '<div class="bap-empty-state">' + escapeHtml(cfg.i18n.loading) + "</div>";
-    var range = value("#bap-funnel-range") || "last_7_days";
-    request("/funnels/" + encodeURIComponent(id) + "/report?range=" + encodeURIComponent(range))
-      .then(function (body) { renderFunnelReport(body.report || body.funnel_report || body); })
       .catch(function (error) {
-        if (report) { report.textContent = ""; report.appendChild(el("div", "bap-empty-state is-error", backendMessage(error))); }
+        renderFunnel([]);
+        status(backendMessage(error), true);
+      });
+
+    request("/explore" + range)
+      .then(function (body) {
+        renderExitPages(body.pages || []);
+        renderIssues(body.pages || [], body.types || []);
+      })
+      .catch(function () {
+        renderExitPages([]);
+        renderIssues([], []);
       });
   }
 
-  function renderFunnelReport(data) {
+  function renderFunnel(steps) {
     var box = document.getElementById("bap-funnel-report");
     if (!box) return;
     box.textContent = "";
-    var steps = data.steps || [];
-    if (!steps.length) {
-      box.appendChild(el("div", "bap-empty-state", cfg.i18n.noReport));
+
+    var reached = steps.filter(function (step) {
+      return step.count > 0;
+    });
+
+    if (!reached.length) {
+      box.appendChild(el("div", "bap-empty-state", cfg.i18n.noData || "داده‌ای نیست."));
       return;
     }
-    var max = Number(steps[0].users || steps[0].count || 1) || 1;
-    steps.forEach(function (step, index) {
-      var item = el("div", "bap-funnel-bar");
-      var head = el("div", "bap-funnel-bar-head");
-      head.appendChild(el("strong", "", (index + 1) + ". " + (step.label || step.event_type || "مرحله")));
-      head.appendChild(el("span", "", formatNumber(step.users || step.count || 0)));
-      item.appendChild(head);
-      var rail = el("div", "bap-funnel-rail");
-      var fill = el("span", "");
-      fill.style.width = Math.max(2, Math.min(100, ((Number(step.users || step.count || 0) / max) * 100))) + "%";
-      rail.appendChild(fill);
-      item.appendChild(rail);
-      var meta = el("small", "bap-muted", step.conversion_rate !== undefined ? Number(step.conversion_rate).toFixed(1) + "% تبدیل" : "");
-      item.appendChild(meta);
-      box.appendChild(item);
+
+    var widest = reached[0].count || 1;
+
+    steps.forEach(function (step) {
+      var row = el("div", "bap-funnel-step");
+
+      var head = el("div", "bap-funnel-step__head");
+      head.appendChild(el("strong", "", step.label));
+      head.appendChild(el("span", "bap-muted", formatNumber(step.count) + " نفر"));
+      row.appendChild(head);
+
+      // The bar is proportional to the first step, so the shape of the funnel
+      // is visible at a glance rather than having to be read off the numbers.
+      var track = el("div", "bap-funnel-bar");
+      var fill = el("i", "");
+      fill.style.width = Math.max(1, Math.round(((step.count || 0) / widest) * 100)) + "%";
+      track.appendChild(fill);
+      row.appendChild(track);
+
+      var foot = el("div", "bap-funnel-step__foot");
+      foot.appendChild(el("span", "bap-muted", Number(step.of_first_pc || 0).toFixed(1) + "٪ از مرحله اول"));
+
+      if (step.drop_pc !== null && step.drop_pc !== undefined) {
+        var drop = el("span", "bap-drop" + (step.drop_pc >= 50 ? " is-bad" : ""), Number(step.drop_pc).toFixed(1) + "٪ اینجا رها کردند");
+        foot.appendChild(drop);
+      }
+
+      row.appendChild(foot);
+      box.appendChild(row);
     });
   }
 
-  /* ------------------------------------------------------------------ */
-  /* Journeys                                                           */
-  /* ------------------------------------------------------------------ */
+  // Checkout-intent pages ranked by how many people were last seen on them.
+  var CHECKOUT_HINTS = ["cart", "checkout", "سبد", "پرداخت", "تسویه"];
 
-  function initJourneys() {
-    var button = root.querySelector("[data-bap-load]");
-    if (button) button.addEventListener("click", loadJourneys);
-    loadJourneys();
-  }
-
-  function loadJourneys() {
-    status(cfg.i18n.loading, false);
-    var query = "?range=" + encodeURIComponent(value("#bap-studio-range") || "last_7_days");
-    var entry = value("#bap-journey-entry");
-    var conversion = value("#bap-journey-conversion");
-    if (entry) query += "&entry=" + encodeURIComponent(entry);
-    if (conversion) query += "&conversion=" + encodeURIComponent(conversion);
-    request("/journeys" + query).then(function (body) {
-      renderJourneys(body.paths || body.journeys || []);
-      status(cfg.i18n.ready, false);
-    }).catch(function (error) {
-      renderJourneys([]);
-      status(backendMessage(error), true);
-    });
-  }
-
-  function renderJourneys(paths) {
-    var box = document.getElementById("bap-journeys");
+  function renderExitPages(pages) {
+    var box = document.getElementById("bap-exit-pages");
     if (!box) return;
     box.textContent = "";
-    if (!paths.length) {
-      box.appendChild(el("div", "bap-empty-state", cfg.i18n.noJourneys));
+
+    var candidates = pages.filter(function (page) {
+      var path = String(page.page_path || "").toLowerCase();
+      return CHECKOUT_HINTS.some(function (hint) {
+        return path.indexOf(hint) !== -1;
+      });
+    });
+
+    // Nothing matched the usual checkout paths, so show the busiest pages
+    // instead of an empty panel — a custom checkout URL is common.
+    if (!candidates.length) candidates = pages.slice(0, 8);
+
+    if (!candidates.length) {
+      box.appendChild(el("div", "bap-empty-state", cfg.i18n.noData || "داده‌ای نیست."));
       return;
     }
-    paths.slice(0, 30).forEach(function (path, index) {
-      var row = el("article", "bap-journey");
-      var meta = el("div", "bap-journey-meta");
-      meta.appendChild(el("strong", "", "#" + (index + 1)));
-      meta.appendChild(el("span", "", formatNumber(path.users || path.count || 0) + " کاربر"));
-      if (path.conversion_rate !== undefined) meta.appendChild(el("span", "bap-pill", Number(path.conversion_rate).toFixed(1) + "%"));
-      row.appendChild(meta);
-      var nodes = el("div", "bap-path-nodes");
-      (path.nodes || path.path || []).forEach(function (node, i) {
-        nodes.appendChild(el("span", "bap-path-node", typeof node === "string" ? node : (node.label || node.path || node.event_type || "مرحله")));
-        if (i < (path.nodes || path.path || []).length - 1) nodes.appendChild(el("i", "", "→"));
+
+    candidates.slice(0, 8).forEach(function (page) {
+      var row = el("div", "bap-explorer-row");
+      var main = el("div", "bap-explorer-row__main");
+      main.appendChild(el("strong", "", page.page_path));
+
+      var bought = (page.by_type || {}).purchase || 0;
+      var started = (page.by_type || {}).begin_checkout || (page.by_type || {}).add_to_cart || 0;
+      if (started) {
+        main.appendChild(el("span", "bap-muted", "شروع " + formatNumber(started) + " · خرید " + formatNumber(bought)));
+      }
+      row.appendChild(main);
+
+      var stats = el("div", "bap-explorer-row__stats");
+      [[formatNumber(page.visitors), "کاربر"], [formatNumber(page.views), "بازدید"]].forEach(function (pair) {
+        var stat = el("span", "bap-explorer-stat");
+        stat.appendChild(el("b", "", pair[0]));
+        stat.appendChild(el("i", "", pair[1]));
+        stats.appendChild(stat);
       });
-      row.appendChild(nodes);
+      row.appendChild(stats);
+
       box.appendChild(row);
+    });
+  }
+
+  var FRICTION = { rage_click: "کلیک عصبی", dead_click: "کلیک بی‌اثر", js_error: "خطای جاوااسکریپت" };
+
+  function renderIssues(pages, types) {
+    var box = document.getElementById("bap-issues");
+    if (!box) return;
+    box.textContent = "";
+
+    var rows = [];
+
+    pages.forEach(function (page) {
+      Object.keys(FRICTION).forEach(function (signal) {
+        var count = (page.by_type || {})[signal] || 0;
+        if (count > 0) rows.push({ page: page.page_path, signal: signal, count: count });
+      });
+    });
+
+    rows.sort(function (a, b) {
+      return b.count - a.count;
+    });
+
+    if (!rows.length) {
+      // An empty panel here is ambiguous: no problems, or no measurement? The
+      // tracking switches are off by default, so say which one it is.
+      var tracked = types.some(function (row) {
+        return FRICTION[row.event_type];
+      });
+      box.appendChild(
+        el(
+          "div",
+          "bap-empty-state",
+          tracked
+            ? "اصطکاکی روی صفحات ثبت نشده است."
+            : "رهگیری کلیک عصبی، کلیک بی‌اثر و خطای جاوااسکریپت در تنظیمات خاموش است، بنابراین دلیل فنی رها کردن خرید اندازه‌گیری نمی‌شود."
+        )
+      );
+      return;
+    }
+
+    rows.slice(0, 10).forEach(function (row) {
+      var line = el("div", "bap-explorer-row");
+      var main = el("div", "bap-explorer-row__main");
+      main.appendChild(el("strong", "", FRICTION[row.signal]));
+      main.appendChild(el("span", "bap-muted", row.page));
+      line.appendChild(main);
+
+      var stats = el("div", "bap-explorer-row__stats");
+      var stat = el("span", "bap-explorer-stat");
+      stat.appendChild(el("b", "", formatNumber(row.count)));
+      stat.appendChild(el("i", "", "بار"));
+      stats.appendChild(stat);
+      line.appendChild(stats);
+
+      box.appendChild(line);
     });
   }
 
@@ -666,8 +559,6 @@
     });
   }
 
-  if (screen === "experience") initExperience();
-  else if (screen === "funnels") initFunnels();
-  else if (screen === "journeys") initJourneys();
+  if (screen === "funnels") initFunnels();
   else if (screen === "ai") initAI();
 })();

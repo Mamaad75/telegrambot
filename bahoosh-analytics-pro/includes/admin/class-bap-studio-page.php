@@ -8,20 +8,19 @@
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Renders the Experience, Funnels, Journeys and AI shells.
+ * Renders the purchase-funnel and sales-suggestions screens.
  *
  * Data is hydrated through authenticated REST calls so wp-admin HTML stays
- * small and the ASP.NET backend remains the analytics compute plane.
+ * small. Those routes answer from this site's own store, and prefer a
+ * collector only when one is configured and reachable.
  */
 class BAP_Studio_Page {
 
 	/** Common header/navigation for workspace pages. */
 	private static function header( $title, $subtitle, $active ) {
 		$slugs = array(
-			'experience' => BAP_Admin::EXPERIENCE_SLUG,
-			'funnels'    => BAP_Admin::FUNNELS_SLUG,
-			'journeys'   => BAP_Admin::JOURNEYS_SLUG,
-			'ai'         => BAP_Admin::AI_SLUG,
+			'funnels' => BAP_Admin::FUNNELS_SLUG,
+			'ai'      => BAP_Admin::AI_SLUG,
 		);
 		BAP_Admin::render_page_header(
 			$title,
@@ -31,84 +30,74 @@ class BAP_Studio_Page {
 		);
 	}
 
-	/** Renders Experience Intelligence. */
-	public static function render_experience() {
-		self::guard();
-		?>
-		<div class="wrap bap-wrap bap-studio" data-bap-screen="experience">
-			<?php self::header( __( 'هوش تجربه کاربری', 'bahoosh-analytics-pro' ), __( 'اصطکاک، تعاملات خراب و مشکلات عملکرد را قبل از آسیب به نرخ تبدیل پیدا کنید.', 'bahoosh-analytics-pro' ), 'experience' ); ?>
-			<div class="bap-toolbar bap-toolbar--glass">
-				<select id="bap-studio-range"><option value="last_7_days"><?php esc_html_e( '۷ روز گذشته', 'bahoosh-analytics-pro' ); ?></option><option value="last_30_days"><?php esc_html_e( '۳۰ روز گذشته', 'bahoosh-analytics-pro' ); ?></option></select>
-				<input type="url" id="bap-experience-url" placeholder="<?php esc_attr_e( 'فیلتر بر اساس آدرس صفحه (اختیاری)', 'bahoosh-analytics-pro' ); ?>" />
-				<select id="bap-experience-device"><option value=""><?php esc_html_e( 'همه دستگاه‌ها', 'bahoosh-analytics-pro' ); ?></option><option value="desktop">دسکتاپ</option><option value="mobile">موبایل</option><option value="tablet">تبلت</option></select>
-				<button type="button" class="button button-primary bap-primary" data-bap-load><?php esc_html_e( 'تحلیل تجربه کاربری', 'bahoosh-analytics-pro' ); ?></button>
-				<span class="bap-status" data-bap-status></span>
-			</div>
-
-			<div class="bap-grid bap-grid--metrics">
-				<?php foreach ( array( 'rage_clicks' => 'کلیک‌های عصبی', 'dead_clicks' => 'کلیک‌های بی‌اثر', 'js_errors' => 'خطاهای جاوااسکریپت', 'poor_vitals' => 'Web Vitals ضعیف' ) as $key => $label ) : ?>
-					<div class="bap-card bap-card--metric"><span><?php echo esc_html( $label ); ?></span><strong data-experience-metric="<?php echo esc_attr( $key ); ?>">—</strong></div>
-				<?php endforeach; ?>
-			</div>
-
-			<div class="bap-layout-2-1">
-				<section class="bap-section">
-					<div class="bap-section-title"><div><span class="bap-kicker">نقشه تعامل</span><h2><?php esc_html_e( 'تراکم کلیک', 'bahoosh-analytics-pro' ); ?></h2></div><span class="bap-pill">مختصات نرمال‌شده</span></div>
-					<div id="bap-heatmap" class="bap-heatmap"><div class="bap-empty-state"><?php esc_html_e( 'یک بازه انتخاب کنید تا نقاط تعامل از بک‌اند دریافت شوند.', 'bahoosh-analytics-pro' ); ?></div></div>
-				</section>
-				<section class="bap-section">
-					<div class="bap-section-title"><h2><?php esc_html_e( 'مهم‌ترین مشکلات تجربه کاربری', 'bahoosh-analytics-pro' ); ?></h2></div>
-					<div id="bap-issues" class="bap-issue-list"><div class="bap-empty-state">—</div></div>
-				</section>
-			</div>
-		</div>
-		<?php
-	}
-
-	/** Renders the no-code funnel builder. */
+	/**
+	 * The purchase funnel, where it leaks, and why.
+	 *
+	 * This one screen replaced three. "Experience", "Funnels" and "Journeys"
+	 * each proxied a different collector report, each showed the same "the
+	 * backend does not provide this yet" placeholder without one, and the funnel
+	 * builder invited an administrator to define a funnel over arbitrary events
+	 * that nothing in the plugin could then measure.
+	 *
+	 * What a shop owner actually wants is one answer: how many people reach each
+	 * step, where they stop, which page they were on, and what was broken there.
+	 * That is one story, so it is one screen — and every number on it comes from
+	 * this site's own rollup and event store.
+	 *
+	 * @return void
+	 */
 	public static function render_funnels() {
 		self::guard();
 		?>
 		<div class="wrap bap-wrap bap-studio" data-bap-screen="funnels">
-			<?php self::header( __( 'قیف‌های بدون کدنویسی', 'bahoosh-analytics-pro' ), __( 'از رویدادهای ثبت‌شده قیف تبدیل بسازید تا بک‌اند ریزش هر مرحله را محاسبه کند.', 'bahoosh-analytics-pro' ), 'funnels' ); ?>
-			<div class="bap-layout-1-1">
-				<section class="bap-section bap-builder">
-					<div class="bap-section-title"><div><span class="bap-kicker">سازنده</span><h2><?php esc_html_e( 'ساخت قیف', 'bahoosh-analytics-pro' ); ?></h2></div></div>
-					<label class="bap-field"><span><?php esc_html_e( 'نام قیف', 'bahoosh-analytics-pro' ); ?></span><input type="text" id="bap-funnel-name" placeholder="تبدیل خرید" /></label>
-					<div id="bap-funnel-steps" class="bap-funnel-steps"></div>
-					<div class="bap-actions"><button type="button" class="button" id="bap-add-step"><?php esc_html_e( '+ افزودن مرحله', 'bahoosh-analytics-pro' ); ?></button><button type="button" class="button button-primary bap-primary" id="bap-save-funnel"><?php esc_html_e( 'ذخیره قیف', 'bahoosh-analytics-pro' ); ?></button></div>
-					<p class="bap-muted" data-bap-status></p>
-				</section>
-				<section class="bap-section">
-					<div class="bap-section-title"><h2><?php esc_html_e( 'قیف‌های ذخیره‌شده', 'bahoosh-analytics-pro' ); ?></h2></div>
-					<div id="bap-funnel-list" class="bap-funnel-list"></div>
-				</section>
-			</div>
-			<section class="bap-section">
-				<div class="bap-section-title"><div><span class="bap-kicker">گزارش تبدیل</span><h2 id="bap-funnel-report-title"><?php esc_html_e( 'یک قیف انتخاب کنید', 'bahoosh-analytics-pro' ); ?></h2></div><select id="bap-funnel-range"><option value="last_7_days"><?php esc_html_e( '۷ روز گذشته', 'bahoosh-analytics-pro' ); ?></option><option value="last_30_days"><?php esc_html_e( '۳۰ روز گذشته', 'bahoosh-analytics-pro' ); ?></option></select></div>
-				<div id="bap-funnel-report" class="bap-funnel-report"><div class="bap-empty-state"><?php esc_html_e( 'بک‌اند ASP.NET تعداد هر مرحله، نرخ تبدیل و زمان میانه را برمی‌گرداند.', 'bahoosh-analytics-pro' ); ?></div></div>
-			</section>
-		</div>
-		<?php
-	}
+			<?php self::header( __( 'قیف خرید و رها کردن', 'bahoosh-analytics-pro' ), __( 'از مشاهده محصول تا پرداخت: در هر مرحله چند نفر ماندند، کجا رها کردند و چه چیزی روی آن صفحه خراب بوده.', 'bahoosh-analytics-pro' ), 'funnels' ); ?>
 
-	/** Renders path/journey exploration. */
-	public static function render_journeys() {
-		self::guard();
-		?>
-		<div class="wrap bap-wrap bap-studio" data-bap-screen="journeys">
-			<?php self::header( __( 'مسیر سفر کاربر', 'bahoosh-analytics-pro' ), __( 'مسیر کاربران پیش از تبدیل، خروج یا بروز اصطکاک را بررسی کنید.', 'bahoosh-analytics-pro' ), 'journeys' ); ?>
 			<div class="bap-toolbar bap-toolbar--glass">
-				<select id="bap-studio-range"><option value="last_7_days"><?php esc_html_e( '۷ روز گذشته', 'bahoosh-analytics-pro' ); ?></option><option value="last_30_days"><?php esc_html_e( '۳۰ روز گذشته', 'bahoosh-analytics-pro' ); ?></option></select>
-				<input type="text" id="bap-journey-entry" placeholder="<?php esc_attr_e( 'مسیر ورود؛ مثل /pricing/', 'bahoosh-analytics-pro' ); ?>" />
-				<input type="text" id="bap-journey-conversion" placeholder="purchase (خرید)" />
-				<button type="button" class="button button-primary bap-primary" data-bap-load><?php esc_html_e( 'بررسی مسیرها', 'bahoosh-analytics-pro' ); ?></button>
+				<label class="bap-toolbar-field">
+					<span><?php esc_html_e( 'بازه زمانی', 'bahoosh-analytics-pro' ); ?></span>
+					<select id="bap-studio-range">
+						<option value="last_7_days"><?php esc_html_e( '۷ روز گذشته', 'bahoosh-analytics-pro' ); ?></option>
+						<option value="last_30_days"><?php esc_html_e( '۳۰ روز گذشته', 'bahoosh-analytics-pro' ); ?></option>
+					</select>
+				</label>
+				<button type="button" class="button button-primary bap-primary" data-bap-load><?php esc_html_e( 'به‌روزرسانی', 'bahoosh-analytics-pro' ); ?></button>
 				<span class="bap-status" data-bap-status></span>
 			</div>
+
 			<section class="bap-section">
-				<div class="bap-section-title"><div><span class="bap-kicker">تحلیل مسیر</span><h2><?php esc_html_e( 'مسیرهای برتر', 'bahoosh-analytics-pro' ); ?></h2></div></div>
-				<div id="bap-journeys" class="bap-journey-list"><div class="bap-empty-state"><?php esc_html_e( 'توالی مسیرهای کاربران اینجا نمایش داده می‌شود.', 'bahoosh-analytics-pro' ); ?></div></div>
+				<div class="bap-section-title">
+					<div>
+						<span class="bap-kicker"><?php esc_html_e( 'قیف خرید', 'bahoosh-analytics-pro' ); ?></span>
+						<h2><?php esc_html_e( 'در هر مرحله چند نفر ماندند', 'bahoosh-analytics-pro' ); ?></h2>
+					</div>
+				</div>
+				<div id="bap-funnel-report" class="bap-funnel-report">
+					<div class="bap-empty-state"><?php esc_html_e( 'قیف از لحظه فعال‌سازی این نسخه شروع به جمع‌آوری می‌کند.', 'bahoosh-analytics-pro' ); ?></div>
+				</div>
 			</section>
+
+			<div class="bap-explorer-grid">
+				<section class="bap-section">
+					<div class="bap-section-title">
+						<div>
+							<span class="bap-kicker"><?php esc_html_e( 'محل رها کردن', 'bahoosh-analytics-pro' ); ?></span>
+							<h2><?php esc_html_e( 'روی کدام صفحه خرید را رها کردند', 'bahoosh-analytics-pro' ); ?></h2>
+						</div>
+					</div>
+					<div id="bap-exit-pages" class="bap-explorer-table"></div>
+				</section>
+
+				<section class="bap-section">
+					<div class="bap-section-title">
+						<div>
+							<span class="bap-kicker"><?php esc_html_e( 'دلیل احتمالی', 'bahoosh-analytics-pro' ); ?></span>
+							<h2><?php esc_html_e( 'چه چیزی روی آن صفحه خراب بوده', 'bahoosh-analytics-pro' ); ?></h2>
+						</div>
+					</div>
+					<div id="bap-issues" class="bap-explorer-table"></div>
+					<p class="bap-muted"><?php esc_html_e( 'کلیک عصبی، کلیک بی‌اثر و خطای جاوااسکریپت روی صفحه‌ای که خرید در آن رها می‌شود، معمولاً همان باگی است که دنبالش می‌گردید.', 'bahoosh-analytics-pro' ); ?></p>
+				</section>
+			</div>
 		</div>
 		<?php
 	}

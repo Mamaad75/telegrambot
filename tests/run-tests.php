@@ -1275,4 +1275,130 @@ test( 'local reports: a conversion rate above 100% is capped and explained', fun
 	ok( count( $metrics['notes'] ) > 0, 'and the mismatch is explained, not hidden' );
 } );
 
+/* ============================================================ */
+/* The explorer                                                 */
+/* ============================================================ */
+
+test( 'explorer: search terms are recorded, not just counted', function () {
+	$today = gmdate( 'Y-m-d' );
+
+	foreach ( array( 'رژ لب قرمز', 'رژ لب قرمز', 'ماسک مو' ) as $term ) {
+		BAP_Local_Store::record( bap_event( array(
+			'event_type' => 'search',
+			'page'       => array( 'path' => '/' ),
+			'data'       => array( 'query' => $term ),
+		) ) );
+	}
+
+	$searches = BAP_Local_Reports::explorer( $today, $today )['searches'];
+
+	is_same( 'رژ لب قرمز', $searches[0]['term'], 'the most-searched term leads' );
+	is_same( 2, $searches[0]['count'] );
+	is_same( 'ماسک مو', $searches[1]['term'] );
+} );
+
+test( 'explorer: with no searches the empty panel explains itself', function () {
+	$today = gmdate( 'Y-m-d' );
+	BAP_Local_Store::record( bap_event() );
+
+	$report = BAP_Local_Reports::explorer( $today, $today );
+
+	is_same( array(), $report['searches'] );
+	ok( count( $report['notes'] ) > 0, 'an empty panel must not read as a bug' );
+} );
+
+test( 'explorer: each page carries its own event mix', function () {
+	$today = gmdate( 'Y-m-d' );
+
+	BAP_Local_Store::record( bap_event( array( 'page' => array( 'path' => '/product/lipstick' ) ) ) );
+	BAP_Local_Store::record( bap_event( array( 'event_type' => 'add_to_cart', 'page' => array( 'path' => '/product/lipstick' ) ) ) );
+	BAP_Local_Store::record( bap_event( array( 'event_type' => 'rage_click', 'page' => array( 'path' => '/product/lipstick' ) ) ) );
+
+	$page = BAP_Local_Reports::explorer( $today, $today )['pages'][0];
+
+	is_same( '/product/lipstick', $page['page_path'] );
+	is_same( 1, $page['views'], 'only page_view counts as a view' );
+	is_same( 3, $page['events'], 'but every event counts as an event' );
+	is_same( 1, $page['by_type']['add_to_cart'] );
+	is_same( 1, $page['by_type']['rage_click'] );
+} );
+
+test( 'explorer: the event breakdown names every type in Persian', function () {
+	$today = gmdate( 'Y-m-d' );
+
+	BAP_Local_Store::record( bap_event( array( 'event_type' => 'begin_checkout' ) ) );
+
+	$types = BAP_Local_Reports::explorer( $today, $today )['types'];
+
+	is_same( 'begin_checkout', $types[0]['event_type'] );
+	is_same( 'شروع تسویه‌حساب', $types[0]['label'] );
+	is_same( 1, $types[0]['visitors'] );
+} );
+
+test( 'explorer: no visitor identifier survives into the response', function () {
+	$today = gmdate( 'Y-m-d' );
+
+	BAP_Local_Store::record( bap_event( array( 'identity' => array( 'anonymous_id' => 'anon_traceable_person_id' ) ) ) );
+
+	$json = json_encode( BAP_Local_Reports::explorer( $today, $today ) );
+
+	ok( ! str_contains( $json, 'anon_traceable_person_id' ), 'visitor ids are counted, never listed' );
+} );
+
+test( 'explorer: the live feed is newest first', function () {
+	$today = gmdate( 'Y-m-d' );
+	$base  = strtotime( $today . ' 09:00:00 UTC' );
+
+	foreach ( array( 0, 60, 120 ) as $offset ) {
+		BAP_Local_Store::record( bap_event( array(
+			'page'             => array( 'path' => '/p' . $offset ),
+			'timestamp_server' => gmdate( 'Y-m-d\TH:i:s\Z', $base + $offset ),
+		) ) );
+	}
+
+	$feed = BAP_Local_Reports::explorer( $today, $today )['feed'];
+
+	is_same( '/p120', $feed[0]['page_path'], 'the most recent event is at the top' );
+	is_same( '/p0', $feed[2]['page_path'] );
+} );
+
+test( 'route: the standard purchase funnel needs no saved definition', function () {
+	$today = BAP_Rollup::today();
+
+	foreach ( range( 1, 80 ) as $i ) { BAP_Rollup::record( 'view_item', 'mobile', '/p' ); }
+	foreach ( range( 1, 20 ) as $i ) { BAP_Rollup::record( 'add_to_cart', 'mobile', '/p' ); }
+
+	$request = new WP_REST_Request( array( 'range' => 'last_7_days' ) );
+	$request->params['id'] = 'standard';
+
+	$body = BAP_REST_Controller::handle_funnel_report( $request )->get_data();
+
+	is_same( true, $body['success'] );
+	$steps = array_column( $body['steps'], null, 'step' );
+	is_same( 80, $steps['view_item']['count'] );
+	is_same( 25.0, $steps['add_to_cart']['of_first_pc'] );
+} );
+
+test( 'route: the explorer answers over REST', function () {
+	BAP_Local_Store::record( bap_event( array( 'event_type' => 'search', 'data' => array( 'query' => 'کرم دست' ) ) ) );
+
+	$body = BAP_REST_Controller::handle_explore( new WP_REST_Request( array( 'range' => 'last_7_days' ) ) )->get_data();
+
+	is_same( true, $body['success'] );
+	is_same( 1, $body['stored_events'] );
+	is_same( 'کرم دست', $body['searches'][0]['term'] );
+} );
+
+test( 'admin: the screens that only proxied a collector are gone', function () {
+	$source = file_get_contents( BAP_PLUGIN_DIR . 'includes/admin/class-bap-admin.php' );
+
+	ok( ! str_contains( $source, 'EXPERIENCE_SLUG' ), 'the experience screen is merged into the funnel screen' );
+	ok( ! str_contains( $source, 'JOURNEYS_SLUG' ), 'the journeys screen is merged into the explorer' );
+	ok( str_contains( $source, 'EXPLORER_SLUG' ), 'and the explorer replaces them' );
+
+	$studio = file_get_contents( BAP_PLUGIN_DIR . 'includes/admin/class-bap-studio-page.php' );
+	ok( ! str_contains( $studio, 'render_experience' ) );
+	ok( ! str_contains( $studio, 'render_journeys' ) );
+} );
+
 run_tests();
