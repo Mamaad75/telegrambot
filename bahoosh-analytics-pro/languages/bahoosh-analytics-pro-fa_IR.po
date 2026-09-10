@@ -1,0 +1,181 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Bahoosh Analytics Pro 2.1.0\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: fa_IR\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#: includes/admin/
+msgid "Bahoosh Analytics"
+msgstr "دستیار باهوش"
+
+#: includes/admin/
+msgid "Your analytics dashboard"
+msgstr "داشبورد دستیار باهوش"
+
+#: includes/admin/
+msgid "Total events"
+msgstr "همه‌ی رویدادها"
+
+#: includes/admin/
+msgid "Unique users"
+msgstr "کاربران یکتا"
+
+#: includes/admin/
+msgid "Sessions"
+msgstr "نشست‌ها"
+
+#: includes/admin/
+msgid "Realtime users"
+msgstr "کاربران فعال"
+
+#: includes/admin/
+msgid "Page views"
+msgstr "بازدید صفحات"
+
+#: includes/admin/
+msgid "Searches"
+msgstr "جستجوها"
+
+#: includes/admin/
+msgid "Conversions"
+msgstr "تبدیل‌ها"
+
+#: includes/admin/
+msgid "Revenue"
+msgstr "درآمد"
+
+#: includes/admin/
+msgid "Conversion rate"
+msgstr "نرخ تبدیل"
+
+#: includes/admin/
+msgid "Top pages"
+msgstr "برترین صفحات"
+
+#: includes/admin/
+msgid "Traffic sources"
+msgstr "منابع ترافیک"
+
+#: includes/admin/
+msgid "Devices"
+msgstr "دستگاه‌ها"
+
+#: includes/admin/
+msgid "Countries"
+msgstr "کشورها"
+
+#: includes/admin/
+msgid "Date range"
+msgstr "بازه زمانی"
+
+#: includes/admin/
+msgid "Refresh"
+msgstr "به‌روزرسانی"
+
+#: includes/admin/
+msgid "Loading…"
+msgstr "در حال بارگذاری…"
+
+#: includes/admin/
+msgid "Plugin status"
+msgstr "وضعیت افزونه"
+
+#: includes/admin/
+msgid "Site ID"
+msgstr "شناسه سایت"
+
+#: includes/admin/
+msgid "Collector URL"
+msgstr "آدرس سرویس"
+
+#: includes/admin/
+msgid "Transport mode"
+msgstr "حالت ارسال"
+
+#: includes/admin/
+msgid "Through WordPress (secure)"
+msgstr "از طریق وردپرس (امن)"
+
+#: includes/admin/
+msgid "Direct from the browser"
+msgstr "ارسال مستقیم از مرورگر"
+
+#: includes/admin/
+msgid "Server-side event queue"
+msgstr "صف رویدادهای سرور"
+
+#: includes/admin/
+msgid "Pending: %1$d — sending: %2$d — failed: %3$d"
+msgstr "در انتظار: %1$d — در حال ارسال: %2$d — ناموفق: %3$d"
+
+#: includes/admin/
+msgid "Status"
+msgstr "وضعیت"
+
+#: includes/admin/
+msgid "Active"
+msgstr "فعال"
+
+#: includes/admin/
+msgid "Not configured"
+msgstr "پیکربندی نشده"
+
+#: includes/admin/
+msgid "Settings"
+msgstr "تنظیمات"
+
+#: includes/admin/
+msgid "Dashboard"
+msgstr "داشبورد"
+
+#: includes/admin/
+msgid "Diagnostics"
+msgstr "عیب‌یابی"
+
+#: includes/admin/
+msgid "Today"
+msgstr "امروز"
+
+#: includes/admin/
+msgid "Yesterday"
+msgstr "دیروز"
+
+#: includes/admin/
+msgid "Last 7 days"
+msgstr "۷ روز گذشته"
+
+#: includes/admin/
+msgid "Last 30 days"
+msgstr "۳۰ روز گذشته"
+
+#: includes/admin/
+msgid "Last 90 days"
+msgstr "۹۰ روز گذشته"
+
+#: includes/admin/
+msgid "Custom range"
+msgstr "بازه دلخواه"
+
+#: includes/admin/
+msgid "No data for this period."
+msgstr "داده‌ای برای این بازه وجود ندارد."
+
+#: includes/admin/
+msgid "Could not load analytics data."
+msgstr "بارگذاری داده‌های تحلیلی ممکن نشد."
+
+#: includes/admin/
+msgid "OK"
+msgstr "سالم"
+
+#: includes/admin/
+msgid "Review"
+msgstr "بررسی شود"
+
+#: includes/admin/
+msgid "Action needed"
+msgstr "نیازمند اقدام"
+

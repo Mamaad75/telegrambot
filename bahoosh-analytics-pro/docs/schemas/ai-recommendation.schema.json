@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bahoosh.ai/schemas/v4/ai-recommendation.schema.json",
+  "title": "Bahoosh AI Recommendation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "title", "summary", "priority", "confidence", "evidence", "created_at", "model_run_id"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^rec_[A-Za-z0-9_-]{6,80}$" },
+    "title": { "type": "string", "minLength": 1, "maxLength": 180 },
+    "summary": { "type": "string", "maxLength": 1200 },
+    "rationale": { "type": "string", "maxLength": 2400 },
+    "priority": { "enum": ["critical", "high", "medium", "low"] },
+    "confidence": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "impact": { "type": "string", "maxLength": 500 },
+    "evidence": {
+      "type": "array",
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^fact_[A-Za-z0-9_-]{3,100}$" }
+    },
+    "action": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "payload"],
+          "properties": {
+            "type": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{2,100}$" },
+            "version": { "type": "integer", "minimum": 1, "default": 1 },
+            "payload": { "type": "object" }
+          }
+        }
+      ]
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "model_run_id": { "type": "string", "minLength": 6, "maxLength": 100 }
+  }
+}

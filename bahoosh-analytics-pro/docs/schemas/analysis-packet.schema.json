@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bahoosh.ai/schemas/v4/analysis-packet.schema.json",
+  "title": "Bahoosh AI Analysis Packet",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "site_id", "run_id", "period", "focus", "data_quality", "facts"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "site_id": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "run_id": { "type": "string", "minLength": 6, "maxLength": 100 },
+    "focus": { "enum": ["growth", "conversion", "ux", "retention", "revenue", "performance"] },
+    "period": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from", "to"],
+      "properties": {
+        "from": { "type": "string", "format": "date-time" },
+        "to": { "type": "string", "format": "date-time" },
+        "comparison_from": { "type": ["string", "null"], "format": "date-time" },
+        "comparison_to": { "type": ["string", "null"], "format": "date-time" }
+      }
+    },
+    "goals": {
+      "type": "array",
+      "maxItems": 20,
+      "items": { "type": "string", "maxLength": 300 }
+    },
+    "data_quality": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["score", "warnings"],
+      "properties": {
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "warnings": { "type": "array", "maxItems": 30, "items": { "type": "string", "maxLength": 500 } }
+      }
+    },
+    "facts": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "label", "value", "sample_size"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^fact_[A-Za-z0-9_-]{3,100}$" },
+          "kind": { "type": "string", "maxLength": 80 },
+          "label": { "type": "string", "maxLength": 240 },
+          "value": {},
+          "previous_value": {},
+          "delta_percent": { "type": ["number", "null"] },
+          "sample_size": { "type": "integer", "minimum": 0 },
+          "dimensions": { "type": "object", "additionalProperties": { "type": ["string", "number", "boolean", "null"] } },
+          "notes": { "type": "array", "maxItems": 10, "items": { "type": "string", "maxLength": 500 } }
+        }
+      }
+    }
+  }
+}

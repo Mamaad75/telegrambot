@@ -1,0 +1,271 @@
+<?php
+/**
+ * Advanced analytics workspace screens.
+ *
+ * @package Bahoosh_Analytics_Pro
+ */
+
+defined( 'ABSPATH' ) || exit;
+
+/**
+ * Renders the Experience, Funnels, Journeys and AI shells.
+ *
+ * Data is hydrated through authenticated REST calls so wp-admin HTML stays
+ * small and the ASP.NET backend remains the analytics compute plane.
+ */
+class BAP_Studio_Page {
+
+	/** Common header/navigation for workspace pages. */
+	private static function header( $title, $subtitle, $active ) {
+		$slugs = array(
+			'experience' => BAP_Admin::EXPERIENCE_SLUG,
+			'funnels'    => BAP_Admin::FUNNELS_SLUG,
+			'journeys'   => BAP_Admin::JOURNEYS_SLUG,
+			'ai'         => BAP_Admin::AI_SLUG,
+		);
+		BAP_Admin::render_page_header(
+			$title,
+			$subtitle,
+			isset( $slugs[ $active ] ) ? $slugs[ $active ] : BAP_Admin::MENU_SLUG,
+			__( 'فضای هوشمند باهوش', 'bahoosh-analytics-pro' )
+		);
+	}
+
+	/** Renders Experience Intelligence. */
+	public static function render_experience() {
+		self::guard();
+		?>
+		<div class="wrap bap-wrap bap-studio" data-bap-screen="experience">
+			<?php self::header( __( 'هوش تجربه کاربری', 'bahoosh-analytics-pro' ), __( 'اصطکاک، تعاملات خراب و مشکلات عملکرد را قبل از آسیب به نرخ تبدیل پیدا کنید.', 'bahoosh-analytics-pro' ), 'experience' ); ?>
+			<div class="bap-toolbar bap-toolbar--glass">
+				<select id="bap-studio-range"><option value="last_7_days"><?php esc_html_e( '۷ روز گذشته', 'bahoosh-analytics-pro' ); ?></option><option value="last_30_days"><?php esc_html_e( '۳۰ روز گذشته', 'bahoosh-analytics-pro' ); ?></option></select>
+				<input type="url" id="bap-experience-url" placeholder="<?php esc_attr_e( 'فیلتر بر اساس آدرس صفحه (اختیاری)', 'bahoosh-analytics-pro' ); ?>" />
+				<select id="bap-experience-device"><option value=""><?php esc_html_e( 'همه دستگاه‌ها', 'bahoosh-analytics-pro' ); ?></option><option value="desktop">دسکتاپ</option><option value="mobile">موبایل</option><option value="tablet">تبلت</option></select>
+				<button type="button" class="button button-primary bap-primary" data-bap-load><?php esc_html_e( 'تحلیل تجربه کاربری', 'bahoosh-analytics-pro' ); ?></button>
+				<span class="bap-status" data-bap-status></span>
+			</div>
+
+			<div class="bap-grid bap-grid--metrics">
+				<?php foreach ( array( 'rage_clicks' => 'کلیک‌های عصبی', 'dead_clicks' => 'کلیک‌های بی‌اثر', 'js_errors' => 'خطاهای جاوااسکریپت', 'poor_vitals' => 'Web Vitals ضعیف' ) as $key => $label ) : ?>
+					<div class="bap-card bap-card--metric"><span><?php echo esc_html( $label ); ?></span><strong data-experience-metric="<?php echo esc_attr( $key ); ?>">—</strong></div>
+				<?php endforeach; ?>
+			</div>
+
+			<div class="bap-layout-2-1">
+				<section class="bap-section">
+					<div class="bap-section-title"><div><span class="bap-kicker">نقشه تعامل</span><h2><?php esc_html_e( 'تراکم کلیک', 'bahoosh-analytics-pro' ); ?></h2></div><span class="bap-pill">مختصات نرمال‌شده</span></div>
+					<div id="bap-heatmap" class="bap-heatmap"><div class="bap-empty-state"><?php esc_html_e( 'یک بازه انتخاب کنید تا نقاط تعامل از بک‌اند دریافت شوند.', 'bahoosh-analytics-pro' ); ?></div></div>
+				</section>
+				<section class="bap-section">
+					<div class="bap-section-title"><h2><?php esc_html_e( 'مهم‌ترین مشکلات تجربه کاربری', 'bahoosh-analytics-pro' ); ?></h2></div>
+					<div id="bap-issues" class="bap-issue-list"><div class="bap-empty-state">—</div></div>
+				</section>
+			</div>
+		</div>
+		<?php
+	}
+
+	/** Renders the no-code funnel builder. */
+	public static function render_funnels() {
+		self::guard();
+		?>
+		<div class="wrap bap-wrap bap-studio" data-bap-screen="funnels">
+			<?php self::header( __( 'قیف‌های بدون کدنویسی', 'bahoosh-analytics-pro' ), __( 'از رویدادهای ثبت‌شده قیف تبدیل بسازید تا بک‌اند ریزش هر مرحله را محاسبه کند.', 'bahoosh-analytics-pro' ), 'funnels' ); ?>
+			<div class="bap-layout-1-1">
+				<section class="bap-section bap-builder">
+					<div class="bap-section-title"><div><span class="bap-kicker">سازنده</span><h2><?php esc_html_e( 'ساخت قیف', 'bahoosh-analytics-pro' ); ?></h2></div></div>
+					<label class="bap-field"><span><?php esc_html_e( 'نام قیف', 'bahoosh-analytics-pro' ); ?></span><input type="text" id="bap-funnel-name" placeholder="تبدیل خرید" /></label>
+					<div id="bap-funnel-steps" class="bap-funnel-steps"></div>
+					<div class="bap-actions"><button type="button" class="button" id="bap-add-step"><?php esc_html_e( '+ افزودن مرحله', 'bahoosh-analytics-pro' ); ?></button><button type="button" class="button button-primary bap-primary" id="bap-save-funnel"><?php esc_html_e( 'ذخیره قیف', 'bahoosh-analytics-pro' ); ?></button></div>
+					<p class="bap-muted" data-bap-status></p>
+				</section>
+				<section class="bap-section">
+					<div class="bap-section-title"><h2><?php esc_html_e( 'قیف‌های ذخیره‌شده', 'bahoosh-analytics-pro' ); ?></h2></div>
+					<div id="bap-funnel-list" class="bap-funnel-list"></div>
+				</section>
+			</div>
+			<section class="bap-section">
+				<div class="bap-section-title"><div><span class="bap-kicker">گزارش تبدیل</span><h2 id="bap-funnel-report-title"><?php esc_html_e( 'یک قیف انتخاب کنید', 'bahoosh-analytics-pro' ); ?></h2></div><select id="bap-funnel-range"><option value="last_7_days"><?php esc_html_e( '۷ روز گذشته', 'bahoosh-analytics-pro' ); ?></option><option value="last_30_days"><?php esc_html_e( '۳۰ روز گذشته', 'bahoosh-analytics-pro' ); ?></option></select></div>
+				<div id="bap-funnel-report" class="bap-funnel-report"><div class="bap-empty-state"><?php esc_html_e( 'بک‌اند ASP.NET تعداد هر مرحله، نرخ تبدیل و زمان میانه را برمی‌گرداند.', 'bahoosh-analytics-pro' ); ?></div></div>
+			</section>
+		</div>
+		<?php
+	}
+
+	/** Renders path/journey exploration. */
+	public static function render_journeys() {
+		self::guard();
+		?>
+		<div class="wrap bap-wrap bap-studio" data-bap-screen="journeys">
+			<?php self::header( __( 'مسیر سفر کاربر', 'bahoosh-analytics-pro' ), __( 'مسیر کاربران پیش از تبدیل، خروج یا بروز اصطکاک را بررسی کنید.', 'bahoosh-analytics-pro' ), 'journeys' ); ?>
+			<div class="bap-toolbar bap-toolbar--glass">
+				<select id="bap-studio-range"><option value="last_7_days"><?php esc_html_e( '۷ روز گذشته', 'bahoosh-analytics-pro' ); ?></option><option value="last_30_days"><?php esc_html_e( '۳۰ روز گذشته', 'bahoosh-analytics-pro' ); ?></option></select>
+				<input type="text" id="bap-journey-entry" placeholder="<?php esc_attr_e( 'مسیر ورود؛ مثل /pricing/', 'bahoosh-analytics-pro' ); ?>" />
+				<input type="text" id="bap-journey-conversion" placeholder="purchase (خرید)" />
+				<button type="button" class="button button-primary bap-primary" data-bap-load><?php esc_html_e( 'بررسی مسیرها', 'bahoosh-analytics-pro' ); ?></button>
+				<span class="bap-status" data-bap-status></span>
+			</div>
+			<section class="bap-section">
+				<div class="bap-section-title"><div><span class="bap-kicker">تحلیل مسیر</span><h2><?php esc_html_e( 'مسیرهای برتر', 'bahoosh-analytics-pro' ); ?></h2></div></div>
+				<div id="bap-journeys" class="bap-journey-list"><div class="bap-empty-state"><?php esc_html_e( 'توالی مسیرهای کاربران اینجا نمایش داده می‌شود.', 'bahoosh-analytics-pro' ); ?></div></div>
+			</section>
+		</div>
+		<?php
+	}
+
+	/** Renders AI Center. */
+	public static function render_ai() {
+		self::guard();
+		$recommendations = BAP_AI::recommendations();
+		$provider        = BAP_AI_Provider::current();
+		$agent_mode      = BAP_Commerce_Agent::mode();
+		$ga4             = BAP_GA4::status();
+		$clarity         = BAP_Clarity::status();
+		$provider_labels = array(
+			'llama'             => __( 'لامای محلی', 'bahoosh-analytics-pro' ),
+			'openai_compatible' => __( 'سرویس سازگار با OpenAI', 'bahoosh-analytics-pro' ),
+			'local'             => __( 'موتور قانون‌محور', 'bahoosh-analytics-pro' ),
+		);
+		$agent_labels    = array(
+			'off'      => __( 'خاموش', 'bahoosh-analytics-pro' ),
+			'approval' => __( 'با تأیید شما', 'bahoosh-analytics-pro' ),
+			'auto'     => __( 'خودکار', 'bahoosh-analytics-pro' ),
+		);
+		$counts          = array( 'pending' => 0, 'applied' => 0, 'rejected' => 0, 'failed' => 0 );
+		foreach ( $recommendations as $recommendation ) {
+			$status = isset( $recommendation['status'] ) ? $recommendation['status'] : 'pending';
+			if ( isset( $counts[ $status ] ) ) {
+				$counts[ $status ]++;
+			}
+		}
+		$mode = BAP_Settings::get( 'ai_autonomy' );
+		$mode_labels = array(
+			'insights'  => __( 'فقط بینش', 'bahoosh-analytics-pro' ),
+			'approval'  => __( 'نیازمند تأیید', 'bahoosh-analytics-pro' ),
+			'safe_auto' => __( 'اجرای خودکار امن', 'bahoosh-analytics-pro' ),
+		);
+		?>
+		<div class="wrap bap-wrap bap-studio" data-bap-screen="ai">
+			<?php self::header( __( 'مرکز هوش مصنوعی باهوش', 'bahoosh-analytics-pro' ), __( 'تحلیل داده‌های واقعی سایت، کشف فرصت‌ها و تبدیل بینش به اقدام کنترل‌شده و قابل ممیزی.', 'bahoosh-analytics-pro' ), 'ai' ); ?>
+
+			<div class="bap-grid bap-grid--ai-summary">
+				<div class="bap-card"><h3><?php esc_html_e( 'کل پیشنهادها', 'bahoosh-analytics-pro' ); ?></h3><div class="bap-value" id="bap-ai-total-count"><?php echo esc_html( count( $recommendations ) ); ?></div></div>
+				<div class="bap-card"><h3><?php esc_html_e( 'در انتظار بررسی', 'bahoosh-analytics-pro' ); ?></h3><div class="bap-value" id="bap-ai-pending-count"><?php echo esc_html( $counts['pending'] ); ?></div></div>
+				<div class="bap-card"><h3><?php esc_html_e( 'اجراشده', 'bahoosh-analytics-pro' ); ?></h3><div class="bap-value" id="bap-ai-applied-count"><?php echo esc_html( $counts['applied'] ); ?></div></div>
+				<div class="bap-card"><h3><?php esc_html_e( 'حالت کنترل', 'bahoosh-analytics-pro' ); ?></h3><div class="bap-value bap-value--text"><?php echo esc_html( isset( $mode_labels[ $mode ] ) ? $mode_labels[ $mode ] : $mode_labels['approval'] ); ?></div></div>
+			</div>
+
+			<section class="bap-section bap-ai-guide">
+				<div class="bap-section-title"><div><span class="bap-kicker"><?php esc_html_e( 'روش کار', 'bahoosh-analytics-pro' ); ?></span><h2><?php esc_html_e( 'هوش مصنوعی باهوش دقیقاً چه می‌کند؟', 'bahoosh-analytics-pro' ); ?></h2></div></div>
+				<div class="bap-ai-flow" aria-label="<?php esc_attr_e( 'جریان داده هوش مصنوعی', 'bahoosh-analytics-pro' ); ?>">
+					<div><strong>۱</strong><span><?php esc_html_e( 'خواندن سفارش‌های ووکامرس و رفتار ثبت‌شده', 'bahoosh-analytics-pro' ); ?></span></div><i>←</i>
+					<div><strong>۲</strong><span><?php esc_html_e( 'محاسبه Factها در همین افزونه، بدون هیچ داده شخصی', 'bahoosh-analytics-pro' ); ?></span></div><i>←</i>
+					<div><strong>۳</strong><span><?php esc_html_e( 'ارسال فقط همان اعداد به مدل', 'bahoosh-analytics-pro' ); ?></span></div><i>←</i>
+					<div><strong>۴</strong><span><?php esc_html_e( 'دور ریختن هر پیشنهادی که شواهدش جعلی باشد', 'bahoosh-analytics-pro' ); ?></span></div><i>←</i>
+					<div><strong>۵</strong><span><?php esc_html_e( 'پیشنهاد، و در صورت اجازه شما، اقدام روی فروشگاه', 'bahoosh-analytics-pro' ); ?></span></div>
+				</div>
+				<div class="bap-ai-howto">
+					<div><strong>۱.</strong><span><?php esc_html_e( 'موضوع تحلیل و بازه زمانی را انتخاب کنید.', 'bahoosh-analytics-pro' ); ?></span></div>
+					<div><strong>۲.</strong><span><?php esc_html_e( 'روی «اجرای تحلیل هوش مصنوعی» بزنید؛ همه محاسبه‌ها روی همین سرور انجام می‌شود.', 'bahoosh-analytics-pro' ); ?></span></div>
+					<div><strong>۳.</strong><span><?php esc_html_e( 'اثر احتمالی، شواهد، اولویت و میزان اطمینان هر پیشنهاد را بررسی کنید.', 'bahoosh-analytics-pro' ); ?></span></div>
+					<div><strong>۴.</strong><span><?php esc_html_e( 'پیشنهاد را تأیید یا رد کنید؛ فقط Actionهای ثبت‌شده امکان اجرا دارند.', 'bahoosh-analytics-pro' ); ?></span></div>
+				</div>
+				<p class="bap-muted"><?php esc_html_e( 'هر عددی که در پیشنهادها می‌بینید را خود افزونه حساب کرده است. کار مدل تفسیر آن اعداد است، نه ساختنشان؛ اگر پیشنهادی به شواهدی اشاره کند که وجود ندارد، پیش از رسیدن به این صفحه حذف می‌شود.', 'bahoosh-analytics-pro' ); ?></p>
+			</section>
+
+			<div class="bap-toolbar bap-toolbar--glass bap-ai-runbar">
+				<label class="bap-toolbar-field"><span><?php esc_html_e( 'تمرکز تحلیل', 'bahoosh-analytics-pro' ); ?></span><select id="bap-ai-focus"><option value="growth">رشد</option><option value="conversion">تبدیل</option><option value="ux">تجربه کاربری</option><option value="retention">بازگشت کاربران</option><option value="revenue">درآمد</option><option value="performance">عملکرد</option></select></label>
+				<label class="bap-toolbar-field"><span><?php esc_html_e( 'بازه زمانی', 'bahoosh-analytics-pro' ); ?></span><select id="bap-ai-range"><option value="last_7_days"><?php esc_html_e( '۷ روز گذشته', 'bahoosh-analytics-pro' ); ?></option><option value="last_30_days"><?php esc_html_e( '۳۰ روز گذشته', 'bahoosh-analytics-pro' ); ?></option></select></label>
+				<button type="button" class="button button-primary bap-primary" id="bap-run-ai"><?php esc_html_e( 'اجرای تحلیل هوش مصنوعی', 'bahoosh-analytics-pro' ); ?></button>
+				<button type="button" class="button" id="bap-refresh-ai"><?php esc_html_e( 'به‌روزرسانی پیشنهادها', 'bahoosh-analytics-pro' ); ?></button>
+				<span class="bap-status" data-bap-status></span>
+			</div>
+
+			<div class="bap-layout-2-1">
+				<section class="bap-section">
+					<div class="bap-section-title"><div><span class="bap-kicker"><?php esc_html_e( 'تحلیل‌گر هوشمند', 'bahoosh-analytics-pro' ); ?></span><h2><?php esc_html_e( 'پیشنهادهای قابل بررسی', 'bahoosh-analytics-pro' ); ?></h2></div></div>
+					<div id="bap-ai-recommendations" class="bap-ai-list"></div>
+				</section>
+				<aside>
+					<section class="bap-section bap-ai-policy">
+						<span class="bap-kicker"><?php esc_html_e( 'سیاست اجرا', 'bahoosh-analytics-pro' ); ?></span>
+						<h2><?php echo esc_html( isset( $mode_labels[ $mode ] ) ? $mode_labels[ $mode ] : $mode_labels['approval'] ); ?></h2>
+						<p><?php esc_html_e( 'در حالت «فقط بینش» هیچ Actionی اجرا نمی‌شود. در حالت «نیازمند تأیید» اجرا فقط با تصمیم ادمین انجام می‌شود. اجرای خودکار امن نیز فقط برای Actionهای Allowlist و بالاتر از حد اطمینان مجاز است.', 'bahoosh-analytics-pro' ); ?></p>
+						<div class="bap-policy-row"><span><?php esc_html_e( 'حداقل اطمینان خودکار', 'bahoosh-analytics-pro' ); ?></span><strong><?php echo esc_html( (int) BAP_Settings::get( 'ai_min_confidence', 80 ) ); ?>%</strong></div>
+					</section>
+					<section class="bap-section">
+						<div class="bap-section-title"><div><span class="bap-kicker"><?php esc_html_e( 'اقدامات مجاز', 'bahoosh-analytics-pro' ); ?></span><h2><?php esc_html_e( 'AI الان چه کارهایی می‌تواند انجام دهد؟', 'bahoosh-analytics-pro' ); ?></h2></div></div>
+						<div class="bap-ai-capabilities">
+							<?php foreach ( BAP_AI::action_catalog() as $type => $definition ) : ?>
+								<div class="bap-ai-capability"><strong><?php echo esc_html( $definition['label'] ); ?></strong><p><?php echo esc_html( $definition['description'] ); ?></p><code><?php echo esc_html( $type ); ?></code></div>
+							<?php endforeach; ?>
+						</div>
+					</section>
+					<section class="bap-section">
+						<span class="bap-kicker"><?php esc_html_e( 'منابع داده', 'bahoosh-analytics-pro' ); ?></span>
+						<h2><?php esc_html_e( 'این تحلیل از کجا می‌آید؟', 'bahoosh-analytics-pro' ); ?></h2>
+						<div class="bap-policy-row">
+							<span><?php esc_html_e( 'مدل', 'bahoosh-analytics-pro' ); ?></span>
+							<strong><?php echo esc_html( $provider_labels[ $provider ] ?? $provider ); ?></strong>
+						</div>
+						<div class="bap-policy-row">
+							<span><?php esc_html_e( 'ووکامرس', 'bahoosh-analytics-pro' ); ?></span>
+							<strong><?php echo BAP_Commerce_Facts::available() ? esc_html__( 'متصل', 'bahoosh-analytics-pro' ) : esc_html__( 'غیرفعال', 'bahoosh-analytics-pro' ); ?></strong>
+						</div>
+						<div class="bap-policy-row">
+							<span><?php esc_html_e( 'گوگل آنالیتیکس ۴', 'bahoosh-analytics-pro' ); ?></span>
+							<strong><?php echo $ga4['connected'] ? esc_html__( 'متصل', 'bahoosh-analytics-pro' ) : esc_html__( 'متصل نیست', 'bahoosh-analytics-pro' ); ?></strong>
+						</div>
+						<div class="bap-policy-row">
+							<span><?php esc_html_e( 'مایکروسافت کلاریتی', 'bahoosh-analytics-pro' ); ?></span>
+							<strong><?php echo $clarity['connected'] ? esc_html__( 'متصل', 'bahoosh-analytics-pro' ) : esc_html__( 'متصل نیست', 'bahoosh-analytics-pro' ); ?></strong>
+						</div>
+						<div class="bap-policy-row">
+							<span><?php esc_html_e( 'ایجنت فروشگاه', 'bahoosh-analytics-pro' ); ?></span>
+							<strong><?php echo esc_html( $agent_labels[ $agent_mode ] ?? $agent_mode ); ?></strong>
+						</div>
+						<?php if ( ! $ga4['connected'] || ! $clarity['connected'] ) : ?>
+							<p class="bap-muted"><?php esc_html_e( 'اتصال گوگل آنالیتیکس و کلاریتی اختیاری است. گوگل آنالیتیکس تاریخچه پیش از نصب افزونه را اضافه می‌کند و کلاریتی دلیل فنی رها کردن خرید را نشان می‌دهد.', 'bahoosh-analytics-pro' ); ?>
+							<a href="<?php echo esc_url( admin_url( 'admin.php?page=' . BAP_Admin::SETTINGS_SLUG ) ); ?>"><?php esc_html_e( 'تنظیم اتصال', 'bahoosh-analytics-pro' ); ?></a></p>
+						<?php endif; ?>
+					</section>
+				</aside>
+			</div>
+
+			<div class="bap-layout-1-1 bap-ai-artifacts">
+				<section class="bap-section">
+					<div class="bap-section-title"><div><span class="bap-kicker"><?php esc_html_e( 'خروجی اجرا', 'bahoosh-analytics-pro' ); ?></span><h2><?php esc_html_e( 'هشدارهای ساخته‌شده', 'bahoosh-analytics-pro' ); ?></h2></div></div>
+					<div id="bap-ai-alerts" class="bap-ai-artifact-list"><div class="bap-empty-state"><?php esc_html_e( 'هنوز هشداری توسط هوش مصنوعی ساخته نشده است.', 'bahoosh-analytics-pro' ); ?></div></div>
+				</section>
+				<section class="bap-section">
+					<div class="bap-section-title"><div><span class="bap-kicker"><?php esc_html_e( 'خروجی اجرا', 'bahoosh-analytics-pro' ); ?></span><h2><?php esc_html_e( 'یادداشت‌های خط زمانی', 'bahoosh-analytics-pro' ); ?></h2></div></div>
+					<div id="bap-ai-annotations" class="bap-ai-artifact-list"><div class="bap-empty-state"><?php esc_html_e( 'هنوز یادداشتی توسط هوش مصنوعی ثبت نشده است.', 'bahoosh-analytics-pro' ); ?></div></div>
+				</section>
+			</div>
+
+			<section class="bap-section">
+				<div class="bap-section-title"><div><span class="bap-kicker"><?php esc_html_e( 'ایجنت فروشگاه', 'bahoosh-analytics-pro' ); ?></span><h2><?php esc_html_e( 'تغییراتی که روی ووکامرس اعمال شده', 'bahoosh-analytics-pro' ); ?></h2></div></div>
+				<div id="bap-agent-log" class="bap-ai-artifact-list"><div class="bap-empty-state"><?php echo 'off' === $agent_mode ? esc_html__( 'ایجنت خاموش است؛ هیچ تغییری روی فروشگاه انجام نمی‌شود.', 'bahoosh-analytics-pro' ) : esc_html__( 'هنوز تغییری روی فروشگاه اعمال نشده است.', 'bahoosh-analytics-pro' ); ?></div></div>
+				<p class="bap-muted"><?php esc_html_e( 'هر تغییر تاریخ پایان دارد و دکمه «بازگرداندن» دقیقاً همان چیزی را که پیش از تغییر وجود داشت برمی‌گرداند. قیمت اصلی محصول هیچ‌وقت دست‌کاری نمی‌شود.', 'bahoosh-analytics-pro' ); ?></p>
+			</section>
+
+			<section class="bap-section">
+				<div class="bap-section-title"><div><span class="bap-kicker"><?php esc_html_e( 'شواهد', 'bahoosh-analytics-pro' ); ?></span><h2><?php esc_html_e( 'اعدادی که مدل دید', 'bahoosh-analytics-pro' ); ?></h2></div></div>
+				<div id="bap-ai-facts" class="bap-ai-artifact-list"><div class="bap-empty-state"><?php esc_html_e( 'پس از اجرای تحلیل، تمام Factهایی که به مدل داده شده اینجا نمایش داده می‌شود تا بتوانید هر پیشنهاد را با داده خودتان بسنجید.', 'bahoosh-analytics-pro' ); ?></div></div>
+			</section>
+
+			<section class="bap-section">
+				<div class="bap-section-title"><div><span class="bap-kicker"><?php esc_html_e( 'ممیزی', 'bahoosh-analytics-pro' ); ?></span><h2><?php esc_html_e( 'آخرین فعالیت‌های هوش مصنوعی', 'bahoosh-analytics-pro' ); ?></h2></div></div>
+				<div id="bap-ai-audit" class="bap-ai-audit"><div class="bap-empty-state"><?php esc_html_e( 'پس از تحلیل، دریافت پیشنهاد یا اجرای Action، سوابق اینجا نمایش داده می‌شود.', 'bahoosh-analytics-pro' ); ?></div></div>
+			</section>
+		</div>
+		<?php
+	}
+
+	/** Permission gate shared by all reports. */
+	private static function guard() {
+		if ( ! current_user_can( BAP_Admin::reports_capability() ) ) {
+			wp_die( esc_html__( 'اجازه مشاهده این صفحه را ندارید.', 'bahoosh-analytics-pro' ) );
+		}
+	}
+}
