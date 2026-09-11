@@ -1662,7 +1662,10 @@ test( 'product funnel: ranked by people lost, not by percentage', function () {
 test( 'dashboard: every metric card explains what it counts', function () {
 	foreach ( BAP_Dashboard_Page::cards() as $metric => $card ) {
 		ok( ! empty( $card['hint'] ), "card {$metric} must say what it counts" );
-		ok( mb_strlen( $card['hint'] ) > 30, "card {$metric} needs a real explanation, not a word" );
+		// Long enough to explain, short enough to read at a glance. The first
+		// version ran to three lines per card and became a wall of text.
+		ok( mb_strlen( $card['hint'] ) > 25, "card {$metric} needs a real explanation, not a word" );
+		ok( mb_strlen( $card['hint'] ) < 95, "card {$metric} hint is too long to scan" );
 	}
 
 	$cards = BAP_Dashboard_Page::cards();
@@ -1670,7 +1673,73 @@ test( 'dashboard: every metric card explains what it counts', function () {
 	// The three the shop owner asked about by name.
 	ok( str_contains( $cards['conversions']['hint'], 'ووکامرس' ), 'conversions names its source' );
 	ok( str_contains( $cards['revenue']['hint'], 'مرجوعی' ), 'revenue says what it excludes' );
-	ok( str_contains( $cards['conversion_rate']['hint'], 'تقسیم بر' ), 'the rate shows its arithmetic' );
+	ok( str_contains( $cards['conversion_rate']['hint'], '÷' ), 'the rate shows its arithmetic' );
+} );
+
+test( 'ios: the exit flush beacons synchronously, before touching storage', function () {
+	// The iPhone bug in one assertion. `flushWithBeacon` runs inside `pagehide`,
+	// and on iOS the page freezes when that handler returns — a promise callback
+	// scheduled inside it never runs. Any storage read before the first
+	// `sendBeacon` call means nothing is ever sent from an iPhone.
+	$source = file_get_contents( BAP_PLUGIN_DIR . 'assets/js/core/11-queue-manager.js' );
+	$start  = strpos( $source, 'QueueManager.prototype.flushWithBeacon' );
+	$body   = substr( $source, $start, 1600 );
+
+	$beacon = strpos( $body, '_beaconPending()' );
+	$read   = strpos( $body, 'claimBatch' );
+
+	ok( false !== $beacon, 'the exit path beacons what it holds in memory' );
+	ok( false !== $read && $beacon < $read, 'and does so before any storage read' );
+} );
+
+test( 'ios: a wrong navigator.onLine cannot silence a real event', function () {
+	// In-app browsers on iOS report `onLine: false` on a working connection.
+	// That used to veto every send for the whole page view.
+	$source = file_get_contents( BAP_PLUGIN_DIR . 'assets/js/core/11-queue-manager.js' );
+
+	ok(
+		str_contains( $source, '!this.isOnline() && "interval" === options.reason' ),
+		'the offline flag is trusted only for the background timer'
+	);
+} );
+
+test( 'ios: the tracker bundle is rebuilt from the modules it ships', function () {
+	// The bundle is the file browsers load. It was gitignored and could drift
+	// from assets/js/core/ with nothing to catch it.
+	$bundle = file_get_contents( BAP_PLUGIN_DIR . 'assets/js/dist/bahoosh-tracker.js' );
+
+	ok( str_contains( $bundle, '_beaconPending' ), 'the iOS exit fix is in the shipped file' );
+	ok( str_contains( $bundle, 'IDB_OPEN_TIMEOUT_MS' ), 'and so is the IndexedDB timeout' );
+	ok( str_contains( $bundle, 'attachOnScreenDebug' ), 'and the on-screen diagnostic' );
+} );
+
+test( 'dashboard: a conversion rate is rendered as a percentage, not multiplied again', function () {
+	$source = file_get_contents( BAP_PLUGIN_DIR . 'assets/admin/admin.js' );
+
+	// 7.69 must render as 7.7٪, not 769%. The old formatter multiplied an
+	// already-percentage value by 100.
+	ok( ! str_contains( $source, 'value * 1000' ), 'the double multiplication is gone' );
+	ok( str_contains( $source, 'Math.round(Number(value) * 10) / 10' ) );
+} );
+
+test( 'packet: a second analysis in the same window reuses the facts', function () {
+	seed_shop();
+
+	$today = gmdate( 'Y-m-d' );
+	$first = BAP_Analysis_Packet::cached( $today, $today );
+	$again = BAP_Analysis_Packet::cached( $today, $today );
+
+	is_same( $first['facts'], $again['facts'], 'the expensive part is computed once' );
+	// But not the run id: two analyses are two analyses, and recommendation ids
+	// are derived from it.
+	ok( $first['run_id'] !== $again['run_id'], 'each run is still distinct' );
+} );
+
+test( 'outbox: a dead collector does not burn a whole cron pass', function () {
+	$source = file_get_contents( BAP_PLUGIN_DIR . 'includes/core/class-bap-outbox.php' );
+
+	ok( str_contains( $source, 'FAILURE_CUTOFF' ), 'consecutive failures end the pass' );
+	is_same( 3, BAP_Outbox::FAILURE_CUTOFF );
 } );
 
 run_tests();

@@ -1074,7 +1074,10 @@ class BAP_REST_Controller {
 			$focus = 'revenue';
 		}
 
-		$packet = BAP_Analysis_Packet::build( $range['from'], $range['to'], $focus );
+		// Cached: the facts are expensive to compute and cheap to reuse for a few
+		// minutes, and a model call is slow enough that an admin will click
+		// again while waiting.
+		$packet = BAP_Analysis_Packet::cached( $range['from'], $range['to'], $focus );
 		$result = BAP_AI_Provider::analyze( $packet );
 
 		if ( ! empty( $result['recommendations'] ) ) {

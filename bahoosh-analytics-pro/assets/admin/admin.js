@@ -38,7 +38,10 @@
   function formatValue(value, format) {
     if (value === null || value === undefined) return "--";
     if (format === "percent") {
-      return (Math.round(value * 1000) / 10).toLocaleString() + "%";
+      // The API returns a percentage already — 7.69 means 7.69%. This used to
+      // multiply by 100 again, which turned a 7.69% conversion rate into
+      // "769%" on the dashboard.
+      return (Math.round(Number(value) * 10) / 10).toLocaleString("fa-IR") + "٪";
     }
     if (format === "currency") {
       return Number(value).toLocaleString("fa-IR", { maximumFractionDigits: 2 });
@@ -418,19 +421,18 @@
   // Without it, local figures and collector figures look identical, and an
   // administrator whose collector quietly stopped answering would never know
   // they were reading a different dataset.
+  // Deliberately terse. This line sits above the numbers and is read at a
+  // glance; a paragraph explaining the data source belongs in the panel that
+  // explains the data source, not here. Only a genuine problem earns words.
   function describeSource(body, metrics) {
     var parts = [new Date().toLocaleTimeString("fa-IR")];
 
-    if (body.source === "local") {
-      parts.push(body.upstream_error ? config.i18n.localFallback : config.i18n.localSource);
+    if (body.source === "local" && body.upstream_error) {
+      parts.push(config.i18n.localFallback);
+    }
 
-      if (!metrics.total_events) {
-        parts.push(config.i18n.noLocalData);
-      } else if (body.collecting_since && config.i18n.collectingSince) {
-        var since = body.collecting_since;
-        if (window.BAPJalali) since = window.BAPJalali.formatISO(since, true);
-        parts.push(config.i18n.collectingSince.replace("%s", since));
-      }
+    if (body.source === "local" && !metrics.total_events) {
+      parts.push(config.i18n.noLocalData);
     }
 
     (metrics.notes || []).forEach(function (note) {

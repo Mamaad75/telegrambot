@@ -30,47 +30,47 @@ class BAP_Dashboard_Page {
 			'total_events'    => array(
 				'label'  => __( 'همه اتفاق‌ها', 'bahoosh-analytics-pro' ),
 				'format' => 'integer',
-				'hint'   => __( 'هر کاری که بازدیدکننده‌ها کرده‌اند: دیدن صفحه، کلیک، جست‌وجو، سبد کردن و خرید.', 'bahoosh-analytics-pro' ),
+				'hint'   => __( 'مجموع دیدن صفحه، کلیک، جست‌وجو، سبد کردن و خرید.', 'bahoosh-analytics-pro' ),
 			),
 			'unique_users'    => array(
 				'label'  => __( 'بازدیدکننده‌ها', 'bahoosh-analytics-pro' ),
 				'format' => 'integer',
-				'hint'   => __( 'تعداد مرورگرهای متمایز. یک نفر که با موبایل و لپ‌تاپ آمده، دو تا شمرده می‌شود.', 'bahoosh-analytics-pro' ),
+				'hint'   => __( 'هر مرورگر یک نفر. موبایل و لپ‌تاپِ یک نفر، دو تا شمرده می‌شود.', 'bahoosh-analytics-pro' ),
 			),
 			'sessions'        => array(
 				'label'  => __( 'دفعات مراجعه', 'bahoosh-analytics-pro' ),
 				'format' => 'integer',
-				'hint'   => __( 'هر بار که کسی به سایت سر زده. اگر نیم ساعت بی‌حرکت بماند و برگردد، مراجعه تازه حساب می‌شود.', 'bahoosh-analytics-pro' ),
+				'hint'   => __( 'هر بار سر زدن به سایت. نیم ساعت بی‌حرکتی یعنی مراجعه بعدی، تازه حساب می‌شود.', 'bahoosh-analytics-pro' ),
 			),
 			'realtime_users'  => array(
 				'label'  => __( 'همین الان در سایت', 'bahoosh-analytics-pro' ),
 				'format' => 'integer',
-				'hint'   => __( 'کسانی که در پنج دقیقه گذشته کاری در سایت کرده‌اند.', 'bahoosh-analytics-pro' ),
+				'hint'   => __( 'کسانی که در ۵ دقیقه گذشته در سایت فعال بوده‌اند.', 'bahoosh-analytics-pro' ),
 			),
 			'page_views'      => array(
 				'label'  => __( 'صفحه‌های دیده‌شده', 'bahoosh-analytics-pro' ),
 				'format' => 'integer',
-				'hint'   => __( 'مجموع دفعات باز شدن صفحه‌ها. برای دیدن اینکه کدام صفحه‌ها، به «رویدادها و صفحات» بروید.', 'bahoosh-analytics-pro' ),
+				'hint'   => __( 'مجموع دفعات باز شدن صفحه‌ها. فهرست صفحه‌ها در تب «رویدادها و صفحات».', 'bahoosh-analytics-pro' ),
 			),
 			'searches'        => array(
 				'label'  => __( 'جست‌وجو در سایت', 'bahoosh-analytics-pro' ),
 				'format' => 'integer',
-				'hint'   => __( 'دفعاتی که کسی از جعبه جست‌وجوی سایت استفاده کرده. عبارت‌هایشان در «رویدادها و صفحات» است.', 'bahoosh-analytics-pro' ),
+				'hint'   => __( 'دفعات استفاده از جست‌وجوی سایت. خودِ عبارت‌ها در تب «رویدادها و صفحات».', 'bahoosh-analytics-pro' ),
 			),
 			'conversions'     => array(
 				'label'  => __( 'سفارش‌های ثبت‌شده', 'bahoosh-analytics-pro' ),
 				'format' => 'integer',
-				'hint'   => __( 'تعداد سفارش‌های پرداخت‌شده ووکامرس در این بازه (در حال انجام و تکمیل‌شده). از خود سفارش‌ها خوانده می‌شود، نه از رویداد مرورگر، چون رویداد ممکن است مسدود یا دوباره ثبت شود.', 'bahoosh-analytics-pro' ),
+				'hint'   => __( 'سفارش‌های پرداخت‌شده ووکامرس. مستقیم از خود سفارش‌ها خوانده می‌شود.', 'bahoosh-analytics-pro' ),
 			),
 			'revenue'         => array(
 				'label'  => __( 'مبلغ فروش', 'bahoosh-analytics-pro' ),
 				'format' => 'currency',
-				'hint'   => __( 'جمع مبلغ کل همان سفارش‌ها — همان عددی که در صفحه سفارش‌های ووکامرس می‌بینید. مرجوعی‌ها از آن کم نمی‌شود.', 'bahoosh-analytics-pro' ),
+				'hint'   => __( 'جمع مبلغ همان سفارش‌ها. مرجوعی‌ها کم نمی‌شود.', 'bahoosh-analytics-pro' ),
 			),
 			'conversion_rate' => array(
 				'label'  => __( 'چند درصد خریدند', 'bahoosh-analytics-pro' ),
 				'format' => 'percent',
-				'hint'   => __( 'سفارش‌ها تقسیم بر دفعات مراجعه. سفارش تلفنی یا سفارشی که مرورگرش رهگیری را مسدود کرده، مراجعه ثبت‌شده ندارد؛ برای همین این عدد تقریبی است و سقفش ۱۰۰٪ است.', 'bahoosh-analytics-pro' ),
+				'hint'   => __( 'سفارش‌ها ÷ دفعات مراجعه. سفارش تلفنی مراجعه ندارد، پس تقریبی است.', 'bahoosh-analytics-pro' ),
 			),
 		);
 
@@ -224,12 +224,12 @@ class BAP_Dashboard_Page {
 								if ( $rows > 0 ) {
 									printf(
 										/* translators: 1: event count, 2: first date. */
-										esc_html__( '%1$s رویداد در پایگاه داده این سایت، از تاریخ %2$s.', 'bahoosh-analytics-pro' ),
+										esc_html__( '%1$s رویداد از %2$s', 'bahoosh-analytics-pro' ),
 										esc_html( number_format_i18n( $rows ) ),
 										esc_html( $first_day )
 									);
 								} else {
-									esc_html_e( 'هنوز رویدادی ثبت نشده است. یک صفحه از سایت را در مرورگر باز کنید تا جمع‌آوری شروع شود.', 'bahoosh-analytics-pro' );
+									esc_html_e( 'هنوز رویدادی ثبت نشده', 'bahoosh-analytics-pro' );
 								}
 							?></p>
 						</td>

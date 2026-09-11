@@ -42,6 +42,17 @@ class BAP_Outbox {
 	const STATUS_DONE    = 'done';
 	const MAX_ATTEMPTS   = 12;
 	const BATCH_SIZE     = 25;
+
+	/**
+	 * Consecutive delivery failures that end a pass.
+	 *
+	 * Three is enough to tell "this one event is bad" from "the collector is
+	 * unreachable": a single malformed payload fails alone, while an outage
+	 * fails everything.
+	 *
+	 * @var int
+	 */
+	const FAILURE_CUTOFF = 3;
 	const LEASE_SECONDS  = 300;
 
 	/**
@@ -255,6 +266,7 @@ class BAP_Outbox {
 			'retried'   => 0,
 			'failed'    => 0,
 			'purged'    => 0,
+			'claimed_processed' => 0,
 		);
 
 		// Housekeeping for the site's own tables runs whether or not a collector
@@ -327,6 +339,15 @@ class BAP_Outbox {
 		// One request per event, mirroring the browser queue. The rows were
 		// claimed as a group because that is one database round trip; delivery
 		// is individual because that is what the v3 wire contract is.
+		//
+		// Individually, though, is expensive when the collector is down: with a
+		// 15-second timeout, a full pass of 25 events spends over six minutes
+		// blocking a cron worker to learn the same thing 25 times. After a few
+		// consecutive failures the pass gives up and leaves the rest queued —
+		// their leases lapse and the next run retries them, by which time the
+		// collector may be back.
+		$consecutive_failures = 0;
+
 		foreach ( $rows as $row ) {
 			$event = json_decode( $row['payload'], true );
 			if ( ! is_array( $event ) ) {
@@ -335,7 +356,24 @@ class BAP_Outbox {
 				self::delete_ids( array( $row['event_id'] ) );
 				continue;
 			}
+
+			$before = $summary['delivered'];
 			self::deliver_one( $event, $row, $summary );
+
+			$consecutive_failures = $summary['delivered'] > $before ? 0 : $consecutive_failures + 1;
+
+			if ( $consecutive_failures >= self::FAILURE_CUTOFF ) {
+				BAP_Logger::warn(
+					sprintf(
+						'outbox: stopping this pass after %d consecutive failures; %d events stay queued',
+						$consecutive_failures,
+						count( $rows ) - $summary['claimed_processed']
+					)
+				);
+				break;
+			}
+
+			$summary['claimed_processed']++;
 		}
 
 		return $summary;

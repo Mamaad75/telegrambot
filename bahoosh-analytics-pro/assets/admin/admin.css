@@ -943,16 +943,22 @@ body.bap-admin-page .bap-wrap p.description{color:var(--bap-muted)!important}
 .bap-feed-label{font-size:10.5px;padding:1px 7px;border-radius:6px;background:color-mix(in srgb,var(--bap-accent) 22%,transparent)}
 .bap-feed-row .bap-muted{margin-inline-start:auto;font-size:10px;white-space:nowrap}
 
-/* Purchase funnel (v4.4.0): the bar is proportional to the first step, so the
-   shape of the drop-off is visible before any number is read. */
-.bap-funnel-step{padding:10px 12px;border:1px solid var(--bap-border-soft);border-radius:12px;margin-bottom:7px;background:rgba(255,255,255,.02)}
-.bap-funnel-step__head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px}
-.bap-funnel-step__head strong{font-size:12.5px}
-.bap-funnel-bar{height:8px;border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden}
-.bap-funnel-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--bap-accent),color-mix(in srgb,var(--bap-accent) 55%,#fff))}
-.bap-funnel-step__foot{display:flex;justify-content:space-between;gap:10px;margin-top:6px;font-size:10.5px}
-.bap-drop{padding:1px 8px;border-radius:7px;background:rgba(255,255,255,.06)}
-.bap-drop.is-bad{background:rgba(255,86,86,.18);color:#ffb4b4}
+/* Purchase funnel (v4.7.0).
+   Rewritten because the first version let three things share one line in RTL —
+   the count, the percentage and the drop badge — and they overlapped at common
+   widths. Each row is now an explicit grid: label and count on the first line,
+   the bar on its own line, and the two captions on a third with a gap between
+   them that cannot collapse. */
+.bap-funnel-step{display:grid;gap:7px;padding:12px 14px;border:1px solid var(--bap-border-soft);border-radius:13px;margin-bottom:8px;background:rgba(255,255,255,.02)}
+.bap-funnel-step__head{display:flex;align-items:baseline;justify-content:space-between;gap:14px}
+.bap-funnel-step__head strong{font-size:12.5px;line-height:1.7;min-width:0}
+.bap-funnel-count{font-size:14px;font-weight:700;white-space:nowrap;flex:0 0 auto}
+.bap-funnel-bar{height:9px;border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden}
+.bap-funnel-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--bap-accent),color-mix(in srgb,var(--bap-accent) 50%,#fff))}
+.bap-funnel-step__foot{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;font-size:10.5px}
+.bap-funnel-step__foot .bap-muted{white-space:nowrap}
+.bap-drop{padding:2px 9px;border-radius:7px;background:rgba(255,255,255,.07);white-space:nowrap;flex:0 0 auto}
+.bap-drop.is-bad{background:color-mix(in srgb,var(--bap-accent) 32%,transparent);color:#fff}
 
 /* Per-product funnel (v4.6.0). One row per product, read left to right as the
    shopper moved: seen → carted → checkout → bought. */
@@ -972,3 +978,13 @@ body.bap-admin-page .bap-wrap p.description{color:var(--bap-muted)!important}
    the figure itself. */
 .bap-card-hint{margin:6px 0 0;font-size:10px;line-height:1.85;opacity:.62}
 .bap-card:hover .bap-card-hint{opacity:.9}
+
+/* Dashboard cards: a fixed three-column grid (v4.7.0).
+   The auto-fit grid produced a ragged 6+3 split at common widths, which read
+   as two unrelated groups. Three across is the shape the content wants — nine
+   cards, three rows — and it collapses to two and then one on narrow screens. */
+#bap-cards{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media (max-width:1100px){#bap-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:700px){#bap-cards{grid-template-columns:minmax(0,1fr)}}
+#bap-cards .bap-card{display:flex;flex-direction:column;min-height:132px}
+#bap-cards .bap-card-hint{margin-top:auto;padding-top:7px}

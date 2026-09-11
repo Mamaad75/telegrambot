@@ -111,7 +111,7 @@
 
       var head = el("div", "bap-funnel-step__head");
       head.appendChild(el("strong", "", step.label));
-      head.appendChild(el("span", "bap-muted", formatNumber(step.count) + " نفر"));
+      head.appendChild(el("b", "bap-funnel-count", formatNumber(step.count) + " نفر"));
       row.appendChild(head);
 
       // The bar is proportional to the first step, so the shape of the funnel
@@ -124,6 +124,7 @@
 
       var foot = el("div", "bap-funnel-step__foot");
       foot.appendChild(el("span", "bap-muted", Number(step.of_first_pc || 0).toFixed(1) + "٪ از مرحله اول"));
+
 
       if (step.drop_pc !== null && step.drop_pc !== undefined) {
         var drop = el("span", "bap-drop" + (step.drop_pc >= 50 ? " is-bad" : ""), Number(step.drop_pc).toFixed(1) + "٪ اینجا رها کردند");

@@ -146,7 +146,7 @@ class BAP_Studio_Page {
 		);
 		?>
 		<div class="wrap bap-wrap bap-studio" data-bap-screen="ai">
-			<?php self::header( __( 'پیشنهادهای فروش', 'bahoosh-analytics-pro' ), __( 'از روی سفارش‌ها و رفتار واقعی فروشگاه شما: چه چیزی می‌فروشد، کجا فروش از دست می‌رود و چه کاری می‌شود کرد.', 'bahoosh-analytics-pro' ), 'ai' ); ?>
+			<?php self::header( __( 'پیشنهادهای باهوش', 'bahoosh-analytics-pro' ), __( 'از روی سفارش‌ها و رفتار واقعی سایت شما: چه چیزی می‌فروشد، کجا مشتری را از دست می‌دهید، و چه چیزی روی صفحه‌ها خراب است.', 'bahoosh-analytics-pro' ), 'ai' ); ?>
 
 			<div class="bap-grid bap-grid--ai-summary">
 				<div class="bap-card"><h3><?php esc_html_e( 'کل پیشنهادها', 'bahoosh-analytics-pro' ); ?></h3><div class="bap-value" id="bap-ai-total-count"><?php echo esc_html( count( $recommendations ) ); ?></div></div>

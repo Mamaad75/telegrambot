@@ -193,6 +193,10 @@
     this._bindLifecycle();
     this._exposeApi();
 
+    // Mounted before the store settles, so it can report a storage layer that
+    // never finishes opening — the failure it exists to diagnose.
+    if (NS.attachOnScreenDebug) NS.attachOnScreenDebug(this);
+
     // Likewise, start-up is bounded. `queue.init()` already falls back to an
     // in-memory store on failure, but "failure" and "never answers" are not the
     // same thing, and only one of them used to be handled.

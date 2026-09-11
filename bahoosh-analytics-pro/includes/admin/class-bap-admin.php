@@ -129,8 +129,8 @@ class BAP_Admin {
 		if ( BAP_Settings::get( 'module_ai' ) ) {
 			add_submenu_page(
 				self::MENU_SLUG,
-				__( 'پیشنهادهای هوشمند فروش', 'bahoosh-analytics-pro' ),
-				__( 'پیشنهادهای فروش', 'bahoosh-analytics-pro' ),
+				__( 'پیشنهادهای باهوش', 'bahoosh-analytics-pro' ),
+				__( 'پیشنهادهای باهوش', 'bahoosh-analytics-pro' ),
 				self::reports_capability(),
 				self::AI_SLUG,
 				array( 'BAP_Studio_Page', 'render_ai' )
@@ -181,7 +181,7 @@ class BAP_Admin {
 			array( 'slug' => self::MENU_SLUG,        'label' => __( 'داشبورد', 'bahoosh-analytics-pro' ),           'capability' => self::reports_capability(),  'enabled' => true ),
 			array( 'slug' => self::EXPLORER_SLUG,    'label' => __( 'رویدادها و صفحات', 'bahoosh-analytics-pro' ),  'capability' => self::reports_capability(),  'enabled' => true ),
 			array( 'slug' => self::FUNNELS_SLUG,     'label' => __( 'قیف خرید', 'bahoosh-analytics-pro' ),          'capability' => self::reports_capability(),  'enabled' => (bool) BAP_Settings::get( 'module_funnels' ) ),
-			array( 'slug' => self::AI_SLUG,          'label' => __( 'پیشنهادهای فروش', 'bahoosh-analytics-pro' ),   'capability' => self::reports_capability(),  'enabled' => (bool) BAP_Settings::get( 'module_ai' ) ),
+			array( 'slug' => self::AI_SLUG,          'label' => __( 'پیشنهادهای باهوش', 'bahoosh-analytics-pro' ),   'capability' => self::reports_capability(),  'enabled' => (bool) BAP_Settings::get( 'module_ai' ) ),
 			array( 'slug' => self::INSPECTOR_SLUG,   'label' => __( 'صف ارسال', 'bahoosh-analytics-pro' ),          'capability' => self::reports_capability(),  'enabled' => BAP_Settings::is_configured() ),
 			array( 'slug' => self::DIAGNOSTICS_SLUG, 'label' => __( 'عیب‌یابی', 'bahoosh-analytics-pro' ),           'capability' => self::settings_capability(), 'enabled' => true ),
 			array( 'slug' => self::SETTINGS_SLUG,    'label' => __( 'تنظیمات', 'bahoosh-analytics-pro' ),           'capability' => self::settings_capability(), 'enabled' => true ),

@@ -39,6 +39,45 @@ class BAP_Analysis_Packet {
 	 * @param string $focus One of the schema's focus values.
 	 * @return array Packet matching analysis-packet.schema.json.
 	 */
+	/**
+	 * Seconds a built packet is reused.
+	 *
+	 * Building one reads every paid order in the window and every row of the
+	 * rollup, which on a busy shop is real work — and an administrator clicking
+	 * "تحلیل کن" twice while reading the first answer should not pay for it
+	 * twice. Short enough that a fresh order shows up almost immediately.
+	 *
+	 * @var int
+	 */
+	const CACHE_SECONDS = 300;
+
+	/**
+	 * Builds a packet, reusing a recent one for the same window.
+	 *
+	 * @param string $from  Y-m-d.
+	 * @param string $to    Y-m-d.
+	 * @param string $focus Focus.
+	 * @return array
+	 */
+	public static function cached( $from, $to, $focus = 'revenue' ) {
+		$key    = 'bap_packet_' . md5( $from . '|' . $to . '|' . $focus );
+		$cached = get_transient( $key );
+
+		if ( is_array( $cached ) && isset( $cached['facts'] ) ) {
+			// A fresh run id each time: the facts are reused, but two analyses
+			// are still two analyses and their recommendations must not collide
+			// on an id derived from it.
+			$cached['run_id'] = 'run_' . substr( str_replace( '-', '', wp_generate_uuid4() ), 0, 24 );
+			return $cached;
+		}
+
+		$packet = self::build( $from, $to, $focus );
+
+		set_transient( $key, $packet, self::CACHE_SECONDS );
+
+		return $packet;
+	}
+
 	public static function build( $from, $to, $focus = 'revenue' ) {
 		$from = BAP_Reports::sanitize_date( $from );
 		$to   = BAP_Reports::sanitize_date( $to );

@@ -90,6 +90,12 @@
     this.draining = false;
     this.pausedUntil = 0;
     this.timerId = null;
+    // Unsettled events for this page view, kept in memory so the exit path can
+    // beacon them without an async read. Capped so a long-lived tab on a busy
+    // site cannot grow it without bound.
+    this.pending = {};
+    this.maxPending = util.positiveNumberOr(options.maxPending, 50);
+
     this.stats = {
       enqueued: 0,
       stored: 0,
@@ -271,6 +277,54 @@
     }
   };
 
+  /**
+   * Beacons everything held in memory, synchronously.
+   *
+   * @returns {number} How many the browser accepted.
+   */
+  QueueManager.prototype._beaconPending = function () {
+    var ids = Object.keys(this.pending);
+    var sent = 0;
+
+    for (var i = 0; i < ids.length; i++) {
+      if (this.transport.sendBeacon(this.pending[ids[i]])) sent++;
+    }
+
+    // Deliberately not cleared. A beacon yields no answer, so these stay queued
+    // in durable storage and the next page load re-sends them; the server
+    // answers `duplicate` and the record is settled then. Losing data to avoid
+    // a duplicate the server already handles would be the wrong trade.
+    return sent;
+  };
+
+  /**
+   * Remembers an event until it is settled, so the exit path has something to
+   * send without waiting for storage.
+   *
+   * Bounded: this is a delivery buffer for the current page view, not a second
+   * queue. The durable store remains the record.
+   *
+   * @param {Object} event
+   */
+  QueueManager.prototype._hold = function (event) {
+    var ids = Object.keys(this.pending);
+
+    if (ids.length >= this.maxPending) {
+      delete this.pending[ids[0]];
+    }
+
+    this.pending[event.event_id] = event;
+  };
+
+  /**
+   * Forgets an event the server has settled.
+   *
+   * @param {string} eventId
+   */
+  QueueManager.prototype._release = function (eventId) {
+    delete this.pending[eventId];
+  };
+
   QueueManager.prototype._toRecord = function (event) {
     var now = this.now();
     return {
@@ -302,6 +356,8 @@
       return Promise.resolve(false);
     }
     this.stats.enqueued++;
+    this._hold(event);
+
     return this.store
       .put([this._toRecord(event)])
       .then(function () {
@@ -331,7 +387,15 @@
 
     if (this.draining) return Promise.resolve({ skipped: "in-progress" });
     if (!this.store) return Promise.resolve({ skipped: "not-ready" });
-    if (!this.isOnline()) return Promise.resolve({ skipped: "offline" });
+
+    // `navigator.onLine` is a hint, and on iOS it is a bad one: in-app browsers
+    // (Telegram, Instagram) report `false` on a working connection, and this
+    // check used to veto every send for the whole page view. It is now trusted
+    // only for the background timer, where being wrong costs one skipped pass;
+    // an event the visitor just produced is always attempted.
+    if (!this.isOnline() && "interval" === options.reason) {
+      return Promise.resolve({ skipped: "offline" });
+    }
     if (this._paused() && options.reason !== "manual") {
       return Promise.resolve({ skipped: "paused" });
     }
@@ -424,6 +488,12 @@
         result.raw || ""
       );
     }
+
+    // The server has answered about this one, so the exit path must stop
+    // beaconing it. Without this, every page view would re-send everything it
+    // had already delivered.
+    this._release(record.event_id);
+
     return this.store.remove([record.event_id]);
   };
 
@@ -468,8 +538,22 @@
    */
   QueueManager.prototype.flushWithBeacon = function () {
     var self = this;
-    if (!this.store) return Promise.resolve({ skipped: "not-ready" });
-    if (!this.isOnline()) return Promise.resolve({ skipped: "offline" });
+
+    // Synchronous first, always.
+    //
+    // This runs inside `pagehide` and `visibilitychange`, and on iOS the page
+    // is frozen the moment that handler returns — a promise callback scheduled
+    // inside it never runs. The version below awaited an IndexedDB read before
+    // sending anything, so on iPhone the read was scheduled, the page froze,
+    // and the beacon was never issued. A search on a results page followed by a
+    // tap on a product was lost every single time, which is exactly the
+    // reported symptom.
+    //
+    // `sendBeacon` is synchronous and survives unload by design, so the events
+    // held in memory go out now, before any storage is touched.
+    var sentNow = this._beaconPending();
+
+    if (!this.store) return Promise.resolve({ skipped: "not-ready", beaconed: sentNow });
 
     var now = this.now();
     return this.store
