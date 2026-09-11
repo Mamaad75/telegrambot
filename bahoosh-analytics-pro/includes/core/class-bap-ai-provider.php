@@ -41,6 +41,7 @@ class BAP_AI_Provider {
 	const PROVIDER_LOCAL  = 'local';
 	const PROVIDER_LLAMA  = 'llama';
 	const PROVIDER_OPENAI = 'openai_compatible';
+	const PROVIDER_WEBHOOK = 'webhook';
 
 	const OPTION_API_KEY = 'bap_ai_provider_key';
 
@@ -97,7 +98,9 @@ class BAP_AI_Provider {
 			return self::result( true, self::PROVIDER_LOCAL, self::attach_actions( BAP_Local_Insights::derive( $packet ), $packet ), '' );
 		}
 
-		$result = self::analyze_chat( $packet, $provider );
+		$result = self::PROVIDER_WEBHOOK === $provider
+			? self::analyze_webhook( $packet )
+			: self::analyze_chat( $packet, $provider );
 
 		// A model that is down must not mean a blank screen. The rule engine
 		// answers from the same facts, and the caller is told which source
@@ -220,6 +223,152 @@ class BAP_AI_Provider {
 	}
 
 	/**
+	 * Posts the packet to an automation webhook and reads back its answer.
+	 *
+	 * Built for n8n, Make, Zapier or anything else that accepts a POST and
+	 * replies with text: the workflow owns the model call, its key and its
+	 * billing, and this plugin never sees any of them. That is the appeal — a
+	 * shop can use GPT-4 without an OpenAI key ever touching WordPress.
+	 *
+	 * The trade is worth stating plainly, because it is the opposite of the
+	 * Llama option: the packet leaves the site. It contains no customers, but it
+	 * does contain product names, order counts and revenue, and those travel to
+	 * the workflow and onward to whatever model it calls.
+	 *
+	 * The reply is parsed by exactly the same hostile-input path as a direct
+	 * model reply. A workflow is not more trusted for being the site owner's
+	 * own: it still cannot cite a fact that was not sent, and it still cannot
+	 * supply an executable action.
+	 *
+	 * @param array $packet Analysis packet.
+	 * @return array Result.
+	 */
+	private static function analyze_webhook( array $packet ) {
+		$url = self::base_url();
+
+		if ( '' === $url ) {
+			return self::result( false, self::PROVIDER_WEBHOOK, array(), __( 'آدرس وبهوک تنظیم نشده است.', 'bahoosh-analytics-pro' ) );
+		}
+
+		$headers = array( 'Content-Type' => 'application/json' );
+		$key     = self::api_key();
+
+		// A public webhook URL is a password that anyone who sees it can use.
+		// When a shared secret is configured it is sent as a header the workflow
+		// can check before doing anything expensive.
+		if ( '' !== $key ) {
+			$headers['Authorization'] = 'Bearer ' . $key;
+			$headers['X-Bahoosh-Token'] = $key;
+		}
+
+		$response = wp_remote_post(
+			$url,
+			array(
+				'timeout' => self::TIMEOUT,
+				'headers' => $headers,
+				'body'    => wp_json_encode(
+					array(
+						'source'        => 'bahoosh-analytics-pro',
+						'version'       => BAP_VERSION,
+						'site_id'       => (string) ( $packet['site_id'] ?? '' ),
+						'run_id'        => (string) ( $packet['run_id'] ?? '' ),
+						// Sent alongside the data so the workflow does not have
+						// to keep its own copy in sync with this plugin's rules.
+						'system_prompt' => self::system_prompt(),
+						'packet'        => $packet,
+					)
+				),
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			BAP_Debug_Log::log( 'ai', 'webhook request failed', array( 'error' => $response->get_error_message() ) );
+			return self::result( false, self::PROVIDER_WEBHOOK, array(), $response->get_error_message() );
+		}
+
+		$status = (int) wp_remote_retrieve_response_code( $response );
+		$raw    = (string) wp_remote_retrieve_body( $response );
+
+		if ( $status < 200 || $status >= 300 ) {
+			// 404 from n8n almost always means the workflow is saved but not
+			// active, or the test URL was copied instead of the production one.
+			$message = 404 === $status
+				? __( 'وبهوک پیدا نشد. در n8n مطمئن شوید ورک‌فلو Active است و آدرس Production را کپی کرده‌اید، نه آدرس Test را.', 'bahoosh-analytics-pro' )
+				: sprintf(
+					/* translators: %d: HTTP status code. */
+					__( 'وبهوک با کد %d پاسخ داد.', 'bahoosh-analytics-pro' ),
+					$status
+				);
+
+			return self::result( false, self::PROVIDER_WEBHOOK, array(), $message );
+		}
+
+		$items = self::parse_recommendations( self::webhook_content( $raw ), $packet );
+
+		if ( ! $items ) {
+			return self::result(
+				false,
+				self::PROVIDER_WEBHOOK,
+				array(),
+				__( 'پاسخ وبهوک هیچ پیشنهاد معتبری نداشت. خروجی باید JSON با آرایه recommendations باشد و هر پیشنهاد باید به شناسه یک Fact ارسالی اشاره کند.', 'bahoosh-analytics-pro' )
+			);
+		}
+
+		return self::result( true, self::PROVIDER_WEBHOOK, $items, '' );
+	}
+
+	/**
+	 * Digs the model's text out of whatever shape the workflow returned.
+	 *
+	 * Automation tools wrap their output differently and change it between
+	 * versions: n8n's "Respond to Webhook" node returns the raw text, but its
+	 * AI nodes emit `{"output": …}` or `{"text": …}`, and an unconfigured
+	 * Respond node returns the whole item array. All of those are accepted,
+	 * because the alternative is an error message that blames the shop owner
+	 * for a node setting three screens away.
+	 *
+	 * @param string $raw Response body.
+	 * @return string Content to parse.
+	 */
+	public static function webhook_content( $raw ) {
+		$raw     = trim( (string) $raw );
+		$decoded = json_decode( $raw, true );
+
+		if ( ! is_array( $decoded ) ) {
+			return $raw;
+		}
+
+		// A bare list of items: take the first, which is what a single-item
+		// workflow run produces.
+		if ( isset( $decoded[0] ) && is_array( $decoded[0] ) ) {
+			$decoded = $decoded[0];
+		}
+
+		// Already the shape we want.
+		if ( isset( $decoded['recommendations'] ) ) {
+			return wp_json_encode( $decoded );
+		}
+
+		foreach ( array( 'output', 'text', 'content', 'message', 'response', 'result', 'data' ) as $key ) {
+			if ( ! isset( $decoded[ $key ] ) ) {
+				continue;
+			}
+
+			$value = $decoded[ $key ];
+
+			if ( is_string( $value ) ) {
+				return $value;
+			}
+
+			if ( is_array( $value ) ) {
+				return wp_json_encode( $value );
+			}
+		}
+
+		return $raw;
+	}
+
+	/**
 	 * Checks whether the configured model server answers, without analysing.
 	 *
 	 * Exists so the settings screen can say "connected, and here are the models
@@ -247,6 +396,42 @@ class BAP_AI_Provider {
 				'ok'     => false,
 				'error'  => __( 'آدرس سرویس مدل تنظیم نشده است.', 'bahoosh-analytics-pro' ),
 				'models' => array(),
+			);
+		}
+
+		// A webhook has no model list to ask for, so the test is the real thing
+		// in miniature: one POST with a single fact, checked for a parsable
+		// answer. Anything less would report "connected" for a workflow that
+		// returns the wrong shape, which is the failure people actually hit.
+		if ( self::PROVIDER_WEBHOOK === $provider ) {
+			$probe_packet = array(
+				'schema_version' => 1,
+				'site_id'        => BAP_Settings::resolved_site_id(),
+				'run_id'         => 'run_connection_test',
+				'focus'          => 'revenue',
+				'period'         => array( 'from' => gmdate( 'c' ), 'to' => gmdate( 'c' ) ),
+				'data_quality'   => array( 'score' => 0, 'warnings' => array( 'connection test' ) ),
+				'facts'          => array(
+					array(
+						'id'          => 'fact_connection_test',
+						'kind'        => 'diagnostic.ping',
+						'label'       => 'Connection test',
+						'value'       => array( 'ok' => true ),
+						'sample_size' => 1,
+						'dimensions'  => array(),
+					),
+				),
+			);
+
+			$result = self::analyze_webhook( $probe_packet );
+
+			return array(
+				'ok'     => ! empty( $result['ok'] ),
+				'error'  => (string) $result['error'],
+				'models' => array(),
+				'note'   => ! empty( $result['ok'] )
+					? __( 'وبهوک پاسخ داد و خروجی آن قابل خواندن بود.', 'bahoosh-analytics-pro' )
+					: '',
 			);
 		}
 
@@ -557,7 +742,7 @@ Return ONLY JSON: {\"recommendations\":[{\"title\":\"…\",\"summary\":\"…\",\
 	 * @return string[]
 	 */
 	public static function providers() {
-		return array( self::PROVIDER_LLAMA, self::PROVIDER_OPENAI, self::PROVIDER_LOCAL );
+		return array( self::PROVIDER_LLAMA, self::PROVIDER_WEBHOOK, self::PROVIDER_OPENAI, self::PROVIDER_LOCAL );
 	}
 
 	/**
@@ -568,11 +753,32 @@ Return ONLY JSON: {\"recommendations\":[{\"title\":\"…\",\"summary\":\"…\",\
 	public static function base_url() {
 		$url = trim( (string) BAP_Settings::get( 'ai_provider_url', '' ) );
 
-		if ( '' === $url && self::PROVIDER_LLAMA === self::current() ) {
+		// The localhost default only stands in for a model on this machine, and
+		// on shared or managed WordPress hosting there is never one: the model
+		// lives on a separate server and its address has to be given. Falling
+		// back to 127.0.0.1 there produces "connection refused" and sends the
+		// shop owner looking for a service that was never meant to be local.
+		if ( '' === $url && self::PROVIDER_LLAMA === self::current() && self::local_model_plausible() ) {
 			return self::LLAMA_DEFAULT_URL;
 		}
 
 		return $url;
+	}
+
+	/**
+	 * Whether a model on this same machine is even worth trying.
+	 *
+	 * @return bool
+	 */
+	private static function local_model_plausible() {
+		/**
+		 * Filters whether the localhost Llama default applies.
+		 *
+		 * @since 4.5.0
+		 *
+		 * @param bool $plausible Whether to fall back to 127.0.0.1.
+		 */
+		return (bool) apply_filters( 'bap_local_model_plausible', false );
 	}
 
 	/**

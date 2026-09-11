@@ -36,6 +36,11 @@
     this.ready = false;
     this.started = false;
 
+    // How long start-up will wait for durable storage before tracking anyway.
+    // Generous enough that a healthy IndexedDB always wins the race, short
+    // enough that a visitor who leaves quickly is still counted.
+    this.initTimeoutMs = util.positiveNumberOr(this.config.init_timeout_ms, 3000);
+
     this.maxEventsPerPage = util.positiveNumberOr(
       this.config.max_events_per_page,
       DEFAULT_MAX_EVENTS_PER_PAGE
@@ -177,13 +182,66 @@
       if (state.marketing && !self.attribution.state) self.attribution.init(self.window);
     });
 
-    return this.queue.init().then(function () {
-      self.ready = true;
-      self._bindLifecycle();
-      self._exposeApi();
-      if (self.consent.canTrack()) self._start();
-      else self.logger.debug("waiting for analytics consent");
-      return self;
+    // Bound before the queue is ready, not after.
+    //
+    // These listeners are what flush the queue when a page is hidden or closed,
+    // and on a phone that is most page views: the visitor taps a result, the
+    // page is hidden a second later, and on iOS that is the only delivery
+    // opportunity there will be. Binding them after storage finished opening
+    // meant a slow — or, on Safari, permanently hung — IndexedDB open took the
+    // exit path down with it.
+    this._bindLifecycle();
+    this._exposeApi();
+
+    // Likewise, start-up is bounded. `queue.init()` already falls back to an
+    // in-memory store on failure, but "failure" and "never answers" are not the
+    // same thing, and only one of them used to be handled.
+    return this._settleWithin(this.queue.init(), this.initTimeoutMs)
+      .catch(function (error) {
+        self.logger.warn("queue init did not settle in time", error && error.message);
+      })
+      .then(function () {
+        if (self.ready) return self;
+        self.ready = true;
+        if (self.consent.canTrack()) self._start();
+        else self.logger.debug("waiting for analytics consent");
+        return self;
+      });
+  };
+
+  /**
+   * Resolves when the work does, or after a deadline, whichever comes first.
+   *
+   * @param {Promise} work Promise to bound.
+   * @param {number} ms Deadline.
+   * @returns {Promise}
+   */
+  Tracker.prototype._settleWithin = function (work, ms) {
+    var win = this.window;
+    if (!win || typeof win.setTimeout !== "function") return work;
+
+    return new Promise(function (resolve, reject) {
+      var done = false;
+      var timer = win.setTimeout(function () {
+        if (done) return;
+        done = true;
+        reject(new Error("bap_init_timeout"));
+      }, ms);
+
+      work.then(
+        function (value) {
+          if (done) return;
+          done = true;
+          win.clearTimeout(timer);
+          resolve(value);
+        },
+        function (error) {
+          if (done) return;
+          done = true;
+          win.clearTimeout(timer);
+          reject(error);
+        }
+      );
     });
   };
 

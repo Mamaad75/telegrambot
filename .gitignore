@@ -141,3 +141,10 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# The Gatsby/Nuxt `dist` rule above also caught the tracker bundle, which is a
+# build artifact but a *shipped* one: it is the file every visitor's browser
+# actually loads. Untracked, it could drift from assets/js/core/ with nothing
+# to catch it. Negated here so it stays under review like any other source.
+!bahoosh-analytics-pro/assets/js/dist/
+!bahoosh-analytics-pro/assets/js/dist/**

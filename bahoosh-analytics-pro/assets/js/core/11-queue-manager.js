@@ -107,9 +107,69 @@
 
   QueueManager.prototype.init = function () {
     var self = this;
-    var ready = this.store
-      ? Promise.resolve(this.store)
-      : NS.queueStore.createQueueStore({ indexedDB: this.window.indexedDB });
+
+    if (this.store) {
+      // A store supplied by the caller (tests, or a second init) is used as-is.
+      return this._finishInit(Promise.resolve(this.store));
+    }
+
+    // A usable store exists from the first synchronous moment. Opening real
+    // storage is asynchronous and, on Safari, sometimes never finishes at all;
+    // until it does, events land here instead of being refused with "enqueue
+    // before init". They are moved across when the real store arrives, so
+    // nothing is lost and nothing waits.
+    var buffer = new NS.queueStore.LocalQueueStore({ storage: memoryStorage() });
+    this.store = buffer;
+    this.usingBuffer = true;
+
+    var opening = NS.queueStore
+      .createQueueStore({ indexedDB: this.window.indexedDB, window: this.window })
+      .then(function (store) {
+        if (!store) return buffer;
+        return self._adoptStore(store, buffer);
+      });
+
+    return this._finishInit(opening);
+  };
+
+  /**
+   * Moves anything buffered during start-up into the durable store.
+   *
+   * @param {Object} store Durable store.
+   * @param {Object} buffer Temporary in-memory store.
+   * @returns {Promise<Object>} The durable store.
+   */
+  QueueManager.prototype._adoptStore = function (store, buffer) {
+    var self = this;
+
+    return buffer
+      .all()
+      .then(function (records) {
+        if (!records.length) return null;
+        self.logger.debug("moving", records.length, "buffered events to", store.driver);
+        return store.put(records);
+      })
+      .catch(function (error) {
+        // A failed handover must not lose the buffer: better to keep serving
+        // from memory for this page view than to drop what it holds.
+        self.logger.error("buffer handover failed", error && error.message);
+        return null;
+      })
+      .then(function () {
+        self.store = store;
+        self.usingBuffer = false;
+        return store;
+      });
+  };
+
+  /**
+   * Shared tail of `init()`: migrate, trim, bind listeners, start the timer.
+   *
+   * @param {Promise<Object>} ready Resolves with the store to use.
+   * @returns {Promise<QueueManager>}
+   */
+  QueueManager.prototype._finishInit = function (ready) {
+    var self = this;
 
     return ready
       .then(function (store) {

@@ -297,25 +297,21 @@ class BAP_Settings_Page {
 
 					<tr><th scope="row"><label for="bap-ai-provider"><?php esc_html_e( 'مدل زبانی', 'bahoosh-analytics-pro' ); ?></label></th><td>
 						<select name="bap[ai_provider]" id="bap-ai-provider">
-							<option value="llama" <?php selected( 'llama', $settings['ai_provider'] ); ?>><?php esc_html_e( 'لاما روی همین سرور (Ollama / llama.cpp / LM Studio)', 'bahoosh-analytics-pro' ); ?></option>
+							<option value="llama" <?php selected( 'llama', $settings['ai_provider'] ); ?>><?php esc_html_e( 'سرور لامای اختصاصی (Ollama / llama.cpp / vLLM)', 'bahoosh-analytics-pro' ); ?></option>
+							<option value="webhook" <?php selected( 'webhook', $settings['ai_provider'] ); ?>><?php esc_html_e( 'وبهوک اتومیشن (n8n / Make / Zapier)', 'bahoosh-analytics-pro' ); ?></option>
 							<option value="openai_compatible" <?php selected( 'openai_compatible', $settings['ai_provider'] ); ?>><?php esc_html_e( 'سرویس سازگار با OpenAI', 'bahoosh-analytics-pro' ); ?></option>
 							<option value="local" <?php selected( 'local', $settings['ai_provider'] ); ?>><?php esc_html_e( 'بدون مدل — فقط موتور قانون‌محور داخلی', 'bahoosh-analytics-pro' ); ?></option>
 						</select>
 						<p class="description"><?php esc_html_e( 'اگر مدل در دسترس نباشد، موتور قانون‌محور داخلی همان اعداد را تحلیل می‌کند و صفحه خالی نمی‌ماند. در نتیجه همیشه مشخص است پاسخ را کدام منبع تولید کرده.', 'bahoosh-analytics-pro' ); ?></p>
-						<p class="description"><?php esc_html_e( 'راهنمای نصب روی همین سرور: docs/LOCAL-LLAMA-SETUP.md — راهنمای نصب روی سرور جداگانه به همراه ایمن‌سازی: docs/REMOTE-LLAMA-SERVER.md', 'bahoosh-analytics-pro' ); ?></p>
+						<p class="description"><?php esc_html_e( 'راهنمای سرور لاما و ایمن‌سازی آن: docs/REMOTE-LLAMA-SERVER.md — راهنمای اتصال n8n: docs/CONNECT-N8N.md', 'bahoosh-analytics-pro' ); ?></p>
 					</td></tr>
 
 					<tr><th scope="row"><label for="bap-ai-provider-url"><?php esc_html_e( 'آدرس سرویس مدل', 'bahoosh-analytics-pro' ); ?></label></th><td>
 						<input type="url" class="regular-text code" id="bap-ai-provider-url" name="bap[ai_provider_url]"
 							value="<?php echo esc_attr( $settings['ai_provider_url'] ); ?>"
 							placeholder="<?php echo esc_attr( BAP_AI_Provider::LLAMA_DEFAULT_URL ); ?>" />
-						<p class="description"><?php
-							printf(
-								/* translators: %s: default Llama endpoint. */
-								esc_html__( 'خالی بگذارید تا %s استفاده شود (پیش‌فرض اولاما). آدرس ریشه، مسیر v1 یا آدرس کامل chat/completions هر سه پذیرفته می‌شوند.', 'bahoosh-analytics-pro' ),
-								'<code>' . esc_html( BAP_AI_Provider::LLAMA_DEFAULT_URL ) . '</code>'
-							);
-						?></p>
+						<p class="description"><?php esc_html_e( 'برای سرور لاما: آدرس همان سروری که مدل روی آن نصب است، مثل http://۱۲۳.۴۵.۶۷.۸۹:11434/v1 — آدرس ریشه، مسیر v1 یا آدرس کامل chat/completions هر سه پذیرفته می‌شوند.', 'bahoosh-analytics-pro' ); ?></p>
+						<p class="description"><?php esc_html_e( 'برای وبهوک اتومیشن: آدرس Production وبهوک، مثل https://xxx.app.n8n.cloud/webhook/analyze-website', 'bahoosh-analytics-pro' ); ?></p>
 					</td></tr>
 
 					<tr><th scope="row"><label for="bap-ai-provider-model"><?php esc_html_e( 'نام مدل', 'bahoosh-analytics-pro' ); ?></label></th><td>
@@ -335,7 +331,7 @@ class BAP_Settings_Page {
 					<tr><th scope="row"><label for="bap-ai-provider-key"><?php esc_html_e( 'کلید سرویس مدل', 'bahoosh-analytics-pro' ); ?></label></th><td>
 						<input type="password" class="regular-text code" id="bap-ai-provider-key" name="bap_ai_provider_key" autocomplete="off"
 							placeholder="<?php echo $has_provider_key ? esc_attr__( 'ذخیره شده — برای تغییر مقدار جدید وارد کنید', 'bahoosh-analytics-pro' ) : esc_attr__( 'برای لامای محلی لازم نیست', 'bahoosh-analytics-pro' ); ?>" />
-						<p class="description"><?php esc_html_e( 'مدل محلی به کلید نیاز ندارد. این کلید هرگز به مرورگر فرستاده نمی‌شود و در گزارش عیب‌یابی هم نمایش داده نمی‌شود.', 'bahoosh-analytics-pro' ); ?></p>
+						<p class="description"><?php esc_html_e( 'سرور لامای بدون احراز هویت به کلید نیاز ندارد. برای وبهوک، اگر مقداری بگذارید به‌صورت هدر Authorization و X-Bahoosh-Token فرستاده می‌شود تا ورک‌فلو بتواند درخواست‌های ناشناس را رد کند. این کلید هرگز به مرورگر فرستاده نمی‌شود.', 'bahoosh-analytics-pro' ); ?></p>
 						<?php if ( $has_provider_key ) : ?>
 							<label><input type="checkbox" name="bap_clear_ai_provider_key" value="1" /> <?php esc_html_e( 'حذف کلید ذخیره‌شده', 'bahoosh-analytics-pro' ); ?></label>
 						<?php endif; ?>

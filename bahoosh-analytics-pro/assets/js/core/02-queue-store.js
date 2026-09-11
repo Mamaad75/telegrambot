@@ -426,30 +426,97 @@
   };
 
   /**
+   * How long to wait for `indexedDB.open()` before giving up on it.
+   *
+   * Not a performance tweak — a correctness fix for Safari, and the reason the
+   * tracker recorded nothing at all on many iPhones.
+   *
+   * WebKit has a long-standing bug where `indexedDB.open()` returns a request
+   * that never fires `onsuccess`, `onerror` *or* `onblocked`. It happens after
+   * a bfcache restore, inside in-app browsers (Instagram, Telegram), and when
+   * storage has been evicted by Intelligent Tracking Prevention. The promise
+   * around it then never settles, and because tracker start-up awaited that
+   * promise, `_start()` never ran: no page view, no search, no clicks, and no
+   * exit listener either. The visitor looked like they had never arrived.
+   *
+   * A hung open is indistinguishable from a slow one, so it is treated as a
+   * failure after a short wait and localStorage takes over. Being wrong costs
+   * a slightly less durable queue; being patient cost every event.
+   *
+   * @type {number}
+   */
+  var IDB_OPEN_TIMEOUT_MS = 2000;
+
+  /**
+   * Resolves a promise, or rejects it once the clock runs out.
+   *
+   * @param {Promise} promise Work to bound.
+   * @param {number} ms Milliseconds to allow.
+   * @param {Object} scope Window-like object supplying timers.
+   * @returns {Promise}
+   */
+  function withTimeout(promise, ms, scope) {
+    var timers = scope || (typeof window !== "undefined" ? window : globalThis);
+    if (!timers || typeof timers.setTimeout !== "function") return promise;
+
+    return new Promise(function (resolve, reject) {
+      var settled = false;
+      var timer = timers.setTimeout(function () {
+        if (settled) return;
+        settled = true;
+        reject(new Error("bap_idb_open_timeout"));
+      }, ms);
+
+      promise.then(
+        function (value) {
+          if (settled) return;
+          settled = true;
+          timers.clearTimeout(timer);
+          resolve(value);
+        },
+        function (error) {
+          if (settled) return;
+          settled = true;
+          timers.clearTimeout(timer);
+          reject(error);
+        }
+      );
+    });
+  }
+
+  /**
    * Picks IndexedDB when it actually works, otherwise localStorage. Resolves to
    * null when neither is usable, in which case the tracker degrades to an
    * in-memory queue rather than throwing.
+   *
+   * Never rejects, and never hangs: every path here settles, because start-up
+   * waits on it.
    */
   function createQueueStore(options) {
     options = options || {};
-    if (options.driver === "localStorage") {
-      var forced = new LocalQueueStore(options);
-      return forced.init().then(function (ok) {
-        return ok ? forced : null;
-      });
+
+    function fallback() {
+      var local = new LocalQueueStore(options);
+      return local.init().then(
+        function (ok) {
+          return ok ? local : null;
+        },
+        function () {
+          return null;
+        }
+      );
     }
+
+    if (options.driver === "localStorage") return fallback();
+
     var idb = new IdbQueueStore(options);
-    return idb
-      .init()
+    var timeout = util.positiveNumberOr(options.idbTimeoutMs, IDB_OPEN_TIMEOUT_MS);
+
+    return withTimeout(idb.init(), timeout, options.window)
       .then(function () {
         return idb;
       })
-      .catch(function () {
-        var local = new LocalQueueStore(options);
-        return local.init().then(function (ok) {
-          return ok ? local : null;
-        });
-      });
+      .catch(fallback);
   }
 
   NS.queueStore = {

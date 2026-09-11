@@ -231,7 +231,7 @@ class BAP_Settings {
 		}
 
 		if ( isset( $input['ai_provider'] ) ) {
-			$clean['ai_provider'] = in_array( $input['ai_provider'], array( 'llama', 'openai_compatible', 'local' ), true )
+			$clean['ai_provider'] = in_array( $input['ai_provider'], array( 'llama', 'webhook', 'openai_compatible', 'local' ), true )
 				? $input['ai_provider']
 				: 'llama';
 		}

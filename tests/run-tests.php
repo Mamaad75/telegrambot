@@ -486,11 +486,14 @@ test( 'insights: the cause named matches the step that actually leaked', functio
 /* The model provider                                           */
 /* ============================================================ */
 
-test( 'provider: the default is a Llama on this machine, with no key needed', function () {
+test( 'provider: the default is a Llama server, addressed explicitly', function () {
 	is_same( 'llama', BAP_AI_Provider::current(), 'llama is the shipped default' );
-	is_same( BAP_AI_Provider::LLAMA_DEFAULT_URL, BAP_AI_Provider::base_url() );
-	is_same( BAP_AI_Provider::LLAMA_DEFAULT_MODEL, BAP_AI_Provider::model() );
-	is_same( '', BAP_AI_Provider::api_key(), 'a local model needs no key' );
+	is_same( BAP_AI_Provider::LLAMA_DEFAULT_MODEL, BAP_AI_Provider::model(), 'the model name still has a default' );
+	is_same( '', BAP_AI_Provider::api_key(), 'an unauthenticated model server needs no key' );
+
+	// The address does not. A plugin runs on hosting that cannot run a model,
+	// so the server is elsewhere and has to be named.
+	is_same( '', BAP_AI_Provider::base_url() );
 } );
 
 test( 'provider: the external analysis service is gone', function () {
@@ -498,7 +501,7 @@ test( 'provider: the external analysis service is gone', function () {
 
 	ok( ! str_contains( $source, 'PROVIDER_BACKEND' ), 'the backend provider constant is removed' );
 	ok( ! str_contains( $source, "BAP_Transport::request( 'ai/analyze'" ), 'nothing calls out to an analysis service' );
-	is_same( array( 'llama', 'openai_compatible', 'local' ), BAP_AI_Provider::providers() );
+	is_same( array( 'llama', 'webhook', 'openai_compatible', 'local' ), BAP_AI_Provider::providers() );
 
 	$routes = file_get_contents( BAP_PLUGIN_DIR . 'includes/api/class-bap-rest-controller.php' );
 	ok( ! str_contains( $routes, "'/ai/callback'" ), 'the unauthenticated callback route is removed' );
@@ -561,7 +564,7 @@ test( 'provider: JSON wrapped in a small model\'s chatter is still read', functi
 
 test( 'provider: when the model is unreachable the rule engine answers instead', function () {
 	seed_shop();
-	set_settings( array( 'ai_provider' => 'llama' ) );
+	set_settings( array( 'ai_provider' => 'llama', 'ai_provider_url' => 'http://10.0.0.5:11434/v1' ) );
 
 	// No HTTP response configured means wp_remote_post returns a WP_Error,
 	// which is exactly what a stopped Ollama looks like.
@@ -575,7 +578,7 @@ test( 'provider: when the model is unreachable the rule engine answers instead',
 
 test( 'provider: a real model reply is accepted and attributed to the model', function () {
 	seed_shop();
-	set_settings( array( 'ai_provider' => 'llama' ) );
+	set_settings( array( 'ai_provider' => 'llama', 'ai_provider_url' => 'http://10.0.0.5:11434/v1' ) );
 
 	$packet = BAP_Analysis_Packet::build( gmdate( 'Y-m-d' ), gmdate( 'Y-m-d' ) );
 	$fact   = $packet['facts'][0]['id'];
@@ -1331,7 +1334,7 @@ test( 'explorer: the event breakdown names every type in Persian', function () {
 	$types = BAP_Local_Reports::explorer( $today, $today )['types'];
 
 	is_same( 'begin_checkout', $types[0]['event_type'] );
-	is_same( 'شروع تسویه‌حساب', $types[0]['label'] );
+	is_same( 'رفتن به صفحه پرداخت', $types[0]['label'] );
 	is_same( 1, $types[0]['visitors'] );
 } );
 
@@ -1399,6 +1402,145 @@ test( 'admin: the screens that only proxied a collector are gone', function () {
 	$studio = file_get_contents( BAP_PLUGIN_DIR . 'includes/admin/class-bap-studio-page.php' );
 	ok( ! str_contains( $studio, 'render_experience' ) );
 	ok( ! str_contains( $studio, 'render_journeys' ) );
+} );
+
+/* ============================================================ */
+/* The automation-webhook provider                              */
+/* ============================================================ */
+
+test( 'webhook: a workflow reply is read from whatever shape it arrives in', function () {
+	$wanted = '{"recommendations":[{"title":"ok","evidence":["fact_a"]}]}';
+
+	// Every one of these is a real n8n Respond-node configuration.
+	is_same( $wanted, BAP_AI_Provider::webhook_content( $wanted ), 'raw JSON' );
+	is_same( $wanted, BAP_AI_Provider::webhook_content( json_encode( array( 'output' => $wanted ) ) ), 'wrapped in output' );
+	is_same( $wanted, BAP_AI_Provider::webhook_content( json_encode( array( 'text' => $wanted ) ) ), 'wrapped in text' );
+	is_same( $wanted, BAP_AI_Provider::webhook_content( json_encode( array( array( 'content' => $wanted ) ) ) ), 'single-item array' );
+
+	// Already the right shape, nested: re-encoded rather than lost.
+	$nested = BAP_AI_Provider::webhook_content( json_encode( array( 'recommendations' => array( array( 'title' => 'ok' ) ) ) ) );
+	ok( str_contains( $nested, 'recommendations' ) );
+} );
+
+test( 'webhook: a workflow cannot cite evidence that was never sent', function () {
+	seed_shop();
+	set_settings( array( 'ai_enabled' => true, 'ai_provider' => 'webhook', 'ai_provider_url' => 'https://example.test/webhook/x' ) );
+
+	$packet = BAP_Analysis_Packet::build( gmdate( 'Y-m-d' ), gmdate( 'Y-m-d' ) );
+
+	fake_http( 200, json_encode( array( 'output' => json_encode( array( 'recommendations' => array(
+		array( 'title' => 'ساختگی', 'evidence' => array( 'fact_invented_by_the_workflow' ) ),
+	) ) ) ) ) );
+
+	$result = BAP_AI_Provider::analyze( $packet );
+
+	// Nothing survived verification, so the rule engine answered instead and
+	// said so — an automation the shop owner built is not more trusted.
+	is_same( 'local', $result['provider'] );
+	is_same( true, $result['fallback'] );
+} );
+
+test( 'webhook: a valid workflow reply is accepted and attributed', function () {
+	seed_shop();
+	set_settings( array( 'ai_enabled' => true, 'ai_provider' => 'webhook', 'ai_provider_url' => 'https://example.test/webhook/x' ) );
+
+	$packet = BAP_Analysis_Packet::build( gmdate( 'Y-m-d' ), gmdate( 'Y-m-d' ) );
+	$fact   = $packet['facts'][0]['id'];
+
+	fake_http( 200, json_encode( array( 'output' => json_encode( array( 'recommendations' => array(
+		array( 'title' => 'پیشنهاد از n8n', 'priority' => 'high', 'confidence' => 70, 'evidence' => array( $fact ) ),
+	) ) ) ) ) );
+
+	$result = BAP_AI_Provider::analyze( $packet );
+
+	is_same( true, $result['ok'] );
+	is_same( 'webhook', $result['provider'] );
+	is_same( 'پیشنهاد از n8n', $result['recommendations'][0]['title'] );
+} );
+
+test( 'provider: the llama default no longer assumes a model on this machine', function () {
+	// A plugin is installed on shared hosting where nothing listens on 11434.
+	// Silently pointing at 127.0.0.1 produced "connection refused" and sent the
+	// shop owner hunting for a service that was never meant to be local.
+	set_settings( array( 'ai_provider' => 'llama', 'ai_provider_url' => '' ) );
+	is_same( '', BAP_AI_Provider::base_url(), 'an address must be given' );
+
+	set_settings( array( 'ai_provider_url' => 'http://10.0.0.5:11434' ) );
+	is_same( 'http://10.0.0.5:11434/v1/chat/completions', BAP_AI_Provider::chat_endpoint( BAP_AI_Provider::base_url() ) );
+} );
+
+test( 'explorer: a search shows which product was clicked afterwards', function () {
+	$today = gmdate( 'Y-m-d' );
+
+	// One page view: the visitor searched, then clicked a result. Both events
+	// carry the same page_view_id, which is what ties them together.
+	BAP_Local_Store::record( bap_event( array(
+		'event_type'   => 'search',
+		'page_view_id' => 'pv_search_1',
+		'page'         => array( 'path' => '/' ),
+		'data'         => array( 'query' => 'رژ لب قرمز' ),
+	) ) );
+
+	BAP_Local_Store::record( bap_event( array(
+		'event_type'   => 'click',
+		'page_view_id' => 'pv_search_1',
+		'page'         => array( 'path' => '/' ),
+		'data'         => array( 'text' => 'رژ لب مات شماره ۱۲' ),
+	) ) );
+
+	$search = BAP_Local_Reports::explorer( $today, $today )['searches'][0];
+
+	is_same( 'رژ لب قرمز', $search['term'] );
+	is_same( 'رژ لب مات شماره ۱۲', $search['clicked'][0]['product'] );
+	is_same( false, $search['no_click'] );
+} );
+
+test( 'explorer: a search nobody clicks is flagged as the opportunity it is', function () {
+	$today = gmdate( 'Y-m-d' );
+
+	BAP_Local_Store::record( bap_event( array(
+		'event_type'   => 'search',
+		'page_view_id' => 'pv_search_2',
+		'data'         => array( 'query' => 'کرم ضد آفتاب' ),
+	) ) );
+
+	$search = BAP_Local_Reports::explorer( $today, $today )['searches'][0];
+
+	is_same( array(), $search['clicked'] );
+	is_same( true, $search['no_click'], 'searched and never clicked — the shop has nothing for it' );
+} );
+
+test( 'explorer: a click in a different page view is not attributed to a search', function () {
+	$today = gmdate( 'Y-m-d' );
+
+	BAP_Local_Store::record( bap_event( array(
+		'event_type'   => 'search',
+		'page_view_id' => 'pv_one',
+		'data'         => array( 'query' => 'رژ لب' ),
+	) ) );
+
+	// A click on a completely different page, later. Attributing it would
+	// invent a journey that never happened.
+	BAP_Local_Store::record( bap_event( array(
+		'event_type'   => 'click',
+		'page_view_id' => 'pv_two',
+		'page'         => array( 'path' => '/about' ),
+		'data'         => array( 'text' => 'تماس با ما' ),
+	) ) );
+
+	is_same( true, BAP_Local_Reports::explorer( $today, $today )['searches'][0]['no_click'] );
+} );
+
+test( 'labels: event names read as Persian, not as translated English', function () {
+	// The old labels were field names rendered word for word. These are what a
+	// shopkeeper would say.
+	is_same( 'گذاشتن در سبد خرید', BAP_Local_Reports::event_label( 'add_to_cart' ) );
+	is_same( 'ثبت سفارش', BAP_Local_Reports::event_label( 'purchase' ) );
+	is_same( 'مدت ماندن در صفحه', BAP_Local_Reports::event_label( 'time_on_page' ) );
+	is_same( 'کلیک روی چیزی که دکمه نبوده', BAP_Local_Reports::event_label( 'dead_click' ) );
+
+	// An unknown type falls back to its raw name rather than to an empty cell.
+	is_same( 'something_new', BAP_Local_Reports::event_label( 'something_new' ) );
 } );
 
 run_tests();

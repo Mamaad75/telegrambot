@@ -9,6 +9,7 @@ STAGE="$(mktemp -d)"
 echo "Packaging ${VERSION}"
 echo "  · PHP syntax"; find "$SRC" -name '*.php' -print0 | xargs -0 -n1 php -l > /dev/null
 echo "  · JS syntax";  for f in $(find "$SRC" -name '*.js'); do node --check "$f"; done
+echo "  · tracker bundle is current"; node "$SRC/tools/build-bundle.js" --check
 
 echo "  · staging"
 mkdir -p "$STAGE/bahoosh-analytics-pro"

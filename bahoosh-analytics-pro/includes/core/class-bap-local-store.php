@@ -356,6 +356,12 @@ class BAP_Local_Store {
 				$source = (string) ( $data['item_name'] ?? ( $data['name'] ?? '' ) );
 				break;
 
+			case 'click':
+				// The link text, which on a search results page is the product
+				// name — the other half of "they searched for X and clicked Y".
+				$source = (string) ( $data['text'] ?? '' );
+				break;
+
 			case 'js_error':
 				$source = (string) ( $data['message'] ?? '' );
 				break;

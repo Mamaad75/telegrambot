@@ -538,6 +538,10 @@ class BAP_Local_Reports {
 		$devices  = array();
 		$feed     = array();
 
+		// Page views that began with a search, so a later click in the same
+		// page view can be traced back to the term that produced it.
+		$searched_views = array();
+
 		foreach ( $loaded['rows'] as $row ) {
 			$type = (string) $row['event_type'];
 			$path = '' !== $row['page_path'] ? (string) $row['page_path'] : '/';
@@ -580,13 +584,33 @@ class BAP_Local_Reports {
 				$term = (string) $row['label'];
 
 				if ( ! isset( $searches[ $term ] ) ) {
-					$searches[ $term ] = array( 'term' => $term, 'count' => 0, 'visitors' => array() );
+					$searches[ $term ] = array( 'term' => $term, 'count' => 0, 'visitors' => array(), 'clicked' => array() );
 				}
 
 				$searches[ $term ]['count']++;
 
 				if ( '' !== $row['anonymous_id'] ) {
 					$searches[ $term ]['visitors'][ $row['anonymous_id'] ] = true;
+				}
+
+				// Remembered so a click later in the same page view can be
+				// attributed back to the search that produced it.
+				if ( '' !== $row['page_view_id'] ) {
+					$searched_views[ (string) $row['page_view_id'] ] = $term;
+				}
+			}
+
+			// A click on the results page belongs to the search that rendered
+			// it: same page view, so no guessing is involved. This is the whole
+			// answer to "what did they search for, and which product did they
+			// pick" — and the terms where nothing is ever clicked are the ones
+			// worth acting on.
+			if ( in_array( $type, array( 'click', 'view_item' ), true ) && '' !== $row['label'] ) {
+				$origin = $searched_views[ (string) $row['page_view_id'] ] ?? '';
+
+				if ( '' !== $origin && isset( $searches[ $origin ] ) ) {
+					$product = (string) $row['label'];
+					$searches[ $origin ]['clicked'][ $product ] = ( $searches[ $origin ]['clicked'][ $product ] ?? 0 ) + 1;
 				}
 			}
 
@@ -629,6 +653,19 @@ class BAP_Local_Reports {
 
 		foreach ( $searches as $term => $row ) {
 			$searches[ $term ]['visitors'] = count( $row['visitors'] );
+
+			arsort( $searches[ $term ]['clicked'] );
+
+			$clicked = array();
+			foreach ( array_slice( $searches[ $term ]['clicked'], 0, 5, true ) as $product => $count ) {
+				$clicked[] = array( 'product' => (string) $product, 'count' => (int) $count );
+			}
+
+			$searches[ $term ]['clicked'] = $clicked;
+			// A term people search and then never click is the most actionable
+			// row on the screen: the shop either lacks the product or is not
+			// showing it in a way anyone recognises.
+			$searches[ $term ]['no_click'] = empty( $clicked );
 		}
 
 		uasort( $pages, static fn( $a, $b ) => $b['events'] <=> $a['events'] );
@@ -659,29 +696,35 @@ class BAP_Local_Reports {
 	 * @return string
 	 */
 	public static function event_label( $type ) {
+		// Written as a shopkeeper would say them, not as a translator would.
+		// "زمان روی صفحه" is what the field is called; "مدت ماندن در صفحه" is
+		// what it means. The first is a literal rendering of an English label,
+		// the second is Persian someone would actually say out loud.
 		$labels = array(
-			'page_view'        => __( 'بازدید صفحه', 'bahoosh-analytics-pro' ),
-			'click'            => __( 'کلیک', 'bahoosh-analytics-pro' ),
-			'scroll'           => __( 'اسکرول', 'bahoosh-analytics-pro' ),
-			'search'           => __( 'جست‌وجو', 'bahoosh-analytics-pro' ),
-			'form_submit'      => __( 'ارسال فرم', 'bahoosh-analytics-pro' ),
-			'time_on_page'     => __( 'زمان روی صفحه', 'bahoosh-analytics-pro' ),
-			'rage_click'       => __( 'کلیک عصبی', 'bahoosh-analytics-pro' ),
-			'dead_click'       => __( 'کلیک بی‌اثر', 'bahoosh-analytics-pro' ),
-			'js_error'         => __( 'خطای جاوااسکریپت', 'bahoosh-analytics-pro' ),
-			'web_vital'        => __( 'شاخص عملکرد', 'bahoosh-analytics-pro' ),
-			'view_item'        => __( 'مشاهده محصول', 'bahoosh-analytics-pro' ),
-			'add_to_cart'      => __( 'افزودن به سبد', 'bahoosh-analytics-pro' ),
-			'remove_from_cart' => __( 'حذف از سبد', 'bahoosh-analytics-pro' ),
-			'view_cart'        => __( 'مشاهده سبد', 'bahoosh-analytics-pro' ),
-			'begin_checkout'   => __( 'شروع تسویه‌حساب', 'bahoosh-analytics-pro' ),
-			'add_payment_info' => __( 'ورود اطلاعات پرداخت', 'bahoosh-analytics-pro' ),
-			'purchase'         => __( 'خرید', 'bahoosh-analytics-pro' ),
-			'refund'           => __( 'بازپرداخت', 'bahoosh-analytics-pro' ),
-			'login'            => __( 'ورود کاربر', 'bahoosh-analytics-pro' ),
-			'signup'           => __( 'ثبت‌نام', 'bahoosh-analytics-pro' ),
-			'media'            => __( 'پخش رسانه', 'bahoosh-analytics-pro' ),
-			'copy'             => __( 'کپی متن', 'bahoosh-analytics-pro' ),
+			'page_view'        => __( 'دیدن صفحه', 'bahoosh-analytics-pro' ),
+			'click'            => __( 'کلیک روی صفحه', 'bahoosh-analytics-pro' ),
+			'scroll'           => __( 'پایین رفتن صفحه', 'bahoosh-analytics-pro' ),
+			'search'           => __( 'جست‌وجو در سایت', 'bahoosh-analytics-pro' ),
+			'form_submit'      => __( 'پر کردن فرم', 'bahoosh-analytics-pro' ),
+			'time_on_page'     => __( 'مدت ماندن در صفحه', 'bahoosh-analytics-pro' ),
+			'rage_click'       => __( 'کلیک پشت سر هم از سر کلافگی', 'bahoosh-analytics-pro' ),
+			'dead_click'       => __( 'کلیک روی چیزی که دکمه نبوده', 'bahoosh-analytics-pro' ),
+			'js_error'         => __( 'خطای فنی در صفحه', 'bahoosh-analytics-pro' ),
+			'web_vital'        => __( 'سنجش سرعت صفحه', 'bahoosh-analytics-pro' ),
+			'view_item'        => __( 'دیدن صفحه محصول', 'bahoosh-analytics-pro' ),
+			'add_to_cart'      => __( 'گذاشتن در سبد خرید', 'bahoosh-analytics-pro' ),
+			'remove_from_cart' => __( 'برداشتن از سبد خرید', 'bahoosh-analytics-pro' ),
+			'view_cart'        => __( 'سر زدن به سبد خرید', 'bahoosh-analytics-pro' ),
+			'begin_checkout'   => __( 'رفتن به صفحه پرداخت', 'bahoosh-analytics-pro' ),
+			'add_payment_info' => __( 'پر کردن اطلاعات پرداخت', 'bahoosh-analytics-pro' ),
+			'purchase'         => __( 'ثبت سفارش', 'bahoosh-analytics-pro' ),
+			'refund'           => __( 'مرجوعی و بازگشت پول', 'bahoosh-analytics-pro' ),
+			'login'            => __( 'ورود به حساب', 'bahoosh-analytics-pro' ),
+			'signup'           => __( 'ساختن حساب جدید', 'bahoosh-analytics-pro' ),
+			'media'            => __( 'تماشای ویدیو یا صدا', 'bahoosh-analytics-pro' ),
+			'copy'             => __( 'کپی کردن متن صفحه', 'bahoosh-analytics-pro' ),
+			'identify'         => __( 'شناسایی کاربر', 'bahoosh-analytics-pro' ),
+			'file_download'    => __( 'دانلود فایل', 'bahoosh-analytics-pro' ),
 		);
 
 		return $labels[ $type ] ?? $type;
