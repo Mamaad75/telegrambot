@@ -1,0 +1,1 @@
+module.exports={apps:[{name:"jarchi",script:"src/server.js",cwd:"/var/www/jarchi",instances:1,exec_mode:"fork",autorestart:true,restart_delay:3000,max_restarts:25,env:{NODE_ENV:"production"}}]};

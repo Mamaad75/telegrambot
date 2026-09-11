@@ -1,0 +1,23 @@
+{
+  "name": "jarchi",
+  "version": "2.4.14",
+  "private": true,
+  "description": "Jarchi control plane: secure, observable, multi-site publishing, Mini App, Telegram/Bale bots and AI product automation",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test tests/*.test.js",
+    "test:integration": "node --test --test-concurrency=1 --test-timeout=120000 tests/integration/*.test.js",
+    "test:all": "npm test && npm run test:integration",
+    "db:migrate": "node src/db/migrate.js",
+    "db:status": "node src/db/migrate.js --status",
+    "db:validate": "node src/db/migrate.js --dry-run"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "node-telegram-bot-api": "^0.66.0",
+    "pg": "^8.16.3"
+  }
+}

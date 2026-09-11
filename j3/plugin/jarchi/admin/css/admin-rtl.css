@@ -1,0 +1,178 @@
+/**
+ * WP Event Publisher — right-to-left layout for the plugin screens.
+ *
+ * Loaded only when the plugin UI language is right to left, which is
+ * independent of the site locale: a Persian plugin UI on an English admin
+ * still gets this sheet. Scoped to `.wpep-wrap` so no other admin screen is
+ * affected.
+ */
+
+.wpep-rtl .wpep-wrap {
+	direction: rtl;
+	text-align: right;
+}
+
+/* Headings and paragraphs */
+
+.wpep-rtl .wpep-wrap h1,
+.wpep-rtl .wpep-wrap h2,
+.wpep-rtl .wpep-wrap h3,
+.wpep-rtl .wpep-wrap h4,
+.wpep-rtl .wpep-wrap p,
+.wpep-rtl .wpep-wrap li,
+.wpep-rtl .wpep-wrap label {
+	text-align: right;
+}
+
+/* Form tables */
+
+.wpep-rtl .wpep-wrap .form-table th {
+	text-align: right;
+	padding-right: 0;
+	padding-left: 10px;
+}
+
+.wpep-rtl .wpep-wrap .form-table td {
+	text-align: right;
+}
+
+.wpep-rtl .wpep-wrap .wpep-check-item {
+	text-align: right;
+}
+
+/* Lists keep their markers on the correct side */
+
+.wpep-rtl .wpep-wrap ul,
+.wpep-rtl .wpep-wrap ol {
+	margin-right: 20px;
+	margin-left: 0;
+}
+
+.wpep-rtl .wpep-wrap .wpep-result ul {
+	margin: 4px 18px 0 0;
+}
+
+.wpep-rtl .wpep-wrap .wpep-env-list {
+	margin-right: 0;
+}
+
+/* Result boxes: the accent bar moves to the right edge */
+
+.wpep-rtl .wpep-wrap .wpep-result {
+	border-left: none;
+	border-right: 4px solid #72aee6;
+}
+
+.wpep-rtl .wpep-wrap .wpep-result.wpep-result-success {
+	border-right-color: #00a32a;
+}
+
+.wpep-rtl .wpep-wrap .wpep-result.wpep-result-error {
+	border-right-color: #d63638;
+}
+
+/* Tables */
+
+.wpep-rtl .wpep-wrap .wpep-table th,
+.wpep-rtl .wpep-wrap .wpep-table td {
+	text-align: right;
+}
+
+.wpep-rtl .wpep-wrap .wpep-system-table th[scope="row"] {
+	text-align: right;
+}
+
+/* URLs, payloads, event IDs and log messages stay left-to-right: they are
+   machine values, and mixing them into an RTL paragraph would reorder
+   punctuation and make them unreadable. */
+
+.wpep-rtl .wpep-wrap code,
+.wpep-rtl .wpep-wrap pre,
+.wpep-rtl .wpep-wrap .wpep-pre,
+.wpep-rtl .wpep-wrap .wpep-result-meta,
+.wpep-rtl .wpep-wrap .wpep-cell-event,
+.wpep-rtl .wpep-wrap input[type="url"],
+.wpep-rtl .wpep-wrap input[type="password"],
+.wpep-rtl .wpep-wrap input[type="number"],
+.wpep-rtl .wpep-wrap textarea.code,
+.wpep-rtl .wpep-wrap input.code {
+	direction: ltr;
+	text-align: left;
+	unicode-bidi: embed;
+}
+
+/* Filters and inline forms flow from the right */
+
+.wpep-rtl .wpep-wrap .wpep-filters,
+.wpep-rtl .wpep-wrap .wpep-log-actions {
+	flex-direction: row-reverse;
+	justify-content: flex-end;
+}
+
+.wpep-rtl .wpep-wrap .wpep-inline-form {
+	margin-right: 0;
+	margin-left: 8px;
+}
+
+/* Cards */
+
+.wpep-rtl .wpep-wrap .wpep-card {
+	text-align: right;
+}
+
+/* -------------------------------------------------------------------------
+ * Field Mapping screen (1.4.0)
+ * ---------------------------------------------------------------------- */
+
+.wpep-rtl .wpep-scope-banner {
+	border-left: 0;
+	border-right: 4px solid #72aee6;
+	direction: ltr;
+	text-align: left;
+}
+
+.wpep-rtl .wpep-field-group caption,
+.wpep-rtl .wpep-placeholder-list button {
+	text-align: right;
+}
+
+/* Placeholders and meta lines are machine keys: always left to right, even
+   inside an otherwise right to left screen. */
+.wpep-rtl .wpep-field-meta,
+.wpep-rtl .wpep-placeholder-list button,
+.wpep-rtl .wpep-template-editor textarea {
+	direction: ltr;
+	text-align: left;
+}
+
+.wpep-rtl .wpep-preview-message {
+	direction: rtl;
+	text-align: right;
+}
+
+/* -------------------------------------------------------------------------
+ * Platform screens (1.5.0)
+ * ---------------------------------------------------------------------- */
+
+.wpep-rtl .wpep-item,
+.wpep-rtl .wpep-item-name,
+.wpep-rtl .wpep-item-meta {
+	text-align: right;
+}
+
+.wpep-rtl .wpep-validation {
+	border-left: 0;
+	border-right: 4px solid #dba617;
+}
+
+.wpep-rtl .wpep-group-tools {
+	float: left;
+}
+
+/* Payloads and machine keys stay left to right. */
+.wpep-rtl .wpep-payload,
+.wpep-rtl .wpep-action .wpep-action-value,
+.wpep-rtl .wpep-item-meta code {
+	direction: ltr;
+	text-align: left;
+}
