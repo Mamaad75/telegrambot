@@ -26,7 +26,7 @@ class BAP_Studio_Page {
 			$title,
 			$subtitle,
 			isset( $slugs[ $active ] ) ? $slugs[ $active ] : BAP_Admin::MENU_SLUG,
-			__( 'فضای هوشمند باهوش', 'bahoosh-analytics-pro' )
+			__( 'باهوش', 'bahoosh-analytics-pro' )
 		);
 	}
 
@@ -74,6 +74,17 @@ class BAP_Studio_Page {
 				<div id="bap-funnel-report" class="bap-funnel-report">
 					<div class="bap-empty-state"><?php esc_html_e( 'قیف از لحظه فعال‌سازی این نسخه شروع به جمع‌آوری می‌کند.', 'bahoosh-analytics-pro' ); ?></div>
 				</div>
+			</section>
+
+			<section class="bap-section">
+				<div class="bap-section-title">
+					<div>
+						<span class="bap-kicker"><?php esc_html_e( 'به تفکیک محصول', 'bahoosh-analytics-pro' ); ?></span>
+						<h2><?php esc_html_e( 'کدام محصول، کجا رها شد', 'bahoosh-analytics-pro' ); ?></h2>
+					</div>
+				</div>
+				<div id="bap-product-funnel" class="bap-product-funnel"></div>
+				<p class="bap-muted"><?php esc_html_e( 'محصولی که زیاد دیده می‌شود و کم سبد می‌شود، مشکلش صفحه محصول است. محصولی که زیاد سبد می‌شود و کم خریده می‌شود، مشکلش هزینه ارسال یا صفحه پرداخت است. این دو، دو کار متفاوت‌اند.', 'bahoosh-analytics-pro' ); ?></p>
 			</section>
 
 			<div class="bap-explorer-grid">
@@ -135,7 +146,7 @@ class BAP_Studio_Page {
 		);
 		?>
 		<div class="wrap bap-wrap bap-studio" data-bap-screen="ai">
-			<?php self::header( __( 'مرکز هوش مصنوعی باهوش', 'bahoosh-analytics-pro' ), __( 'تحلیل داده‌های واقعی سایت، کشف فرصت‌ها و تبدیل بینش به اقدام کنترل‌شده و قابل ممیزی.', 'bahoosh-analytics-pro' ), 'ai' ); ?>
+			<?php self::header( __( 'پیشنهادهای فروش', 'bahoosh-analytics-pro' ), __( 'از روی سفارش‌ها و رفتار واقعی فروشگاه شما: چه چیزی می‌فروشد، کجا فروش از دست می‌رود و چه کاری می‌شود کرد.', 'bahoosh-analytics-pro' ), 'ai' ); ?>
 
 			<div class="bap-grid bap-grid--ai-summary">
 				<div class="bap-card"><h3><?php esc_html_e( 'کل پیشنهادها', 'bahoosh-analytics-pro' ); ?></h3><div class="bap-value" id="bap-ai-total-count"><?php echo esc_html( count( $recommendations ) ); ?></div></div>

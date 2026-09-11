@@ -199,7 +199,7 @@ class BAP_Admin {
 	 */
 	public static function render_page_header( $title, $subtitle, $active, $kicker = '' ) {
 		if ( '' === $kicker ) {
-			$kicker = __( 'مرکز تحلیل باهوش', 'bahoosh-analytics-pro' );
+			$kicker = __( 'باهوش', 'bahoosh-analytics-pro' );
 		}
 		?>
 		<header class="bap-page-hero">

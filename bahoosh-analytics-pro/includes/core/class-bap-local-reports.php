@@ -360,6 +360,157 @@ class BAP_Local_Reports {
 	}
 
 	/**
+	 * The funnel, one row per product.
+	 *
+	 * The overall funnel says 73% abandon at checkout. It cannot say *which*
+	 * product they were abandoning, and that is the question a shop owner
+	 * actually acts on: a product viewed two hundred times and carted twice has
+	 * a page problem, and one carted forty times and bought twice has a price,
+	 * postage or stock problem. Those are different afternoons of work.
+	 *
+	 * Built from the event store rather than the rollup, because the rollup
+	 * counts steps per page and never knew which product a step belonged to.
+	 * That means it needs product names on the events, which the tracker sends
+	 * for `view_item` and `add_to_cart`, and which WooCommerce supplies for the
+	 * purchase itself.
+	 *
+	 * @param string $from Y-m-d.
+	 * @param string $to   Y-m-d.
+	 * @return array
+	 */
+	public static function product_funnel( $from, $to ) {
+		$from   = BAP_Reports::sanitize_date( $from );
+		$to     = BAP_Reports::sanitize_date( $to );
+		$loaded = BAP_Local_Store::events( $from, $to );
+
+		$steps    = array( 'view_item', 'add_to_cart', 'begin_checkout', 'purchase' );
+		$products = array();
+
+		foreach ( $loaded['rows'] as $row ) {
+			$type = (string) $row['event_type'];
+			$name = trim( (string) $row['label'] );
+
+			if ( '' === $name || ! in_array( $type, $steps, true ) ) {
+				continue;
+			}
+
+			if ( ! isset( $products[ $name ] ) ) {
+				$products[ $name ] = array_fill_keys( $steps, 0 );
+				$products[ $name ]['name'] = $name;
+			}
+
+			$products[ $name ][ $type ]++;
+		}
+
+		// Orders are the truth about what was bought, and they carry the
+		// product name whether or not a browser event survived. Counted here so
+		// the last column of the funnel is the same number the shop was paid
+		// for, not the number of purchase events that happened to arrive.
+		if ( BAP_Commerce_Facts::available() ) {
+			foreach ( BAP_Commerce_Facts::orders( $from, $to ) as $order ) {
+				foreach ( $order['items'] as $item ) {
+					$name = trim( (string) $item['name'] );
+
+					if ( '' === $name ) {
+						continue;
+					}
+
+					if ( ! isset( $products[ $name ] ) ) {
+						$products[ $name ] = array_fill_keys( $steps, 0 );
+						$products[ $name ]['name'] = $name;
+					}
+
+					$products[ $name ]['purchase'] += (int) $item['qty'];
+				}
+			}
+		}
+
+		$rows = array();
+
+		foreach ( $products as $product ) {
+			$viewed  = (int) $product['view_item'];
+			$carted  = (int) $product['add_to_cart'];
+			$checked = (int) $product['begin_checkout'];
+			$bought  = (int) $product['purchase'];
+
+			// A product nobody has seen and nobody has bought is noise.
+			if ( $viewed < 1 && $carted < 1 && $bought < 1 ) {
+				continue;
+			}
+
+			// Where the largest number of people gave up on this specific
+			// product. Absolute loss, not percentage: the deepest step always
+			// has the worst rate on the smallest sample, and ranking by rate
+			// puts a product two people abandoned above one that fifty did.
+			$losses = array(
+				'view_item'      => max( 0, $viewed - max( $carted, $bought ) ),
+				'add_to_cart'    => max( 0, $carted - max( $checked, $bought ) ),
+				'begin_checkout' => $checked > 0 ? max( 0, $checked - $bought ) : 0,
+			);
+
+			arsort( $losses );
+			$worst = key( $losses );
+			$lost  = current( $losses );
+
+			$rows[] = array(
+				'name'           => $product['name'],
+				'view_item'      => $viewed,
+				'add_to_cart'    => $carted,
+				'begin_checkout' => $checked,
+				'purchase'       => $bought,
+				'lost_at'        => $lost > 0 ? $worst : '',
+				'lost_at_label'  => $lost > 0 ? self::abandon_label( $worst ) : '',
+				'lost_people'    => (int) $lost,
+				'cart_rate'      => $viewed > 0 ? round( ( $carted / $viewed ) * 100, 1 ) : null,
+				'buy_rate'       => $carted > 0 ? round( ( $bought / $carted ) * 100, 1 ) : null,
+				'advice'         => $lost > 0 ? self::abandon_advice( $worst ) : '',
+			);
+		}
+
+		usort( $rows, static fn( $a, $b ) => $b['lost_people'] <=> $a['lost_people'] );
+
+		return array(
+			'products' => array_slice( $rows, 0, 25 ),
+			'source'   => 'local',
+			'notes'    => $rows ? array() : array(
+				__( 'هنوز داده‌ای در سطح محصول ثبت نشده. این جدول وقتی پر می‌شود که بازدیدکننده‌ها صفحه محصول را ببینند یا چیزی در سبد بگذارند.', 'bahoosh-analytics-pro' ),
+			),
+		);
+	}
+
+	/**
+	 * Where a product lost its buyers, in plain words.
+	 *
+	 * @param string $step Step slug.
+	 * @return string
+	 */
+	public static function abandon_label( $step ) {
+		$labels = array(
+			'view_item'      => __( 'بعد از دیدن صفحه محصول', 'bahoosh-analytics-pro' ),
+			'add_to_cart'    => __( 'بعد از گذاشتن در سبد', 'bahoosh-analytics-pro' ),
+			'begin_checkout' => __( 'سر صفحه پرداخت', 'bahoosh-analytics-pro' ),
+		);
+
+		return $labels[ $step ] ?? $step;
+	}
+
+	/**
+	 * What usually causes a product to be abandoned at a given step.
+	 *
+	 * @param string $step Step slug.
+	 * @return string
+	 */
+	public static function abandon_advice( $step ) {
+		$advice = array(
+			'view_item'      => __( 'صفحه محصول را دیده‌اند و سبد نکرده‌اند: معمولاً عکس کم، توضیح ناقص، نبود نظر مشتری یا قیمتی که بالاتر از انتظار بوده.', 'bahoosh-analytics-pro' ),
+			'add_to_cart'    => __( 'در سبد گذاشته‌اند و جلو نرفته‌اند: معمولاً هزینه ارسال که تازه اینجا معلوم می‌شود، یا تردید درباره زمان تحویل.', 'bahoosh-analytics-pro' ),
+			'begin_checkout' => __( 'تا صفحه پرداخت آمده‌اند و نخریده‌اند: معمولاً اجبار به ثبت‌نام، فرم طولانی، یا درگاهی که کار نمی‌کند.', 'bahoosh-analytics-pro' ),
+		);
+
+		return $advice[ $step ] ?? '';
+	}
+
+	/**
 	 * Experience signals: friction the tracker itself recorded.
 	 *
 	 * @param string $from Y-m-d.

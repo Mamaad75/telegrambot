@@ -83,7 +83,7 @@ class BAP_WordPress {
 	 * @return void
 	 */
 	public static function print_api_stub() {
-		if ( ! BAP_Settings::tracking_enabled() || ! BAP_Identity::should_track_current_user() ) {
+		if ( ! BAP_Settings::tracking_enabled() || ! BAP_Settings::collects_in_browser() || ! BAP_Identity::should_track_current_user() ) {
 			return;
 		}
 
@@ -103,7 +103,7 @@ class BAP_WordPress {
 	 * @return void
 	 */
 	public static function enqueue() {
-		if ( ! BAP_Settings::tracking_enabled() || ! BAP_Identity::should_track_current_user() ) {
+		if ( ! BAP_Settings::tracking_enabled() || ! BAP_Settings::collects_in_browser() || ! BAP_Identity::should_track_current_user() ) {
 			return;
 		}
 

@@ -952,6 +952,9 @@ class BAP_REST_Controller {
 						'success'          => true,
 						'range'            => $range,
 						'collecting_since' => BAP_Local_Store::first_day(),
+						// The same funnel broken down by product, which is the
+						// level a shop owner can act on.
+						'products'         => BAP_Local_Reports::product_funnel( $range['from'], $range['to'] )['products'],
 					),
 					BAP_Local_Reports::funnel( $range['from'], $range['to'] )
 				),

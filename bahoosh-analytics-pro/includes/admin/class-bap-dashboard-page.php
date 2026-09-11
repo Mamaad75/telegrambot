@@ -22,42 +22,55 @@ class BAP_Dashboard_Page {
 	 * @return array<string,array{label:string,format:string}>
 	 */
 	public static function cards() {
+		// Every card carries a one-line explanation of what it counts and where
+		// the number comes from. A shop owner should never have to ask what
+		// "تبدیل" means or guess whether revenue is gross or net — and until
+		// now they did, because the cards were bare labels over bare numbers.
 		$cards = array(
 			'total_events'    => array(
-				'label'  => __( 'کل رویدادها', 'bahoosh-analytics-pro' ),
+				'label'  => __( 'همه اتفاق‌ها', 'bahoosh-analytics-pro' ),
 				'format' => 'integer',
+				'hint'   => __( 'هر کاری که بازدیدکننده‌ها کرده‌اند: دیدن صفحه، کلیک، جست‌وجو، سبد کردن و خرید.', 'bahoosh-analytics-pro' ),
 			),
 			'unique_users'    => array(
-				'label'  => __( 'کاربران یکتا', 'bahoosh-analytics-pro' ),
+				'label'  => __( 'بازدیدکننده‌ها', 'bahoosh-analytics-pro' ),
 				'format' => 'integer',
+				'hint'   => __( 'تعداد مرورگرهای متمایز. یک نفر که با موبایل و لپ‌تاپ آمده، دو تا شمرده می‌شود.', 'bahoosh-analytics-pro' ),
 			),
 			'sessions'        => array(
-				'label'  => __( 'نشست‌ها', 'bahoosh-analytics-pro' ),
+				'label'  => __( 'دفعات مراجعه', 'bahoosh-analytics-pro' ),
 				'format' => 'integer',
+				'hint'   => __( 'هر بار که کسی به سایت سر زده. اگر نیم ساعت بی‌حرکت بماند و برگردد، مراجعه تازه حساب می‌شود.', 'bahoosh-analytics-pro' ),
 			),
 			'realtime_users'  => array(
-				'label'  => __( 'کاربران آنلاین', 'bahoosh-analytics-pro' ),
+				'label'  => __( 'همین الان در سایت', 'bahoosh-analytics-pro' ),
 				'format' => 'integer',
+				'hint'   => __( 'کسانی که در پنج دقیقه گذشته کاری در سایت کرده‌اند.', 'bahoosh-analytics-pro' ),
 			),
 			'page_views'      => array(
-				'label'  => __( 'بازدید صفحات', 'bahoosh-analytics-pro' ),
+				'label'  => __( 'صفحه‌های دیده‌شده', 'bahoosh-analytics-pro' ),
 				'format' => 'integer',
+				'hint'   => __( 'مجموع دفعات باز شدن صفحه‌ها. برای دیدن اینکه کدام صفحه‌ها، به «رویدادها و صفحات» بروید.', 'bahoosh-analytics-pro' ),
 			),
 			'searches'        => array(
-				'label'  => __( 'جست‌وجوها', 'bahoosh-analytics-pro' ),
+				'label'  => __( 'جست‌وجو در سایت', 'bahoosh-analytics-pro' ),
 				'format' => 'integer',
+				'hint'   => __( 'دفعاتی که کسی از جعبه جست‌وجوی سایت استفاده کرده. عبارت‌هایشان در «رویدادها و صفحات» است.', 'bahoosh-analytics-pro' ),
 			),
 			'conversions'     => array(
-				'label'  => __( 'تبدیل‌ها', 'bahoosh-analytics-pro' ),
+				'label'  => __( 'سفارش‌های ثبت‌شده', 'bahoosh-analytics-pro' ),
 				'format' => 'integer',
+				'hint'   => __( 'تعداد سفارش‌های پرداخت‌شده ووکامرس در این بازه (در حال انجام و تکمیل‌شده). از خود سفارش‌ها خوانده می‌شود، نه از رویداد مرورگر، چون رویداد ممکن است مسدود یا دوباره ثبت شود.', 'bahoosh-analytics-pro' ),
 			),
 			'revenue'         => array(
-				'label'  => __( 'درآمد', 'bahoosh-analytics-pro' ),
+				'label'  => __( 'مبلغ فروش', 'bahoosh-analytics-pro' ),
 				'format' => 'currency',
+				'hint'   => __( 'جمع مبلغ کل همان سفارش‌ها — همان عددی که در صفحه سفارش‌های ووکامرس می‌بینید. مرجوعی‌ها از آن کم نمی‌شود.', 'bahoosh-analytics-pro' ),
 			),
 			'conversion_rate' => array(
-				'label'  => __( 'نرخ تبدیل', 'bahoosh-analytics-pro' ),
+				'label'  => __( 'چند درصد خریدند', 'bahoosh-analytics-pro' ),
 				'format' => 'percent',
+				'hint'   => __( 'سفارش‌ها تقسیم بر دفعات مراجعه. سفارش تلفنی یا سفارشی که مرورگرش رهگیری را مسدود کرده، مراجعه ثبت‌شده ندارد؛ برای همین این عدد تقریبی است و سقفش ۱۰۰٪ است.', 'bahoosh-analytics-pro' ),
 			),
 		);
 
@@ -76,10 +89,10 @@ class BAP_Dashboard_Page {
 	 */
 	public static function panels() {
 		$panels = array(
-			'top_pages'       => __( 'صفحات برتر', 'bahoosh-analytics-pro' ),
-			'traffic_sources' => __( 'منابع ورودی', 'bahoosh-analytics-pro' ),
-			'devices'         => __( 'دستگاه‌ها', 'bahoosh-analytics-pro' ),
-			'countries'       => __( 'کشورها', 'bahoosh-analytics-pro' ),
+			'top_pages'       => __( 'پربازدیدترین صفحه‌ها', 'bahoosh-analytics-pro' ),
+			'traffic_sources' => __( 'از کجا آمده‌اند', 'bahoosh-analytics-pro' ),
+			'devices'         => __( 'با چه دستگاهی', 'bahoosh-analytics-pro' ),
+			'countries'       => __( 'از کدام کشور', 'bahoosh-analytics-pro' ),
 		);
 
 		/**
@@ -109,8 +122,8 @@ class BAP_Dashboard_Page {
 		<div class="wrap bap-wrap">
 
 			<?php BAP_Admin::render_page_header(
-				__( 'داشبورد تحلیل', 'bahoosh-analytics-pro' ),
-				__( 'نمای کلی عملکرد سایت، رفتار کاربران، تبدیل‌ها و سلامت جریان داده.', 'bahoosh-analytics-pro' ),
+				__( 'یک نگاه به فروشگاه', 'bahoosh-analytics-pro' ),
+				__( 'چند نفر آمدند، چه کردند و چقدر خرید شد. زیر هر عدد نوشته‌ایم دقیقاً چه چیزی را می‌شمارد.', 'bahoosh-analytics-pro' ),
 				BAP_Admin::MENU_SLUG
 			); ?>
 
@@ -168,6 +181,9 @@ class BAP_Dashboard_Page {
 					<div class="bap-card" data-metric="<?php echo esc_attr( $metric ); ?>" data-format="<?php echo esc_attr( $card['format'] ); ?>" <?php echo in_array( $metric, $visible_cards, true ) ? '' : 'hidden'; ?>>
 						<h3><?php echo esc_html( $card['label'] ); ?></h3>
 						<div class="bap-value" data-value>--</div>
+						<?php if ( ! empty( $card['hint'] ) ) : ?>
+							<p class="bap-card-hint"><?php echo esc_html( $card['hint'] ); ?></p>
+						<?php endif; ?>
 					</div>
 				<?php endforeach; ?>
 			</div>

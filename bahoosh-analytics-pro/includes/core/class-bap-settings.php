@@ -88,6 +88,10 @@ class BAP_Settings {
 			'hash_user_email'         => true,
 			'woocommerce_enabled'     => true,
 			'server_side_purchase'    => true,
+			// Both sources, joined. Browser-only loses every order from a
+			// visitor with an ad blocker; server-only loses every page, search
+			// and device. The default should not quietly pick one.
+			'collection_mode'         => 'hybrid',
 			'data_retention_days'     => 0,
 			'debug'                   => false,
 		);
@@ -234,6 +238,12 @@ class BAP_Settings {
 			$clean['ai_provider'] = in_array( $input['ai_provider'], array( 'llama', 'webhook', 'openai_compatible', 'local' ), true )
 				? $input['ai_provider']
 				: 'llama';
+		}
+
+		if ( isset( $input['collection_mode'] ) ) {
+			$clean['collection_mode'] = in_array( $input['collection_mode'], array( 'browser', 'server', 'hybrid' ), true )
+				? $input['collection_mode']
+				: 'hybrid';
 		}
 
 		if ( isset( $input['ai_agent_mode'] ) ) {
@@ -395,6 +405,51 @@ class BAP_Settings {
 	 *
 	 * @return bool
 	 */
+	/**
+	 * Where events are collected from.
+	 *
+	 * The plugin has always had two independent ways of seeing what happens on
+	 * a shop, and they see different things:
+	 *
+	 * - The **browser tracker** sees behaviour. Which page, which device, which
+	 *   referrer, what was searched, where the mouse went. It sees nothing a
+	 *   visitor's ad blocker, private window or offline moment prevents.
+	 * - **WordPress and WooCommerce hooks** see truth. An order exists or it
+	 *   does not; a refund happened or it did not. They see nothing about how
+	 *   the visitor got there, and nothing at all before checkout.
+	 *
+	 * Neither is complete. `hybrid` runs both and joins them — the browser's
+	 * anonymous id and device are written onto the order at checkout, so a
+	 * purchase recorded server-side still carries the journey that produced it.
+	 * That join is the reason the combined mode is worth having rather than
+	 * being "both switches on".
+	 *
+	 * @return string `browser`, `server` or `hybrid`.
+	 */
+	public static function collection_mode() {
+		$mode = (string) self::get( 'collection_mode', 'hybrid' );
+
+		return in_array( $mode, array( 'browser', 'server', 'hybrid' ), true ) ? $mode : 'hybrid';
+	}
+
+	/**
+	 * Whether the browser tracker should be loaded.
+	 *
+	 * @return bool
+	 */
+	public static function collects_in_browser() {
+		return 'server' !== self::collection_mode();
+	}
+
+	/**
+	 * Whether WordPress and WooCommerce hooks should emit events.
+	 *
+	 * @return bool
+	 */
+	public static function collects_on_server() {
+		return 'browser' !== self::collection_mode();
+	}
+
 	public static function tracking_enabled() {
 		/**
 		 * Filters whether the tracker is active.

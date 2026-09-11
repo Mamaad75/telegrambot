@@ -1543,4 +1543,134 @@ test( 'labels: event names read as Persian, not as translated English', function
 	is_same( 'something_new', BAP_Local_Reports::event_label( 'something_new' ) );
 } );
 
+/* ============================================================ */
+/* Collection modes and the per-product funnel                  */
+/* ============================================================ */
+
+test( 'collection: both sources run by default', function () {
+	is_same( 'hybrid', BAP_Settings::collection_mode() );
+	is_same( true, BAP_Settings::collects_in_browser() );
+	is_same( true, BAP_Settings::collects_on_server() );
+} );
+
+test( 'collection: each mode switches off exactly one half', function () {
+	set_settings( array( 'collection_mode' => 'browser' ) );
+	is_same( true, BAP_Settings::collects_in_browser() );
+	is_same( false, BAP_Settings::collects_on_server(), 'no server-side order events' );
+
+	set_settings( array( 'collection_mode' => 'server' ) );
+	is_same( false, BAP_Settings::collects_in_browser(), 'the tracker is not loaded' );
+	is_same( true, BAP_Settings::collects_on_server() );
+
+	// An unknown value must not silently disable collection.
+	set_settings( array( 'collection_mode' => 'nonsense' ) );
+	is_same( 'hybrid', BAP_Settings::collection_mode() );
+} );
+
+test( 'collection: server-only mode still refuses to load the tracker', function () {
+	set_settings( array( 'collection_mode' => 'server' ) );
+
+	$source = file_get_contents( BAP_PLUGIN_DIR . 'includes/integrations/class-bap-wordpress.php' );
+	ok( str_contains( $source, 'BAP_Settings::collects_in_browser()' ), 'the enqueue gate consults the mode' );
+
+	is_same( false, BAP_WooCommerce::should_track(), 'and browser-side shop tracking is off with it' );
+} );
+
+test( 'product funnel: a product that is seen but never carted is named', function () {
+	$today = gmdate( 'Y-m-d' );
+
+	foreach ( range( 1, 40 ) as $i ) {
+		BAP_Local_Store::record( bap_event( array(
+			'event_type' => 'view_item',
+			'page'       => array( 'path' => '/product/serum' ),
+			'data'       => array( 'item_name' => 'سرم ویتامین C' ),
+		) ) );
+	}
+	BAP_Local_Store::record( bap_event( array(
+		'event_type' => 'add_to_cart',
+		'data'       => array( 'item_name' => 'سرم ویتامین C' ),
+	) ) );
+
+	$product = BAP_Local_Reports::product_funnel( $today, $today )['products'][0];
+
+	is_same( 'سرم ویتامین C', $product['name'] );
+	is_same( 40, $product['view_item'] );
+	is_same( 1, $product['add_to_cart'] );
+	is_same( 'view_item', $product['lost_at'], 'the loss is at the product page, not the checkout' );
+	is_same( 39, $product['lost_people'] );
+	is_same( 2.5, $product['cart_rate'] );
+	ok( str_contains( $product['advice'], 'عکس' ), 'and the advice matches that step' );
+} );
+
+test( 'product funnel: a product carted and abandoned is diagnosed differently', function () {
+	$today = gmdate( 'Y-m-d' );
+
+	foreach ( range( 1, 30 ) as $i ) {
+		BAP_Local_Store::record( bap_event( array(
+			'event_type' => 'add_to_cart',
+			'data'       => array( 'item_name' => 'ماسک مو' ),
+		) ) );
+	}
+
+	$product = BAP_Local_Reports::product_funnel( $today, $today )['products'][0];
+
+	is_same( 'add_to_cart', $product['lost_at'] );
+	// Cart abandonment has a different usual cause than page abandonment, and
+	// saying "improve your photos" here would send someone to the wrong job.
+	ok( str_contains( $product['advice'], 'ارسال' ), 'postage, not photography' );
+} );
+
+test( 'product funnel: purchases are counted from orders, not from events', function () {
+	$today = gmdate( 'Y-m-d' );
+	seed_shop();
+
+	foreach ( range( 1, 5 ) as $i ) {
+		BAP_Local_Store::record( bap_event( array(
+			'event_type' => 'view_item',
+			'data'       => array( 'item_name' => 'رژ لب' ),
+		) ) );
+	}
+
+	$products = array_column( BAP_Local_Reports::product_funnel( $today, $today )['products'], null, 'name' );
+
+	// seed_shop() places 20 orders containing the lipstick; no purchase event
+	// was ever recorded for it, and the funnel still knows it sold.
+	is_same( 20, $products['رژ لب']['purchase'] );
+	is_same( 5, $products['رژ لب']['view_item'] );
+} );
+
+test( 'product funnel: ranked by people lost, not by percentage', function () {
+	$today = gmdate( 'Y-m-d' );
+
+	// A product two people abandoned at a 100% rate, and one that fifty did at
+	// a lower rate. Ranking by rate would put the trivial one first.
+	foreach ( range( 1, 2 ) as $i ) {
+		BAP_Local_Store::record( bap_event( array( 'event_type' => 'view_item', 'data' => array( 'item_name' => 'کوچک' ) ) ) );
+	}
+	foreach ( range( 1, 60 ) as $i ) {
+		BAP_Local_Store::record( bap_event( array( 'event_type' => 'view_item', 'data' => array( 'item_name' => 'بزرگ' ) ) ) );
+	}
+	foreach ( range( 1, 10 ) as $i ) {
+		BAP_Local_Store::record( bap_event( array( 'event_type' => 'add_to_cart', 'data' => array( 'item_name' => 'بزرگ' ) ) ) );
+	}
+
+	$products = BAP_Local_Reports::product_funnel( $today, $today )['products'];
+
+	is_same( 'بزرگ', $products[0]['name'], '50 people lost outranks 2' );
+} );
+
+test( 'dashboard: every metric card explains what it counts', function () {
+	foreach ( BAP_Dashboard_Page::cards() as $metric => $card ) {
+		ok( ! empty( $card['hint'] ), "card {$metric} must say what it counts" );
+		ok( mb_strlen( $card['hint'] ) > 30, "card {$metric} needs a real explanation, not a word" );
+	}
+
+	$cards = BAP_Dashboard_Page::cards();
+
+	// The three the shop owner asked about by name.
+	ok( str_contains( $cards['conversions']['hint'], 'ووکامرس' ), 'conversions names its source' );
+	ok( str_contains( $cards['revenue']['hint'], 'مرجوعی' ), 'revenue says what it excludes' );
+	ok( str_contains( $cards['conversion_rate']['hint'], 'تقسیم بر' ), 'the rate shows its arithmetic' );
+} );
+
 run_tests();

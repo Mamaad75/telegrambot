@@ -135,8 +135,8 @@ class BAP_Settings_Page {
 		?>
 		<div class="wrap bap-wrap bap-settings bap-unified-screen">
 			<?php BAP_Admin::render_page_header(
-				__( 'تنظیمات باهوش', 'bahoosh-analytics-pro' ),
-				__( 'اتصال، رهگیری، حریم خصوصی، هوش مصنوعی، عملکرد و ظاهر افزونه را از یک مرکز کنترل مدیریت کنید.', 'bahoosh-analytics-pro' ),
+				__( 'تنظیمات', 'bahoosh-analytics-pro' ),
+				__( 'اینکه چه چیزی جمع شود، از کجا، و چه کسی اجازه تغییر در فروشگاه را داشته باشد.', 'bahoosh-analytics-pro' ),
 				BAP_Admin::SETTINGS_SLUG
 			); ?>
 
@@ -285,15 +285,25 @@ class BAP_Settings_Page {
 
 				<h2><?php esc_html_e( 'ووکامرس', 'bahoosh-analytics-pro' ); ?></h2>
 				<table class="form-table" role="presentation">
+					<tr><th scope="row"><label for="bap-collection-mode"><?php esc_html_e( 'داده از کجا جمع شود', 'bahoosh-analytics-pro' ); ?></label></th><td>
+						<select name="bap[collection_mode]" id="bap-collection-mode">
+							<option value="hybrid" <?php selected( 'hybrid', $settings['collection_mode'] ); ?>><?php esc_html_e( 'هر دو، ترکیب‌شده — پیشنهاد ما', 'bahoosh-analytics-pro' ); ?></option>
+							<option value="browser" <?php selected( 'browser', $settings['collection_mode'] ); ?>><?php esc_html_e( 'فقط از مرورگر بازدیدکننده', 'bahoosh-analytics-pro' ); ?></option>
+							<option value="server" <?php selected( 'server', $settings['collection_mode'] ); ?>><?php esc_html_e( 'فقط از خود وردپرس و ووکامرس', 'bahoosh-analytics-pro' ); ?></option>
+						</select>
+						<p class="description"><?php esc_html_e( 'مرورگر رفتار را می‌بیند: کدام صفحه، چه دستگاهی، از کجا آمده، دنبال چه گشته. ولی اگر بازدیدکننده افزونه مسدودکننده داشته باشد، چیزی نمی‌بیند.', 'bahoosh-analytics-pro' ); ?></p>
+						<p class="description"><?php esc_html_e( 'وردپرس و ووکامرس واقعیت را می‌بینند: سفارش یا ثبت شده یا نشده. ولی نمی‌دانند خریدار از کجا آمد و پیش از پرداخت چه کرد.', 'bahoosh-analytics-pro' ); ?></p>
+						<p class="description"><strong><?php esc_html_e( 'حالت ترکیبی هر دو را اجرا می‌کند و به هم وصلشان می‌کند:', 'bahoosh-analytics-pro' ); ?></strong> <?php esc_html_e( 'شناسه ناشناس و نوع دستگاه بازدیدکننده هنگام تسویه روی سفارش نوشته می‌شود، پس سفارشی که سمت سرور ثبت شده هم می‌داند از موبایل آمده و چه مسیری را طی کرده. همین وصل کردن است که ترکیب را از «هر دو روشن» متمایز می‌کند.', 'bahoosh-analytics-pro' ); ?></p>
+					</td></tr>
 					<?php
 					self::checkbox( 'woocommerce_enabled', __( 'رهگیری فروشگاه', 'bahoosh-analytics-pro' ), $settings );
 					self::checkbox( 'server_side_purchase', __( 'رویداد خرید و بازپرداخت سمت سرور', 'bahoosh-analytics-pro' ), $settings, __( 'به‌شدت پیشنهاد می‌شود: رهگیری خرید فقط در مرورگر ممکن است برخی سفارش‌ها را از دست بدهد یا تکراری ثبت کند.', 'bahoosh-analytics-pro' ) );
 					?>
 				</table>
 
-				<h2><?php esc_html_e( 'مغز تحلیلگر', 'bahoosh-analytics-pro' ); ?></h2>
+				<h2><?php esc_html_e( 'تحلیلگر', 'bahoosh-analytics-pro' ); ?></h2>
 				<table class="form-table" role="presentation">
-					<?php self::checkbox( 'ai_enabled', __( 'فعال‌سازی تحلیل هوشمند', 'bahoosh-analytics-pro' ), $settings, __( 'تمام محاسبه‌ها داخل همین افزونه انجام می‌شود. مدل فقط یک بسته از اعداد آماده را می‌بیند: هیچ نام، ایمیل، شماره یا شناسه بازدیدکننده‌ای در آن نیست.', 'bahoosh-analytics-pro' ) ); ?>
+					<?php self::checkbox( 'ai_enabled', __( 'ساختن پیشنهاد فروش از روی داده‌ها', 'bahoosh-analytics-pro' ), $settings, __( 'همه اعداد را خود افزونه از سفارش‌ها و رفتار سایت حساب می‌کند. کار مدل فقط تفسیر همان اعداد است — و بسته‌ای که می‌بیند هیچ نام، ایمیل، شماره یا شناسه بازدیدکننده‌ای ندارد.', 'bahoosh-analytics-pro' ) ); ?>
 
 					<tr><th scope="row"><label for="bap-ai-provider"><?php esc_html_e( 'مدل زبانی', 'bahoosh-analytics-pro' ); ?></label></th><td>
 						<select name="bap[ai_provider]" id="bap-ai-provider">
@@ -302,7 +312,7 @@ class BAP_Settings_Page {
 							<option value="openai_compatible" <?php selected( 'openai_compatible', $settings['ai_provider'] ); ?>><?php esc_html_e( 'سرویس سازگار با OpenAI', 'bahoosh-analytics-pro' ); ?></option>
 							<option value="local" <?php selected( 'local', $settings['ai_provider'] ); ?>><?php esc_html_e( 'بدون مدل — فقط موتور قانون‌محور داخلی', 'bahoosh-analytics-pro' ); ?></option>
 						</select>
-						<p class="description"><?php esc_html_e( 'اگر مدل در دسترس نباشد، موتور قانون‌محور داخلی همان اعداد را تحلیل می‌کند و صفحه خالی نمی‌ماند. در نتیجه همیشه مشخص است پاسخ را کدام منبع تولید کرده.', 'bahoosh-analytics-pro' ); ?></p>
+						<p class="description"><?php esc_html_e( 'اگر مدل در دسترس نباشد، قواعد داخلی خود افزونه همان اعداد را تحلیل می‌کنند و صفحه خالی نمی‌ماند. بالای نتیجه همیشه نوشته می‌شود که پاسخ را کدام‌یک ساخته.', 'bahoosh-analytics-pro' ); ?></p>
 						<p class="description"><?php esc_html_e( 'راهنمای سرور لاما و ایمن‌سازی آن: docs/REMOTE-LLAMA-SERVER.md — راهنمای اتصال n8n: docs/CONNECT-N8N.md', 'bahoosh-analytics-pro' ); ?></p>
 					</td></tr>
 

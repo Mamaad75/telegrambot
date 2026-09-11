@@ -70,10 +70,12 @@
     request("/funnels/standard/report" + range)
       .then(function (body) {
         renderFunnel(body.steps || []);
+        renderProductFunnel(body.products || []);
         status(cfg.i18n.ready, false);
       })
       .catch(function (error) {
         renderFunnel([]);
+        renderProductFunnel([]);
         status(backendMessage(error), true);
       });
 
@@ -129,6 +131,65 @@
       }
 
       row.appendChild(foot);
+      box.appendChild(row);
+    });
+  }
+
+  // The funnel, per product. The overall funnel says people abandon at
+  // checkout; this says which product they were abandoning, which is the
+  // difference between a statistic and a job.
+  function renderProductFunnel(products) {
+    var box = document.getElementById("bap-product-funnel");
+    if (!box) return;
+    box.textContent = "";
+
+    if (!products.length) {
+      box.appendChild(
+        el(
+          "div",
+          "bap-empty-state",
+          "هنوز داده‌ای در سطح محصول نیست. وقتی بازدیدکننده‌ها صفحه محصول را ببینند یا چیزی در سبد بگذارند، اینجا پر می‌شود."
+        )
+      );
+      return;
+    }
+
+    products.forEach(function (product) {
+      var row = el("article", "bap-product-row");
+
+      var head = el("div", "bap-product-row__head");
+      head.appendChild(el("strong", "", product.name));
+      if (product.lost_at_label) {
+        head.appendChild(el("span", "bap-drop is-bad", product.lost_people + " نفر " + product.lost_at_label));
+      }
+      row.appendChild(head);
+
+      var steps = el("div", "bap-product-steps");
+      [
+        ["دیدن محصول", product.view_item],
+        ["سبد خرید", product.add_to_cart],
+        ["صفحه پرداخت", product.begin_checkout],
+        ["خرید", product.purchase],
+      ].forEach(function (pair, index, all) {
+        var step = el("span", "bap-product-step");
+        step.appendChild(el("b", "", formatNumber(pair[1])));
+        step.appendChild(el("i", "", pair[0]));
+        steps.appendChild(step);
+        if (index < all.length - 1) steps.appendChild(el("u", "bap-product-arrow", "←"));
+      });
+      row.appendChild(steps);
+
+      var rates = [];
+      if (product.cart_rate !== null && product.cart_rate !== undefined) {
+        rates.push(product.cart_rate + "٪ از بیننده‌ها سبد کردند");
+      }
+      if (product.buy_rate !== null && product.buy_rate !== undefined) {
+        rates.push(product.buy_rate + "٪ از سبدها خریده شد");
+      }
+      if (rates.length) row.appendChild(el("div", "bap-muted", rates.join(" · ")));
+
+      if (product.advice) row.appendChild(el("p", "bap-product-advice", product.advice));
+
       box.appendChild(row);
     });
   }

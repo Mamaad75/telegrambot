@@ -59,7 +59,10 @@ class BAP_WooCommerce {
 		add_action( 'woocommerce_checkout_create_order', array( __CLASS__, 'attach_identity' ), 10, 1 );
 		add_action( 'woocommerce_store_api_checkout_update_order_from_request', array( __CLASS__, 'attach_identity' ), 10, 1 );
 
-		if ( BAP_Settings::get( 'server_side_purchase' ) ) {
+		// Server-side order events are the half that cannot be blocked. In
+		// browser-only mode they are deliberately off, and the shop accepts
+		// that an ad blocker means a missing order.
+		if ( BAP_Settings::get( 'server_side_purchase' ) && BAP_Settings::collects_on_server() ) {
 			add_action( 'woocommerce_thankyou', array( __CLASS__, 'track_purchase' ), 10, 1 );
 			add_action( 'woocommerce_payment_complete', array( __CLASS__, 'track_purchase' ), 10, 1 );
 			add_action( 'woocommerce_order_status_processing', array( __CLASS__, 'track_purchase' ), 10, 1 );
@@ -89,6 +92,7 @@ class BAP_WooCommerce {
 	public static function should_track() {
 		return self::is_active()
 			&& BAP_Settings::get( 'woocommerce_enabled' )
+			&& BAP_Settings::collects_in_browser()
 			&& BAP_Identity::should_track_current_user();
 	}
 
