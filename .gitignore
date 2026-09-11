@@ -152,3 +152,6 @@ j/.bak/
 j2/*.zip
 j3/*.zip
 j3/backend/*/node_modules/
+j4/*.zip
+j4/backend/*.zip
+j4/backend/*/node_modules/

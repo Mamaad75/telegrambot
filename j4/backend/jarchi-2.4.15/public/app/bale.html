@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="fa" dir="rtl" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+  <meta name="theme-color" content="#0b1220">
+  <meta name="color-scheme" content="dark light">
+  <title>جارچی | مرکز کنترل</title>
+
+  <!--
+    Keep the official Bale SDK as the first script, but never let a slow CDN
+    block parsing Jarchi itself. The bot-issued session is sufficient to
+    authenticate while the SDK loads; app.js will attach to Bale.WebApp later.
+  -->
+  <script id="baleSdk" async src="https://tapi.bale.ai/miniapp.js?3"></script>
+
+  <!--
+    The theme is written to <html> before the stylesheet paints, so a returning
+    viewer never sees the wrong palette flash first. Keep this inline.
+  -->
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem("jarchi.theme");
+        var theme = stored === "light" || stored === "dark"
+          ? stored
+          : (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+        document.documentElement.setAttribute("data-theme", theme);
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute("content", theme === "light" ? "#f8fafc" : "#0b1220");
+      } catch (e) { /* private mode: the dark default already applied */ }
+    })();
+  </script>
+
+  <!-- Inline, so the browser's automatic /favicon.ico request never 404s. -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2300a8e8'/%3E%3Ctext x='16' y='23' font-size='20' font-family='Tahoma,Arial' fill='%23fff' text-anchor='middle'%3E%D8%AC%3C/text%3E%3C/svg%3E">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/app/style.css?v=2.4.15">
+</head>
+<body>
+  <script>
+    // If the same-origin app bundle itself never executes, replace the static
+    // skeleton with a useful diagnostic instead of leaving an infinite loader.
+    setTimeout(function () {
+      if (window.__JARCHI_APP_STARTED__) return;
+      var host = document.getElementById("content");
+      if (!host) return;
+      host.innerHTML = '<div class="state error"><div class="state-icon">⚠️</div><h3>نسخه سازگار برنامه اجرا نشد</h3><p>پنل را دوباره از ربات باز کنید. اگر تکرار شد، این پیام را برای پشتیبانی بفرستید.</p></div>';
+    }, 8000);
+  </script>
+  <a class="skip-link" href="#content">رفتن به محتوا</a>
+
+  <header class="app-bar" id="appBar">
+    <button class="icon-btn" id="menuButton" aria-label="باز کردن منو" aria-expanded="false" aria-controls="drawer">
+      <span class="icon-bars" aria-hidden="true"></span>
+    </button>
+    <div class="app-bar-title">
+      <span class="brand">جارچی</span>
+      <h1 id="pageTitle">مرکز کنترل</h1>
+    </div>
+    <div class="app-bar-actions">
+      <button class="icon-btn" id="themeToggle" aria-label="تغییر پوسته" title="تغییر پوسته">
+        <span id="themeIcon" aria-hidden="true">◑</span>
+      </button>
+      <span id="roleBadge" class="badge" hidden></span>
+    </div>
+  </header>
+
+  <div class="scrim" id="scrim" hidden></div>
+
+  <nav class="drawer" id="drawer" aria-label="ناوبری اصلی" aria-hidden="true">
+    <div class="drawer-head">
+      <div class="avatar" id="drawerAvatar" aria-hidden="true">ج</div>
+      <div class="drawer-identity">
+        <strong id="drawerName">در حال ورود…</strong>
+        <span class="muted small" id="drawerMeta"></span>
+      </div>
+    </div>
+    <div class="drawer-site" id="drawerSite" hidden>
+      <label for="siteSwitcher">سایت فعال</label>
+      <select id="siteSwitcher"></select>
+    </div>
+    <ul class="drawer-nav" id="drawerNav"></ul>
+    <div class="drawer-foot">
+      <span class="muted small" id="versionLabel"></span>
+    </div>
+  </nav>
+
+  <main id="content" class="content" tabindex="-1">
+    <div class="skeleton-page" aria-busy="true" aria-label="در حال بارگذاری">
+      <div class="skeleton skeleton-title"></div>
+      <div class="skeleton skeleton-card"></div>
+      <div class="skeleton skeleton-card"></div>
+    </div>
+  </main>
+
+  <nav class="tabbar" id="tabbar" aria-label="ناوبری سریع"></nav>
+
+  <div id="modalRoot"></div>
+  <div id="toastRoot" class="toast-root" role="status" aria-live="polite"></div>
+
+  <script src="/app/app-bale-legacy.js?v=2.4.15"></script>
+</body>
+</html>
