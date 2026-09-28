@@ -61,6 +61,10 @@ class BAP_Settings {
 			'module_funnels'          => true,
 			'module_journeys'         => true,
 			'module_ai'               => true,
+			// The fix list only reads and displays; it never changes a page.
+			// On by default because it cannot do harm, and switchable because
+			// a shop that does not want another screen should not have one.
+			'module_ux_tasks'         => true,
 			'ai_enabled'              => false,
 			'ai_autonomy'             => 'approval',
 			'ai_min_confidence'       => 80,
@@ -198,6 +202,7 @@ class BAP_Settings {
 			'module_funnels',
 			'module_journeys',
 			'module_ai',
+			'module_ux_tasks',
 			'ai_enabled',
 			'multi_tab_coordination',
 			'debug',

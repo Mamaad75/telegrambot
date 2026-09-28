@@ -11,6 +11,22 @@ echo "  · PHP syntax"; find "$SRC" -name '*.php' -print0 | xargs -0 -n1 php -l 
 echo "  · JS syntax";  for f in $(find "$SRC" -name '*.js'); do node --check "$f"; done
 echo "  · tracker bundle is current"; node "$SRC/tools/build-bundle.js" --check
 
+# The 4.9.0 notes promise version metadata cannot silently drift. It could:
+# nothing checked. 4.10.0 shipped with the readme still reading 4.9.0.
+echo "  · version metadata agrees"
+HEADER="$(grep -oP '^ \* Version:\s+\K\S+' "$SRC/bahoosh-analytics-pro.php")"
+STABLE="$(grep -oP '^Stable tag:\s+\K\S+' "$SRC/readme.txt")"
+for pair in "plugin header:$HEADER" "readme Stable tag:$STABLE"; do
+  if [ "${pair#*:}" != "$VERSION" ]; then
+    echo "    ! ${pair%%:*} says ${pair#*:}, BAP_VERSION says $VERSION" >&2
+    exit 1
+  fi
+done
+if ! grep -q "^= ${VERSION} =$" "$SRC/readme.txt"; then
+  echo "    ! the changelog has no entry for $VERSION" >&2
+  exit 1
+fi
+
 # 4.9.0 shipped with assets/js/core/ deleted, leaving only the built bundle —
 # so the file every visitor's browser loads could not be rebuilt or reviewed.
 echo "  · tracker sources are present"

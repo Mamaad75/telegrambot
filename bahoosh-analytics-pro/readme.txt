@@ -4,7 +4,7 @@ Tags: analytics, woocommerce, tracking, gdpr, ecommerce, funnels, ai, heatmap
 Requires at least: 5.8
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 4.9.0
+Stable tag: 4.11.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -139,6 +139,19 @@ Yes. Set `window.bapConsent` before the tracker loads, or dispatch a
 consent" enabled, nothing is collected until analytics consent is granted.
 
 == Changelog ==
+
+= 4.11.0 =
+* New: A "Tasks" screen listing the real problems the data found — the page each one happens on, what to change, and a button that opens whichever editor actually owns that page (Elementor, block, classic or the WooCommerce product screen).
+* New: Tasks can be ticked off or dismissed, and an id survives the next rebuild so a decision is not lost when the numbers change.
+* New: The screen is optional — "صفحه کارها" in Settings turns it on or off like the other modules.
+* Note: This screen changes nothing on the site by design, and says so on the screen. Layout and content are never edited automatically; only prices and coupons can be, through the commerce agent.
+* Fixed: The page resolver cached its answers for the life of the process, so a long-running rebuild kept calling a page unknown after it had been published.
+
+= 4.10.0 =
+* New: Daily summary tables, so a long range is read from one row per day instead of re-scanning every event.
+* Improved: Sessions and visitors stay exact across a range — a session that crosses midnight is counted once, not twice.
+* Improved: A missing day falls back to the raw events rather than reporting a smaller number.
+* Fixed: Per-request memoisation of the event read and the customer lookup, invalidated on write so a cron or WP-CLI process cannot serve a stale result.
 
 = 4.9.0 =
 * New: Commerce OS admin shell with a SaaS-style sidebar, command center, metric hierarchy, responsive customer intelligence cards and a unified RTL design system.

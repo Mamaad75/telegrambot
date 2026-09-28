@@ -2065,4 +2065,195 @@ test( 'summary: rebuilding a day replaces it rather than doubling it', function 
 	is_same( 1, BAP_Local_Reports::metrics( $a, $a )['unique_users'] );
 } );
 
+/* ============================================================ */
+/* The UX fix list                                              */
+/* ============================================================ */
+
+test( 'tasks: a page throwing script errors becomes a critical job', function () {
+	$today = gmdate( 'Y-m-d' );
+
+	foreach ( range( 1, 15 ) as $i ) {
+		BAP_Local_Store::record( bap_event( array(
+			'event_type' => 'js_error',
+			'page'       => array( 'path' => '/checkout' ),
+			'data'       => array( 'message' => 'undefined is not a function' ),
+		) ) );
+	}
+
+	$tasks = BAP_UX_Tasks::build( $today, $today )['tasks'];
+	$found = null;
+
+	foreach ( $tasks as $task ) {
+		if ( 'js_error' === $task['kind'] ) { $found = $task; break; }
+	}
+
+	ok( null !== $found, 'the error became a task' );
+	is_same( 'critical', $found['severity'], 'a defect outranks a design problem' );
+	is_same( '/checkout', $found['page_path'] );
+	ok( str_contains( $found['what'], 'کنسول' ), 'and says what to actually do' );
+} );
+
+test( 'tasks: a handful of stray clicks is not a job', function () {
+	$today = gmdate( 'Y-m-d' );
+
+	// Below the threshold: two rage clicks is somebody's trackpad.
+	foreach ( range( 1, 3 ) as $i ) {
+		BAP_Local_Store::record( bap_event( array( 'event_type' => 'rage_click', 'page' => array( 'path' => '/x' ) ) ) );
+	}
+
+	is_same( array(), BAP_UX_Tasks::build( $today, $today )['tasks'] );
+} );
+
+test( 'tasks: an id survives the next run so a tick stays ticked', function () {
+	$today = gmdate( 'Y-m-d' );
+
+	foreach ( range( 1, 15 ) as $i ) {
+		BAP_Local_Store::record( bap_event( array( 'event_type' => 'dead_click', 'page' => array( 'path' => '/cart' ) ) ) );
+	}
+
+	$first = BAP_UX_Tasks::build( $today, $today )['tasks'][0];
+	BAP_UX_Tasks::decide( $first['id'], 'done' );
+
+	// More of the same problem arrives; the task must not come back as new.
+	foreach ( range( 1, 10 ) as $i ) {
+		BAP_Local_Store::record( bap_event( array( 'event_type' => 'dead_click', 'page' => array( 'path' => '/cart' ) ) ) );
+	}
+
+	$again = BAP_UX_Tasks::build( $today, $today )['tasks'][0];
+
+	is_same( $first['id'], $again['id'], 'same problem, same page, same id' );
+	is_same( 'done', $again['status'], 'and the tick survived' );
+} );
+
+test( 'tasks: reopening clears the decision', function () {
+	$today = gmdate( 'Y-m-d' );
+
+	foreach ( range( 1, 15 ) as $i ) {
+		BAP_Local_Store::record( bap_event( array( 'event_type' => 'rage_click', 'page' => array( 'path' => '/cart' ) ) ) );
+	}
+
+	$task = BAP_UX_Tasks::build( $today, $today )['tasks'][0];
+
+	BAP_UX_Tasks::decide( $task['id'], 'dismissed' );
+	is_same( 'dismissed', BAP_UX_Tasks::build( $today, $today )['tasks'][0]['status'] );
+
+	BAP_UX_Tasks::decide( $task['id'], 'open' );
+	is_same( 'open', BAP_UX_Tasks::build( $today, $today )['tasks'][0]['status'] );
+
+	is_same( false, BAP_UX_Tasks::decide( $task['id'], 'nonsense' ), 'an unknown status is refused' );
+} );
+
+test( 'tasks: worst first, measured in people rather than percentage', function () {
+	$today = gmdate( 'Y-m-d' );
+
+	foreach ( range( 1, 12 ) as $i ) {
+		BAP_Local_Store::record( bap_event( array( 'event_type' => 'rage_click', 'page' => array( 'path' => '/small' ) ) ) );
+	}
+	foreach ( range( 1, 90 ) as $i ) {
+		BAP_Local_Store::record( bap_event( array( 'event_type' => 'rage_click', 'page' => array( 'path' => '/big' ) ) ) );
+	}
+
+	is_same( '/big', BAP_UX_Tasks::build( $today, $today )['tasks'][0]['page_path'] );
+} );
+
+test( 'tasks: searches that find nothing become one job, not twenty', function () {
+	$today = gmdate( 'Y-m-d' );
+
+	foreach ( array( 'کرم ضد آفتاب', 'ماسک مو' ) as $term ) {
+		foreach ( range( 1, 4 ) as $i ) {
+			BAP_Local_Store::record( bap_event( array(
+				'event_type'   => 'search',
+				'page_view_id' => 'pv_' . md5( $term . $i ),
+				'data'         => array( 'query' => $term ),
+			) ) );
+		}
+	}
+
+	$found = null;
+	foreach ( BAP_UX_Tasks::build( $today, $today )['tasks'] as $task ) {
+		if ( 'search_barren' === $task['kind'] ) { $found = $task; break; }
+	}
+
+	ok( null !== $found, 'one task covering every fruitless term' );
+	ok( str_contains( $found['what'], 'کرم ضد آفتاب' ) );
+	ok( str_contains( $found['what'], 'ماسک مو' ) );
+} );
+
+test( 'tasks: the list is read-only — building it writes nothing', function () {
+	$today = gmdate( 'Y-m-d' );
+
+	foreach ( range( 1, 15 ) as $i ) {
+		BAP_Local_Store::record( bap_event( array( 'event_type' => 'js_error', 'page' => array( 'path' => '/checkout' ) ) ) );
+	}
+
+	$options_before = $GLOBALS['bap_options'];
+	$posts_before   = $GLOBALS['bap_posts'] ?? array();
+
+	$GLOBALS['wpdb']->log = array();
+	BAP_UX_Tasks::build( $today, $today );
+
+	// The whole premise of this screen: it says what to change and changes
+	// nothing. A regression here would be the plugin silently editing pages.
+	foreach ( $GLOBALS['wpdb']->log as $sql ) {
+		ok( ! str_contains( $sql, 'INSERT INTO' ), 'no writes: ' . substr( $sql, 0, 60 ) );
+		ok( ! str_contains( $sql, 'UPDATE ' ), 'no writes: ' . substr( $sql, 0, 60 ) );
+		ok( ! str_contains( $sql, 'DELETE FROM' ), 'no writes: ' . substr( $sql, 0, 60 ) );
+	}
+
+	is_same( $options_before, $GLOBALS['bap_options'], 'no option was touched' );
+	is_same( $posts_before, $GLOBALS['bap_posts'] ?? array(), 'no post was touched' );
+} );
+
+test( 'pages: an Elementor page gets the Elementor editor, not the block one', function () {
+	$GLOBALS['bap_posts'][42]     = array( 'title' => 'سبد خرید', 'type' => 'page', 'post_content' => '' );
+	$GLOBALS['bap_post_meta'][42] = array( '_elementor_edit_mode' => 'builder' );
+	$GLOBALS['bap_url_posts']['https://shop.test/cart'] = 42;
+
+	$page = BAP_Page_Resolver::resolve( '/cart' );
+
+	is_same( 42, $page['post_id'] );
+	is_same( 'elementor', $page['builder'] );
+	ok( str_contains( $page['edit_url'], 'action=elementor' ), 'sending someone to the block editor would show them a placeholder' );
+} );
+
+test( 'pages: a block page gets the ordinary editor', function () {
+	$GLOBALS['bap_posts'][43]     = array( 'title' => 'درباره ما', 'type' => 'page', 'post_content' => '<!-- wp:paragraph -->' );
+	$GLOBALS['bap_url_posts']['https://shop.test/about'] = 43;
+
+	$page = BAP_Page_Resolver::resolve( '/about' );
+
+	is_same( 'block', $page['builder'] );
+	ok( str_contains( $page['edit_url'], 'action=edit' ) );
+} );
+
+test( 'pages: a collapsed product id is reported as unresolvable, not guessed', function () {
+	// The rollup collapses numeric ids so one product is not a thousand
+	// buckets. Guessing which product `/product/{id}` meant would be inventing.
+	$page = BAP_Page_Resolver::resolve( '/product/{id}' );
+
+	is_same( 0, $page['post_id'] );
+	is_same( '', $page['edit_url'], 'no button beats a button that goes somewhere wrong' );
+	ok( str_contains( $page['view_url'], '/product/' ) );
+} );
+
+test( 'pages: a rebuild sees a page that did not exist during the last one', function () {
+	// The resolver caches within a run. A cron pass or a WP-CLI process lives
+	// long enough for that cache to outlast the truth, so a rebuild has to start
+	// from nothing — otherwise a page created yesterday stays "unknown" forever.
+	$today = gmdate( 'Y-m-d' );
+
+	foreach ( range( 1, 15 ) as $i ) {
+		BAP_Local_Store::record( bap_event( array( 'event_type' => 'js_error', 'page' => array( 'path' => '/checkout' ) ) ) );
+	}
+
+	$first = BAP_UX_Tasks::build( $today, $today );
+	is_same( 0, $first['tasks'][0]['page']['post_id'], 'nothing is published yet' );
+
+	$GLOBALS['bap_posts'][44] = array( 'title' => 'تسویه حساب', 'type' => 'page', 'post_content' => '' );
+	$GLOBALS['bap_url_posts']['https://shop.test/checkout'] = 44;
+
+	$second = BAP_UX_Tasks::build( $today, $today );
+	is_same( 44, $second['tasks'][0]['page']['post_id'], 'the second run still had the first run’s answer cached' );
+} );
+
 run_tests();

@@ -129,6 +129,26 @@ class BAP_REST_Controller {
 
 		register_rest_route(
 			self::NAMESPACE_V2,
+			'/ux-tasks',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( __CLASS__, 'handle_ux_tasks' ),
+				'permission_callback' => array( __CLASS__, 'can_view_reports' ),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE_V2,
+			'/ux-tasks/(?P<id>[A-Za-z0-9_\-]+)',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( __CLASS__, 'handle_ux_task_decision' ),
+				'permission_callback' => array( __CLASS__, 'can_manage_settings' ),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE_V2,
 			'/journeys',
 			array(
 				'methods'             => 'GET',
@@ -1000,6 +1020,36 @@ class BAP_REST_Controller {
 		);
 	}
 
+	/** The UX fix list. Read-only: this route changes nothing on the site. */
+	public static function handle_ux_tasks( WP_REST_Request $request ) {
+		$range = BAP_Reports::normalize_range( $request->get_param( 'range' ), $request->get_param( 'from' ), $request->get_param( 'to' ) );
+
+		return new WP_REST_Response(
+			array_merge(
+				array(
+					'success'   => true,
+					'range'     => $range,
+					'elementor' => BAP_Page_Resolver::elementor_active(),
+				),
+				BAP_UX_Tasks::build( $range['from'], $range['to'] )
+			),
+			200
+		);
+	}
+
+	/** Records that a human has done or dismissed one task. */
+	public static function handle_ux_task_decision( WP_REST_Request $request ) {
+		$body   = $request->get_json_params();
+		$body   = is_array( $body ) ? $body : array();
+		$status = isset( $body['status'] ) ? sanitize_key( $body['status'] ) : '';
+
+		if ( ! BAP_UX_Tasks::decide( $request['id'], $status ) ) {
+			return new WP_REST_Response( array( 'success' => false, 'error' => 'invalid_status' ), 422 );
+		}
+
+		return new WP_REST_Response( array( 'success' => true ), 200 );
+	}
+
 	/**
 	 * Journey analytics, from the collector when there is one.
 	 *
@@ -1378,6 +1428,7 @@ class BAP_REST_Controller {
 					'funnels'    => (bool) BAP_Settings::get( 'module_funnels' ) && BAP_Entitlements::can( 'funnels' ),
 					'journeys'   => (bool) BAP_Settings::get( 'module_journeys' ),
 					'ai'         => (bool) BAP_Settings::get( 'module_ai' ) && BAP_Entitlements::can( 'ai_center' ),
+					'ux_tasks'   => (bool) BAP_Settings::get( 'module_ux_tasks' ),
 				),
 				'ai'             => array(
 					'enabled'            => (bool) BAP_Settings::get( 'ai_enabled' ),

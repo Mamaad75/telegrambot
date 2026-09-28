@@ -447,6 +447,7 @@ class BAP_Settings_Page {
 					self::checkbox( 'module_funnels', __( 'ماژول قیف‌ها', 'bahoosh-analytics-pro' ), $settings );
 					self::checkbox( 'module_journeys', __( 'ماژول سفر کاربران', 'bahoosh-analytics-pro' ), $settings );
 					self::checkbox( 'module_ai', __( 'ماژول مرکز هوش مصنوعی', 'bahoosh-analytics-pro' ), $settings );
+					self::checkbox( 'module_ux_tasks', __( 'صفحه «کارها»', 'bahoosh-analytics-pro' ), $settings, __( 'فهرستی از مشکل‌های واقعی سایت، همراه با دکمه‌ای که همان صفحه را در ویرایشگر درستش باز می‌کند. این صفحه هیچ تغییری در سایت نمی‌دهد؛ فقط می‌گوید کجا را عوض کنید.', 'bahoosh-analytics-pro' ) );
 					?>
 					<tr><th scope="row"><label for="bap-admin-accent"><?php esc_html_e( 'رنگ اصلی رابط', 'bahoosh-analytics-pro' ); ?></label></th><td><input type="color" id="bap-admin-accent" name="bap[admin_accent]" value="<?php echo esc_attr( $settings['admin_accent'] ); ?>" /></td></tr>
 					<tr><th scope="row"><label for="bap-admin-density"><?php esc_html_e( 'تراکم رابط', 'bahoosh-analytics-pro' ); ?></label></th><td><select id="bap-admin-density" name="bap[admin_density]"><option value="comfortable" <?php selected( 'comfortable', $settings['admin_density'] ); ?>><?php esc_html_e( 'راحت', 'bahoosh-analytics-pro' ); ?></option><option value="compact" <?php selected( 'compact', $settings['admin_density'] ); ?>><?php esc_html_e( 'فشرده', 'bahoosh-analytics-pro' ); ?></option></select></td></tr>

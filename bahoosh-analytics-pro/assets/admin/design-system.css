@@ -744,3 +744,103 @@ body.bap-density-compact .bap-wrap {
     white-space: nowrap;
   }
 }
+
+/* ------------------------------------------------------- The UX fix list */
+
+/* Each row is a job, not a statistic, so it is laid out like a work item:
+   what is wrong, what to do, and the buttons that start it. */
+.bap-task-list {
+  display: grid;
+  gap: var(--bap-sp-3);
+}
+
+.bap-task {
+  display: grid;
+  gap: var(--bap-sp-2);
+  padding: var(--bap-sp-4);
+  background: var(--bap-surface);
+  border: 1px solid var(--bap-border-soft);
+  /* The severity stripe runs down the inline-start edge, which in a
+     right-to-left page is the right — where the eye starts. */
+  border-inline-start: 3px solid var(--bap-border-strong);
+  border-radius: var(--bap-radius);
+  box-shadow: var(--bap-shadow);
+}
+
+.bap-task.is-critical { border-inline-start-color: var(--bap-danger); }
+.bap-task.is-high { border-inline-start-color: var(--bap-warning); }
+.bap-task.is-medium { border-inline-start-color: var(--bap-accent); }
+
+.bap-task.is-settled { opacity: 0.55; }
+.bap-task.is-busy { opacity: 0.4; pointer-events: none; }
+
+.bap-task__head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--bap-sp-2);
+  flex-wrap: wrap;
+}
+
+.bap-task__head h3 {
+  font-size: var(--bap-fs-lg);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.bap-task__what {
+  margin: 0;
+  color: var(--bap-text-2);
+  font-size: var(--bap-fs-md);
+  line-height: 1.9;
+  max-width: 78ch;
+}
+
+.bap-task__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--bap-sp-3);
+  flex-wrap: wrap;
+  font-size: var(--bap-fs-sm);
+}
+
+.bap-task__evidence {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--bap-surface-3);
+  color: var(--bap-text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.bap-task__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--bap-sp-2);
+  flex-wrap: wrap;
+  margin-top: var(--bap-sp-1);
+}
+
+.bap-task__skip { color: var(--bap-faint); }
+
+/* A standing explanation, not a dismissible alert: this screen never changes
+   anything, and that is worth saying every time it is opened. */
+.bap-notice-inline {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--bap-sp-3);
+  padding: var(--bap-sp-3) var(--bap-sp-4);
+  margin-bottom: var(--bap-sp-4);
+  border: 1px solid var(--bap-border-soft);
+  border-radius: var(--bap-radius);
+  background: var(--bap-accent-soft);
+}
+
+.bap-notice-inline p {
+  margin: 0;
+  font-size: var(--bap-fs-sm);
+  line-height: 1.9;
+}
+
+.bap-notice-inline .dashicons {
+  color: var(--bap-accent-2);
+  flex-shrink: 0;
+}

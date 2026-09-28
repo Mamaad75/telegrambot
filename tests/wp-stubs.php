@@ -165,3 +165,13 @@ function wp_next_scheduled( $h, $a = array() ) { return false; }
 function wp_schedule_event( $t, $r, $h, $a = array() ) { return true; }
 function wp_unschedule_hook( $h ) { return 0; }
 function human_time_diff_stub() {}
+
+function url_to_postid( $url ) { return $GLOBALS['bap_url_posts'][ (string) $url ] ?? 0; }
+function get_the_title( $id ) { return $GLOBALS['bap_posts'][ (int) $id ]['title'] ?? ''; }
+function get_post_meta( $id, $key = '', $single = false ) { return $GLOBALS['bap_post_meta'][ (int) $id ][ $key ] ?? ''; }
+function get_post_type( $id ) { return $GLOBALS['bap_posts'][ (int) $id ]['type'] ?? 'page'; }
+function get_post_field( $field, $id ) { return $GLOBALS['bap_posts'][ (int) $id ][ $field ] ?? ''; }
+function get_edit_post_link( $id, $ctx = '' ) { return 'https://shop.test/wp-admin/post.php?post=' . (int) $id . '&action=edit'; }
+function get_permalink( $id ) { return $GLOBALS['bap_posts'][ (int) $id ]['permalink'] ?? ''; }
+function did_action( $h ) { return 0; }
+function wp_list_pluck_stub() {}

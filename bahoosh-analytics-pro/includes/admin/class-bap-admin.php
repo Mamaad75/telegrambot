@@ -19,6 +19,7 @@ class BAP_Admin {
 	const EXPLORER_SLUG    = 'bahoosh-analytics-explorer';
 	const FUNNELS_SLUG     = 'bahoosh-analytics-funnels';
 	const AI_SLUG          = 'bahoosh-analytics-ai';
+	const TASKS_SLUG       = 'bahoosh-analytics-tasks';
 	const SEGMENTS_SLUG    = 'bahoosh-analytics-segments';
 	const ACCOUNT_SLUG     = 'bahoosh-analytics-account';
 
@@ -116,6 +117,7 @@ class BAP_Admin {
 			__( 'رویدادها و صفحات', 'bahoosh-analytics-pro' ),
 			self::reports_capability(),
 			self::EXPLORER_SLUG,
+			self::TASKS_SLUG,
 			array( 'BAP_Explorer_Page', 'render' )
 		);
 
@@ -127,6 +129,17 @@ class BAP_Admin {
 				self::reports_capability(),
 				self::FUNNELS_SLUG,
 				array( 'BAP_Studio_Page', 'render_funnels' )
+			);
+		}
+
+		if ( BAP_Settings::get( 'module_ux_tasks' ) ) {
+			add_submenu_page(
+				self::MENU_SLUG,
+				__( 'کارهایی که باید انجام شود', 'bahoosh-analytics-pro' ),
+				__( 'کارها', 'bahoosh-analytics-pro' ),
+				self::reports_capability(),
+				self::TASKS_SLUG,
+				array( 'BAP_Tasks_Page', 'render' )
 			);
 		}
 
@@ -207,6 +220,7 @@ class BAP_Admin {
 			array( 'slug' => self::EXPLORER_SLUG,    'label' => __( 'رفتار کاربران', 'bahoosh-analytics-pro' ),       'icon' => 'dashicons-visibility',        'capability' => self::reports_capability(),  'enabled' => true ),
 			array( 'slug' => self::FUNNELS_SLUG,     'label' => __( 'قیف فروش', 'bahoosh-analytics-pro' ),           'icon' => 'dashicons-filter',            'capability' => self::reports_capability(),  'enabled' => (bool) BAP_Settings::get( 'module_funnels' ) && BAP_Entitlements::can( 'funnels' ) ),
 			array( 'slug' => self::SEGMENTS_SLUG,    'label' => __( 'مشتریان', 'bahoosh-analytics-pro' ),            'icon' => 'dashicons-groups',            'capability' => self::reports_capability(),  'enabled' => BAP_Commerce_Facts::available() && BAP_Entitlements::can( 'revenue_intelligence' ) ),
+			array( 'slug' => self::TASKS_SLUG,       'label' => __( 'کارها', 'bahoosh-analytics-pro' ),               'icon' => 'dashicons-yes-alt',           'capability' => self::reports_capability(),  'enabled' => (bool) BAP_Settings::get( 'module_ux_tasks' ) ),
 			array( 'slug' => self::AI_SLUG,          'label' => __( 'هوش فروش', 'bahoosh-analytics-pro' ),           'icon' => 'dashicons-superhero-alt',     'capability' => self::reports_capability(),  'enabled' => (bool) BAP_Settings::get( 'module_ai' ) && BAP_Entitlements::can( 'ai_center' ) ),
 			array( 'slug' => self::ACCOUNT_SLUG,     'label' => __( 'اشتراک و انتشار', 'bahoosh-analytics-pro' ),     'icon' => 'dashicons-shield-alt',        'capability' => self::settings_capability(), 'enabled' => true ),
 			array( 'slug' => self::SETTINGS_SLUG,    'label' => __( 'تنظیمات', 'bahoosh-analytics-pro' ),            'icon' => 'dashicons-admin-generic',     'capability' => self::settings_capability(), 'enabled' => true ),
@@ -296,6 +310,7 @@ class BAP_Admin {
 			self::DIAGNOSTICS_SLUG,
 			self::INSPECTOR_SLUG,
 			self::EXPLORER_SLUG,
+			self::TASKS_SLUG,
 			self::FUNNELS_SLUG,
 			self::AI_SLUG,
 			self::SEGMENTS_SLUG,
@@ -397,6 +412,11 @@ class BAP_Admin {
 
 		if ( self::EXPLORER_SLUG === $page ) {
 			self::enqueue_explorer();
+			return;
+		}
+
+		if ( self::TASKS_SLUG === $page ) {
+			self::enqueue_tasks();
 			return;
 		}
 
@@ -502,6 +522,44 @@ class BAP_Admin {
 	 *
 	 * @return void
 	 */
+	/**
+	 * Assets for the UX fix list.
+	 *
+	 * @return void
+	 */
+	private static function enqueue_tasks() {
+		wp_enqueue_script( 'bahoosh-tasks', BAP_PLUGIN_URL . 'assets/admin/tasks.js', array(), BAP_VERSION, true );
+
+		wp_localize_script(
+			'bahoosh-tasks',
+			'BAP_TASKS',
+			array(
+				'restUrl' => rest_url( BAP_REST_Controller::NAMESPACE_V2 . '/ux-tasks' ),
+				'nonce'   => wp_create_nonce( 'wp_rest' ),
+				'i18n'    => array(
+					'loading'     => __( 'در حال بررسی…', 'bahoosh-analytics-pro' ),
+					'error'       => __( 'فهرست کارها بارگذاری نشد.', 'bahoosh-analytics-pro' ),
+					'empty'       => __( 'مشکلی که به حد نصاب برسد پیدا نشد.', 'bahoosh-analytics-pro' ),
+					'allDone'     => __( 'همه کارها انجام یا رد شده‌اند. برای دیدنشان تیک «نمایش انجام‌شده‌ها» را بزنید.', 'bahoosh-analytics-pro' ),
+					'open'        => __( 'باقی‌مانده', 'bahoosh-analytics-pro' ),
+					'done'        => __( 'انجام‌شده', 'bahoosh-analytics-pro' ),
+					'dismissed'   => __( 'رد شده', 'bahoosh-analytics-pro' ),
+					'critical'    => __( 'فوری', 'bahoosh-analytics-pro' ),
+					'high'        => __( 'مهم', 'bahoosh-analytics-pro' ),
+					'medium'      => __( 'متوسط', 'bahoosh-analytics-pro' ),
+					'edit'        => __( 'ویرایش این صفحه', 'bahoosh-analytics-pro' ),
+					'view'        => __( 'دیدن صفحه', 'bahoosh-analytics-pro' ),
+					'noPage'      => __( 'این مسیر به صفحه مشخصی در وردپرس نمی‌خورد؛ خودتان بازش کنید.', 'bahoosh-analytics-pro' ),
+					'markDone'    => __( 'انجام شد', 'bahoosh-analytics-pro' ),
+					'dismiss'     => __( 'مهم نیست', 'bahoosh-analytics-pro' ),
+					'reopen'      => __( 'برگرداندن', 'bahoosh-analytics-pro' ),
+					'isDone'      => __( 'انجام شد', 'bahoosh-analytics-pro' ),
+					'isDismissed' => __( 'رد شد', 'bahoosh-analytics-pro' ),
+				),
+			)
+		);
+	}
+
 	private static function enqueue_explorer() {
 		wp_enqueue_script(
 			'bahoosh-explorer',
