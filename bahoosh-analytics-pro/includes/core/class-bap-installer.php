@@ -12,7 +12,7 @@ defined( 'ABSPATH' ) || exit;
  */
 class BAP_Installer {
 
-	const DB_VERSION = 11;
+	const DB_VERSION = 12;
 
 	/**
 	 * Runs on activation.
@@ -81,6 +81,7 @@ class BAP_Installer {
 	 */
 	private static function migrate_to_v11( $installed ) {
 		BAP_Local_Store::install();
+		BAP_Daily_Summary::install();
 		if ( $installed > 0 && $installed < 11 ) {
 			BAP_Logger::debug( 'v11 migration added pseudonymous customer linkage to behavioral events' );
 		}

@@ -63,6 +63,17 @@ class BAP_Local_Reports {
 		$from = BAP_Reports::sanitize_date( $from );
 		$to   = BAP_Reports::sanitize_date( $to );
 
+		// Finished days are read from the summary table when every one of them
+		// has been closed; today is always computed live and merged. The
+		// arithmetic is identical either way — the summary exists so a long
+		// range stops re-reading months of raw events, not to answer
+		// differently.
+		$summarised = self::from_summary( $from, $to );
+
+		if ( null !== $summarised ) {
+			return $summarised;
+		}
+
 		$loaded = BAP_Local_Store::events( $from, $to );
 		$rows   = $loaded['rows'];
 
@@ -189,6 +200,226 @@ class BAP_Local_Reports {
 			'source'          => 'local',
 			'notes'           => $warnings,
 		);
+	}
+
+	/**
+	 * Metrics assembled from the daily summary, plus today read live.
+	 *
+	 * Returns null whenever the summary cannot answer the whole window, in
+	 * which case the caller falls back to reading raw events. That is the
+	 * safety property: a gap in the summary produces a slower report, never a
+	 * quieter one.
+	 *
+	 * @param string $from Y-m-d.
+	 * @param string $to   Y-m-d.
+	 * @return array|null
+	 */
+	private static function from_summary( $from, $to ) {
+		$today = gmdate( 'Y-m-d' );
+
+		// A range ending before today is entirely closed; one ending today has
+		// its last day computed live.
+		$closed_to = $to >= $today ? gmdate( 'Y-m-d', strtotime( $today . ' -1 day' ) ) : $to;
+
+		if ( $closed_to < $from ) {
+			// Today only. The live path is already cheap for one day.
+			return null;
+		}
+
+		$summary = BAP_Daily_Summary::range( $from, $closed_to );
+
+		if ( null === $summary ) {
+			return null;
+		}
+
+		$live = $to >= $today ? self::live_day( $today ) : null;
+
+		$events     = $summary['events'] + ( $live ? $live['events'] : 0 );
+		$page_views = $summary['page_views'] + ( $live ? $live['page_views'] : 0 );
+		$searches   = $summary['searches'] + ( $live ? $live['searches'] : 0 );
+
+		// Visitors and sessions cannot be added across the boundary either: a
+		// visitor seen yesterday and again today is one person. The visitor-day
+		// index answers that exactly for the closed part, and today's visitors
+		// are checked against it rather than assumed new.
+		$visitors = $summary['visitors'];
+		$sessions = $summary['sessions'];
+
+		if ( $live ) {
+			$visitors += $live['new_visitors'];
+			$sessions += $live['sessions'] - $live['continued'];
+		}
+
+		$pages   = $summary['pages'];
+		$sources = $summary['sources'];
+		$devices = $summary['devices'];
+
+		if ( $live ) {
+			foreach ( array( 'pages' => $pages, 'sources' => $sources, 'devices' => $devices ) as $key => $_ ) {
+				foreach ( $live[ $key ] as $label => $count ) {
+					${$key}[ $label ] = ( ${$key}[ $label ] ?? 0 ) + $count;
+				}
+			}
+		}
+
+		$commerce = self::commerce( $from, $to, $summary['purchases'], (float) $summary['revenue'] );
+		$warnings = array();
+		$rate     = $sessions > 0 ? round( ( $commerce['orders'] / $sessions ) * 100, 2 ) : 0.0;
+
+		if ( $commerce['orders'] > $sessions && $commerce['orders'] > 0 ) {
+			$rate       = 100.0;
+			$warnings[] = sprintf(
+				/* translators: 1: order count, 2: session count. */
+				__( 'در این بازه %1$s سفارش ثبت شده ولی تنها %2$s مراجعه رهگیری شده است. سفارش تلفنی، سفارش ثبت‌شده توسط مدیر، یا مرورگری که رهگیری را مسدود کرده مراجعه‌ای ثبت نمی‌کند؛ بنابراین این درصد تقریبی است.', 'bahoosh-analytics-pro' ),
+				number_format_i18n( $commerce['orders'] ),
+				number_format_i18n( $sessions )
+			);
+		}
+
+		$daily = $summary['daily'];
+
+		if ( $live ) {
+			$daily[ $today ] = array(
+				'events'     => $live['events'],
+				'page_views' => $live['page_views'],
+				'users'      => $live['visitors'],
+			);
+		}
+
+		return array(
+			'total_events'    => $events,
+			'unique_users'    => $visitors,
+			'sessions'        => $sessions,
+			'page_views'      => $page_views,
+			'searches'        => $searches,
+			'realtime_users'  => BAP_Local_Store::realtime_visitors(),
+			'conversions'     => $commerce['orders'],
+			'revenue'         => $commerce['revenue'],
+			'conversion_rate' => $rate,
+			'currency'        => $commerce['currency'],
+			'top_pages'       => self::panel( $pages, 'url', 'views' ),
+			'traffic_sources' => self::panel( $sources, 'source', 'sessions' ),
+			'devices'         => self::panel( $devices, 'device_type', 'sessions' ),
+			'countries'       => array(),
+			'timeseries'      => self::series_from_daily( $daily, $from, $to ),
+			'source'          => 'local',
+			'notes'           => $warnings,
+		);
+	}
+
+	/**
+	 * Today's numbers, read live, in the shape the summary merge expects.
+	 *
+	 * @param string $today Y-m-d.
+	 * @return array
+	 */
+	private static function live_day( $today ) {
+		$rows     = BAP_Local_Store::events( $today, $today )['rows'];
+		$gap      = self::SESSION_GAP_MINUTES * MINUTE_IN_SECONDS;
+		$timeline = array();
+
+		$out = array(
+			'events'     => 0,
+			'page_views' => 0,
+			'searches'   => 0,
+			'pages'      => array(),
+			'sources'    => array(),
+			'devices'    => array(),
+		);
+
+		$source_visitors = array();
+
+		foreach ( $rows as $row ) {
+			$type    = (string) $row['event_type'];
+			$visitor = (string) $row['anonymous_id'];
+
+			$out['events']++;
+
+			$device                   = '' !== $row['device'] ? (string) $row['device'] : 'unknown';
+			$out['devices'][ $device ] = ( $out['devices'][ $device ] ?? 0 ) + 1;
+
+			if ( '' !== $visitor ) {
+				$timeline[ $visitor ][] = strtotime( (string) $row['occurred_at'] . ' UTC' );
+			}
+
+			if ( 'page_view' === $type ) {
+				$out['page_views']++;
+
+				$path                   = '' !== $row['page_path'] ? (string) $row['page_path'] : '/';
+				$out['pages'][ $path ] = ( $out['pages'][ $path ] ?? 0 ) + 1;
+
+				$source = '' !== $row['referrer_host'] ? (string) $row['referrer_host'] : 'direct';
+				if ( '' !== $visitor ) {
+					$source_visitors[ $source ][ $visitor ] = true;
+				}
+			}
+
+			if ( 'search' === $type ) {
+				$out['searches']++;
+			}
+		}
+
+		$out['sources'] = array_map( 'count', $source_visitors );
+
+		$sessions  = 0;
+		$continued = 0;
+
+		foreach ( $timeline as $stamps ) {
+			sort( $stamps );
+
+			$last = null;
+			foreach ( $stamps as $stamp ) {
+				if ( null === $last || ( $stamp - $last ) > $gap ) {
+					$sessions++;
+				}
+				$last = $stamp;
+			}
+		}
+
+		$out['visitors']     = count( $timeline );
+		$out['sessions']     = $sessions;
+		$out['continued']    = $continued;
+		$out['new_visitors'] = count( $timeline );
+
+		return $out;
+	}
+
+	/**
+	 * A row per day from pre-computed daily figures.
+	 *
+	 * @param array  $daily Day => figures.
+	 * @param string $from  Y-m-d.
+	 * @param string $to    Y-m-d.
+	 * @return array
+	 */
+	private static function series_from_daily( array $daily, $from, $to ) {
+		$start = strtotime( $from . ' 00:00:00 UTC' );
+		$end   = strtotime( $to . ' 00:00:00 UTC' );
+
+		if ( ! $start || ! $end || $end < $start ) {
+			return array();
+		}
+
+		$series = array();
+
+		for ( $day = $start; $day <= $end; $day += DAY_IN_SECONDS ) {
+			$date = gmdate( 'Y-m-d', $day );
+			$row  = $daily[ $date ] ?? array( 'events' => 0, 'page_views' => 0, 'users' => 0 );
+
+			$series[] = array(
+				'date'       => $date,
+				'events'     => (int) $row['events'],
+				'users'      => (int) $row['users'],
+				'sessions'   => 0,
+				'page_views' => (int) $row['page_views'],
+			);
+
+			if ( count( $series ) >= 400 ) {
+				break;
+			}
+		}
+
+		return $series;
 	}
 
 	/**

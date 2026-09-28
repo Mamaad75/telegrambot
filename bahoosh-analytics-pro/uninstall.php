@@ -31,6 +31,8 @@ function bap_uninstall_site() {
 		'bap_outbox',
 		'bap_rollup',
 		'bap_local_events',
+		'bap_daily_summary',
+		'bap_daily_visitors',
 		'bap_ml_identities',
 		'bap_ml_segments',
 		'bap_ml_assignments',
@@ -84,6 +86,7 @@ function bap_uninstall_site() {
 	delete_transient( 'bap_connection_test' );
 	delete_transient( 'bap_outbox_purged' );
 	delete_transient( 'bap_local_pruned' );
+	delete_transient( 'bap_summary_built' );
 	delete_transient( 'bap_ga4_token' );
 	delete_transient( 'bap_license_validate_cache' );
 	delete_transient( 'bap_license_update_cache' );

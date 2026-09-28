@@ -62,6 +62,7 @@ class BAP_Diagnostics_Page {
 		$checks['woocommerce'] = self::check_woocommerce( $settings );
 		$checks['privacy']     = self::check_privacy( $settings );
 		$checks['consent']     = self::check_consent( $settings );
+		$checks['summary']     = self::check_summary();
 		$checks['connection']  = self::check_last_connection();
 
 		/**
@@ -123,6 +124,56 @@ class BAP_Diagnostics_Page {
 			self::STATUS_CRITICAL,
 			$summary,
 			__( 'این افزونه به وردپرس ۵.۸ یا جدیدتر و PHP 7.4 یا جدیدتر نیاز دارد.', 'bahoosh-analytics-pro' )
+		);
+	}
+
+	/**
+	 * Whether finished days have been summarised.
+	 *
+	 * Reports read the summary for closed days and fall back to raw events when
+	 * a day is missing, so a gap is a slowdown rather than a wrong number — but
+	 * it is worth seeing, because on a busy shop the fallback is what eventually
+	 * hits the row cap.
+	 *
+	 * @return array
+	 */
+	private static function check_summary() {
+		$label  = __( 'خلاصه روزانه', 'bahoosh-analytics-pro' );
+		$status = BAP_Daily_Summary::status();
+
+		if ( $status['days'] < 1 ) {
+			return self::result(
+				$label,
+				self::STATUS_RECOMMENDED,
+				__( 'هنوز هیچ روزی خلاصه نشده است.', 'bahoosh-analytics-pro' ),
+				__( 'خلاصه هر شب به‌صورت خودکار ساخته می‌شود. اگر بیش از یک روز از نصب گذشته و هنوز چیزی ساخته نشده، یعنی WP-Cron اجرا نمی‌شود.', 'bahoosh-analytics-pro' )
+			);
+		}
+
+		$yesterday = gmdate( 'Y-m-d', time() - DAY_IN_SECONDS );
+
+		if ( ! BAP_Daily_Summary::has_day( $yesterday ) ) {
+			return self::result(
+				$label,
+				self::STATUS_RECOMMENDED,
+				sprintf(
+					/* translators: %s: number of days. */
+					__( '%s روز خلاصه شده، ولی دیروز هنوز بسته نشده است.', 'bahoosh-analytics-pro' ),
+					number_format_i18n( $status['days'] )
+				),
+				__( 'گزارش‌ها فعلاً از روی رویدادهای خام ساخته می‌شوند که کندتر است. بررسی کنید WP-Cron اجرا شود.', 'bahoosh-analytics-pro' )
+			);
+		}
+
+		return self::result(
+			$label,
+			self::STATUS_GOOD,
+			sprintf(
+				/* translators: 1: number of days, 2: first date. */
+				__( '%1$s روز خلاصه شده، از %2$s. گزارش‌های بلندمدت از همین جدول خوانده می‌شوند.', 'bahoosh-analytics-pro' ),
+				number_format_i18n( $status['days'] ),
+				$status['first']
+			)
 		);
 	}
 

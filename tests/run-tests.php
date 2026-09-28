@@ -1912,4 +1912,157 @@ test( 'ui: there is one authority on the design tokens', function () {
 	ok( ! str_contains( $system, 'border: 2px solid var(--bap-accent)' ) );
 } );
 
+/* ============================================================ */
+/* The daily summary                                            */
+/* ============================================================ */
+
+/** Records one event at an explicit moment. */
+function bap_event_at( string $day, string $time, string $visitor, string $type = 'page_view', array $extra = array() ): void {
+	static $n = 0;
+	$n++;
+
+	BAP_Local_Store::record( array_merge(
+		array(
+			'event_id'         => 'evs_' . $n,
+			'event_type'       => $type,
+			'page_view_id'     => 'pvs_' . $n,
+			'identity'         => array( 'anonymous_id' => $visitor ),
+			'timestamp_server' => $day . 'T' . $time . 'Z',
+			'page'             => array( 'path' => '/p', 'referrer' => '' ),
+			'context'          => array( 'device_type' => 'mobile' ),
+			'data'             => array(),
+		),
+		$extra
+	) );
+}
+
+test( 'summary: the totals match what reading the raw events produces', function () {
+	$a = gmdate( 'Y-m-d', strtotime( '-3 days' ) );
+	$b = gmdate( 'Y-m-d', strtotime( '-2 days' ) );
+
+	// A visitor on both days, one only on the first, one only on the second.
+	bap_event_at( $a, '09:00:00', 'anon_one' );
+	bap_event_at( $a, '09:05:00', 'anon_one', 'search', array( 'data' => array( 'query' => 'x' ) ) );
+	bap_event_at( $a, '14:00:00', 'anon_one' );
+	bap_event_at( $a, '10:00:00', 'anon_two' );
+	bap_event_at( $b, '11:00:00', 'anon_one' );
+	bap_event_at( $b, '11:30:00', 'anon_three' );
+
+	$live = BAP_Local_Reports::metrics( $a, $b );
+
+	BAP_Daily_Summary::build_day( $a );
+	BAP_Daily_Summary::build_day( $b );
+
+	$summarised = BAP_Local_Reports::metrics( $a, $b );
+
+	// The whole point: the fast path and the slow path agree, figure for
+	// figure. A summary that approximates is worse than a slow report.
+	foreach ( array( 'total_events', 'unique_users', 'sessions', 'page_views', 'searches' ) as $metric ) {
+		is_same( $live[ $metric ], $summarised[ $metric ], "«{$metric}» must be identical" );
+	}
+
+	is_same( 3, $summarised['unique_users'], 'a visitor on both days is one person, not two' );
+} );
+
+test( 'summary: a visit spanning midnight is one session, not two', function () {
+	$a = gmdate( 'Y-m-d', strtotime( '-3 days' ) );
+	$b = gmdate( 'Y-m-d', strtotime( '-2 days' ) );
+
+	// 23:50 then 00:10 — twenty minutes apart, inside the inactivity gap.
+	bap_event_at( $a, '23:50:00', 'anon_night' );
+	bap_event_at( $b, '00:10:00', 'anon_night' );
+
+	$live = BAP_Local_Reports::metrics( $a, $b );
+
+	BAP_Daily_Summary::build_day( $a );
+	BAP_Daily_Summary::build_day( $b );
+
+	$summarised = BAP_Local_Reports::metrics( $a, $b );
+
+	is_same( 1, $live['sessions'], 'reading the raw timeline sees one session' );
+	is_same( 1, $summarised['sessions'], 'and so does the summary' );
+} );
+
+test( 'summary: a continuation from outside the range still counts as a start', function () {
+	$a = gmdate( 'Y-m-d', strtotime( '-3 days' ) );
+	$b = gmdate( 'Y-m-d', strtotime( '-2 days' ) );
+
+	bap_event_at( $a, '23:50:00', 'anon_edge' );
+	bap_event_at( $b, '00:10:00', 'anon_edge' );
+
+	BAP_Daily_Summary::build_day( $a );
+	BAP_Daily_Summary::build_day( $b );
+
+	// Asking only for the second day: the session did begin before the window,
+	// but within this window it is a session that starts here.
+	is_same( 1, BAP_Local_Reports::metrics( $b, $b )['sessions'] );
+} );
+
+test( 'summary: an unsummarised day falls back to raw events rather than under-reporting', function () {
+	$a = gmdate( 'Y-m-d', strtotime( '-3 days' ) );
+	$b = gmdate( 'Y-m-d', strtotime( '-2 days' ) );
+
+	bap_event_at( $a, '09:00:00', 'anon_one' );
+	bap_event_at( $b, '09:00:00', 'anon_two' );
+
+	// Only the first day is closed. A summary that answered anyway would drop
+	// a whole day of traffic with nothing to show the reader.
+	BAP_Daily_Summary::build_day( $a );
+
+	is_same( 2, BAP_Local_Reports::metrics( $a, $b )['total_events'], 'both days are still counted' );
+} );
+
+test( 'summary: today is never frozen into the table', function () {
+	$today = gmdate( 'Y-m-d' );
+
+	is_same( false, BAP_Daily_Summary::build_day( $today ), 'today is not over' );
+	is_same( false, BAP_Daily_Summary::has_day( $today ) );
+} );
+
+test( 'summary: closed days and today are added together', function () {
+	$yesterday = gmdate( 'Y-m-d', strtotime( '-1 day' ) );
+	$today     = gmdate( 'Y-m-d' );
+
+	bap_event_at( $yesterday, '10:00:00', 'anon_old' );
+	bap_event_at( $yesterday, '10:01:00', 'anon_old' );
+	BAP_Daily_Summary::build_day( $yesterday );
+
+	bap_event_at( $today, '10:00:00', 'anon_new' );
+
+	$metrics = BAP_Local_Reports::metrics( $yesterday, $today );
+
+	is_same( 3, $metrics['total_events'], 'two summarised plus one live' );
+	is_same( 2, $metrics['unique_users'] );
+} );
+
+test( 'summary: breakdowns add up across days', function () {
+	$a = gmdate( 'Y-m-d', strtotime( '-3 days' ) );
+	$b = gmdate( 'Y-m-d', strtotime( '-2 days' ) );
+
+	foreach ( array( $a, $b ) as $day ) {
+		bap_event_at( $day, '09:00:00', 'anon_' . $day, 'page_view', array( 'page' => array( 'path' => '/shop' ) ) );
+	}
+	bap_event_at( $a, '09:10:00', 'anon_x', 'page_view', array( 'page' => array( 'path' => '/cart' ) ) );
+
+	BAP_Daily_Summary::build_day( $a );
+	BAP_Daily_Summary::build_day( $b );
+
+	$pages = array_column( BAP_Local_Reports::metrics( $a, $b )['top_pages'], 'views', 'url' );
+
+	is_same( 2, $pages['/shop'], 'one view on each day' );
+	is_same( 1, $pages['/cart'] );
+} );
+
+test( 'summary: rebuilding a day replaces it rather than doubling it', function () {
+	$a = gmdate( 'Y-m-d', strtotime( '-2 days' ) );
+
+	bap_event_at( $a, '09:00:00', 'anon_one' );
+
+	BAP_Daily_Summary::build_day( $a );
+	BAP_Daily_Summary::build_day( $a );
+
+	is_same( 1, BAP_Local_Reports::metrics( $a, $a )['total_events'] );
+	is_same( 1, BAP_Local_Reports::metrics( $a, $a )['unique_users'] );
+} );
+
 run_tests();

@@ -3,7 +3,7 @@
  * Plugin Name: Bahoosh Analytics Pro
  * Plugin URI:  https://bahoosh.ai/
  * Description: First-party analytics, experience intelligence, funnels, journeys and safe AI orchestration for WordPress and WooCommerce.
- * Version:     4.9.1
+ * Version:     4.10.0
  * Author:      Bahoosh_developers
  * License:     GPL-2.0-or-later
  * Text Domain: bahoosh-analytics-pro
@@ -16,7 +16,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'BAP_VERSION', '4.9.1' );
+define( 'BAP_VERSION', '4.10.0' );
 define( 'BAP_SCHEMA_VERSION', 4 );
 define( 'BAP_API_CONTRACT', 'v4' );
 define( 'BAP_PLUGIN_FILE', __FILE__ );

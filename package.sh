@@ -11,6 +11,16 @@ echo "  · PHP syntax"; find "$SRC" -name '*.php' -print0 | xargs -0 -n1 php -l 
 echo "  · JS syntax";  for f in $(find "$SRC" -name '*.js'); do node --check "$f"; done
 echo "  · tracker bundle is current"; node "$SRC/tools/build-bundle.js" --check
 
+# 4.9.0 shipped with assets/js/core/ deleted, leaving only the built bundle —
+# so the file every visitor's browser loads could not be rebuilt or reviewed.
+echo "  · tracker sources are present"
+for required in assets/js/core assets/js/integrations tools docs; do
+  if [ ! -d "$SRC/$required" ]; then
+    echo "    ! $required is missing; the bundle would ship unmaintainable" >&2
+    exit 1
+  fi
+done
+
 echo "  · staging"
 mkdir -p "$STAGE/bahoosh-analytics-pro"
 ( cd "$SRC" && tar --exclude='.git' --exclude='node_modules' --exclude='.env' \

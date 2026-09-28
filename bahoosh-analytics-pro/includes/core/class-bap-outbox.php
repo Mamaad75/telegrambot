@@ -277,6 +277,15 @@ class BAP_Outbox {
 			set_transient( 'bap_local_pruned', 1, DAY_IN_SECONDS );
 			BAP_Local_Store::prune();
 			BAP_Rollup::prune();
+			BAP_Daily_Summary::prune();
+		}
+
+		// Yesterday's books are closed here, and any finished day still missing
+		// one is filled in behind it. Done before the collector check because a
+		// site with no collector is exactly the site whose reports depend on it.
+		if ( false === get_transient( 'bap_summary_built' ) ) {
+			set_transient( 'bap_summary_built', 1, HOUR_IN_SECONDS );
+			BAP_Daily_Summary::build_pending();
 		}
 
 		if ( ! BAP_Settings::is_configured() ) {

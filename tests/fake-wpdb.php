@@ -32,12 +32,53 @@ class Fake_WPDB {
 
 	/** @var array<int,array<string,mixed>> Rows in wp_bap_local_events. */
 	public array $local = array();
+	/** @var array<string,array<string,mixed>> Rows in wp_bap_daily_summary, by date. */
+	public array $summary = array();
+	/** @var array<string,array<string,mixed>> Rows in wp_bap_daily_visitors, by date|visitor. */
+	public array $dayvisitors = array();
 
 	public function suppress_errors( $suppress = true ) { return false; }
 
 	public function query( $prepared ) {
 		[ $sql, $args ] = $this->unpack( $prepared );
 		$this->log[]    = $sql;
+
+		if ( str_contains( $sql, 'bap_daily_summary' ) && str_contains( $sql, 'INSERT INTO' ) ) {
+			[ $date, $events, $pv, $searches, $purchases, $revenue, $visitors, $sessions, $continued, $breakdowns ] = $args;
+			$this->summary[ $date ] = array(
+				'bucket_date' => $date, 'events' => $events, 'page_views' => $pv, 'searches' => $searches,
+				'purchases' => $purchases, 'revenue' => $revenue, 'visitors' => $visitors,
+				'sessions' => $sessions, 'continued' => $continued, 'breakdowns' => $breakdowns,
+			);
+			return 1;
+		}
+
+		if ( str_contains( $sql, 'bap_daily_visitors' ) && str_contains( $sql, 'DELETE FROM' ) ) {
+			$date = (string) $args[0];
+			foreach ( array_keys( $this->dayvisitors ) as $k ) {
+				if ( str_starts_with( $k, $date . '|' ) ) { unset( $this->dayvisitors[ $k ] ); }
+			}
+			return 1;
+		}
+
+		if ( str_contains( $sql, 'bap_daily_visitors' ) && str_contains( $sql, 'INSERT INTO' ) ) {
+			// Four placeholders per row: date, visitor, sessions, continued.
+			for ( $i = 0; $i + 3 < count( $args ); $i += 4 ) {
+				$this->dayvisitors[ $args[ $i ] . '|' . $args[ $i + 1 ] ] = array(
+					'bucket_date' => $args[ $i ], 'anonymous_id' => $args[ $i + 1 ],
+					'sessions' => (int) $args[ $i + 2 ], 'continued' => (int) $args[ $i + 3 ],
+				);
+			}
+			return 1;
+		}
+
+		if ( str_contains( $sql, 'bap_daily_summary' ) && str_contains( $sql, 'DELETE FROM' ) ) {
+			$cutoff = (string) $args[0];
+			foreach ( array_keys( $this->summary ) as $d ) {
+				if ( $d < $cutoff ) { unset( $this->summary[ $d ] ); }
+			}
+			return 1;
+		}
 
 		if ( str_contains( $sql, 'bap_local_events' ) && str_contains( $sql, 'DELETE FROM' ) ) {
 			$before = count( $this->local );
@@ -78,6 +119,13 @@ class Fake_WPDB {
 	public function get_results( $prepared, $output = OBJECT ) {
 		[ $sql, $args ] = $this->unpack( $prepared );
 		$this->log[]    = $sql;
+
+		if ( str_contains( $sql, 'bap_daily_summary' ) ) {
+			[ $from, $to ] = $args;
+			$rows = array_values( array_filter( $this->summary, static fn( $r ) => $r['bucket_date'] >= $from && $r['bucket_date'] <= $to ) );
+			usort( $rows, static fn( $a, $b ) => strcmp( $a['bucket_date'], $b['bucket_date'] ) );
+			return $rows;
+		}
 
 		if ( str_contains( $sql, 'bap_local_events' ) ) {
 			[ $from, $to, $limit ] = $args;
@@ -129,6 +177,19 @@ class Fake_WPDB {
 		[ $sql, $args ] = $this->unpack( $prepared );
 		$this->log[]    = $sql;
 
+		if ( str_contains( $sql, 'bap_daily_visitors' ) && str_contains( $sql, 'COUNT(DISTINCT anonymous_id)' ) ) {
+			[ $from, $to ] = $args;
+			$seen = array();
+			foreach ( $this->dayvisitors as $r ) {
+				if ( $r['bucket_date'] >= $from && $r['bucket_date'] <= $to ) { $seen[ $r['anonymous_id'] ] = true; }
+			}
+			return (string) count( $seen );
+		}
+
+		if ( str_contains( $sql, 'bap_daily_summary' ) && str_contains( $sql, 'SELECT 1' ) ) {
+			return isset( $this->summary[ (string) $args[0] ] ) ? '1' : null;
+		}
+
 		if ( str_contains( $sql, 'bap_local_events' ) ) {
 			if ( str_contains( $sql, 'MIN(occurred_at)' ) ) {
 				$stamps = array_column( $this->local, 'occurred_at' );
@@ -170,7 +231,15 @@ class Fake_WPDB {
 		return null;
 	}
 
-	public function get_row( $p = null, $o = OBJECT, $y = 0 ) { return null; }
+	public function get_row( $prepared = null, $o = OBJECT, $y = 0 ) {
+		[ $sql ] = $this->unpack( $prepared );
+		if ( str_contains( (string) $sql, 'bap_daily_summary' ) ) {
+			$dates = array_keys( $this->summary );
+			sort( $dates );
+			return array( 'days' => count( $dates ), 'first' => $dates ? $dates[0] : '' );
+		}
+		return null;
+	}
 	public function insert( $t, $d, $f = null ) {
 		if ( str_contains( (string) $t, 'bap_local_events' ) ) {
 			// The real table has UNIQUE(event_id) and the insert fails on a
