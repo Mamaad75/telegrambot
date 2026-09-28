@@ -26,6 +26,17 @@ class BAP_REST_Controller {
 	const NAMESPACE_V2 = 'bahoosh/v2';
 
 	const INGEST_LIMIT  = 120; // Requests per window.
+
+	/**
+	 * Most events accepted in one request.
+	 *
+	 * Bounded so a single request cannot be made arbitrarily expensive, and set
+	 * above what a busy page view actually produces so batching is never the
+	 * reason an event waits.
+	 *
+	 * @var int
+	 */
+	const MAX_BATCH = 30;
 	const INGEST_WINDOW = 60;  // Window length in seconds.
 	const LINK_LIMIT    = 10;
 	const LINK_WINDOW   = 300;
@@ -133,12 +144,12 @@ class BAP_REST_Controller {
 				array(
 					'methods'             => 'GET',
 					'callback'            => array( __CLASS__, 'handle_funnels_list' ),
-					'permission_callback' => array( __CLASS__, 'can_view_reports' ),
+					'permission_callback' => array( __CLASS__, 'can_view_funnels' ),
 				),
 				array(
 					'methods'             => 'POST',
 					'callback'            => array( __CLASS__, 'handle_funnel_save' ),
-					'permission_callback' => array( __CLASS__, 'can_manage_settings' ),
+					'permission_callback' => array( __CLASS__, 'can_manage_funnels' ),
 				),
 			)
 		);
@@ -149,7 +160,7 @@ class BAP_REST_Controller {
 			array(
 				'methods'             => 'DELETE',
 				'callback'            => array( __CLASS__, 'handle_funnel_delete' ),
-				'permission_callback' => array( __CLASS__, 'can_manage_settings' ),
+				'permission_callback' => array( __CLASS__, 'can_manage_funnels' ),
 			)
 		);
 
@@ -159,7 +170,7 @@ class BAP_REST_Controller {
 			array(
 				'methods'             => 'GET',
 				'callback'            => array( __CLASS__, 'handle_funnel_report' ),
-				'permission_callback' => array( __CLASS__, 'can_view_reports' ),
+				'permission_callback' => array( __CLASS__, 'can_view_funnels' ),
 			)
 		);
 
@@ -186,7 +197,7 @@ class BAP_REST_Controller {
 			array(
 				'methods'             => 'GET',
 				'callback'            => array( __CLASS__, 'handle_ai_recommendations' ),
-				'permission_callback' => array( __CLASS__, 'can_view_reports' ),
+				'permission_callback' => array( __CLASS__, 'can_view_ai' ),
 			)
 		);
 
@@ -196,7 +207,7 @@ class BAP_REST_Controller {
 			array(
 				'methods'             => 'POST',
 				'callback'            => array( __CLASS__, 'handle_ai_analyze' ),
-				'permission_callback' => array( __CLASS__, 'can_manage_settings' ),
+				'permission_callback' => array( __CLASS__, 'can_manage_ai' ),
 			)
 		);
 
@@ -206,7 +217,7 @@ class BAP_REST_Controller {
 			array(
 				'methods'             => 'POST',
 				'callback'            => array( __CLASS__, 'handle_ai_provider_test' ),
-				'permission_callback' => array( __CLASS__, 'can_manage_settings' ),
+				'permission_callback' => array( __CLASS__, 'can_manage_ai' ),
 			)
 		);
 
@@ -216,7 +227,7 @@ class BAP_REST_Controller {
 			array(
 				'methods'             => 'GET',
 				'callback'            => array( __CLASS__, 'handle_agent_log' ),
-				'permission_callback' => array( __CLASS__, 'can_view_reports' ),
+				'permission_callback' => array( __CLASS__, 'can_view_ai' ),
 			)
 		);
 
@@ -226,7 +237,7 @@ class BAP_REST_Controller {
 			array(
 				'methods'             => 'POST',
 				'callback'            => array( __CLASS__, 'handle_agent_revert' ),
-				'permission_callback' => array( __CLASS__, 'can_manage_settings' ),
+				'permission_callback' => array( __CLASS__, 'can_manage_ai' ),
 			)
 		);
 
@@ -236,7 +247,7 @@ class BAP_REST_Controller {
 			array(
 				'methods'             => 'POST',
 				'callback'            => array( __CLASS__, 'handle_ai_decision' ),
-				'permission_callback' => array( __CLASS__, 'can_manage_settings' ),
+				'permission_callback' => array( __CLASS__, 'can_manage_ai' ),
 			)
 		);
 
@@ -281,6 +292,43 @@ class BAP_REST_Controller {
 		return true;
 	}
 
+
+	/** Premium funnel permission: WordPress capability + SaaS entitlement. */
+	public static function can_view_funnels() {
+		$base = self::can_view_reports();
+		if ( is_wp_error( $base ) ) {
+			return $base;
+		}
+		return BAP_Entitlements::can( 'funnels' ) ? true : new WP_Error( 'bap_entitlement_required', __( 'قابلیت قیف‌ها در پلن فعلی فعال نیست.', 'bahoosh-analytics-pro' ), array( 'status' => 403 ) );
+	}
+
+	/** Premium funnel write permission. */
+	public static function can_manage_funnels() {
+		$base = self::can_manage_settings();
+		if ( is_wp_error( $base ) ) {
+			return $base;
+		}
+		return BAP_Entitlements::can( 'funnels' ) ? true : new WP_Error( 'bap_entitlement_required', __( 'قابلیت قیف‌ها در پلن فعلی فعال نیست.', 'bahoosh-analytics-pro' ), array( 'status' => 403 ) );
+	}
+
+	/** Premium AI read permission. */
+	public static function can_view_ai() {
+		$base = self::can_view_reports();
+		if ( is_wp_error( $base ) ) {
+			return $base;
+		}
+		return BAP_Entitlements::can( 'ai_center' ) ? true : new WP_Error( 'bap_entitlement_required', __( 'هوش فروش در پلن فعلی فعال نیست.', 'bahoosh-analytics-pro' ), array( 'status' => 403 ) );
+	}
+
+	/** Premium AI write permission. */
+	public static function can_manage_ai() {
+		$base = self::can_manage_settings();
+		if ( is_wp_error( $base ) ) {
+			return $base;
+		}
+		return BAP_Entitlements::can( 'ai_center' ) ? true : new WP_Error( 'bap_entitlement_required', __( 'هوش فروش در پلن فعلی فعال نیست.', 'bahoosh-analytics-pro' ), array( 'status' => 403 ) );
+	}
+
 	/**
 	 * Identity linking requires an authenticated WordPress session.
 	 *
@@ -294,7 +342,7 @@ class BAP_REST_Controller {
 		if ( ! is_user_logged_in() ) {
 			return new WP_Error(
 				'bap_not_logged_in',
-				__( 'Identity linking requires an authenticated session.', 'bahoosh-analytics-pro' ),
+				__( 'برای اتصال حساب کاربری باید وارد شده باشید.', 'bahoosh-analytics-pro' ),
 				array( 'status' => 401 )
 			);
 		}
@@ -367,6 +415,24 @@ class BAP_REST_Controller {
 				),
 				400
 			);
+		}
+
+		// A batch of events in one request.
+		//
+		// The tracker sends one event per request by design, and against the
+		// collector that stays true — but the hop to *this* route is same-origin
+		// and costs a full WordPress bootstrap each time. A single product page
+		// produces a page view, a product view, several scroll milestones and a
+		// click or two, so ten events meant ten bootstraps, and on shared
+		// hosting that is most of why the plugin felt slow.
+		//
+		// Coalescing here changes no contract: each event keeps its own id, is
+		// validated separately, is stored separately, and is forwarded to the
+		// collector one at a time exactly as before. Only the same-origin hop is
+		// shared. The reply carries a per-event verdict so the client can settle
+		// each one independently.
+		if ( isset( $body['events'] ) && is_array( $body['events'] ) ) {
+			return self::handle_event_batch( $request, $body['events'] );
 		}
 
 		$identity_context = self::resolve_identity_context( $request, $body );
@@ -444,6 +510,96 @@ class BAP_REST_Controller {
 		$settlement = isset( $result['settlement'] ) ? (string) $result['settlement'] : 'ذخیره‌شده';
 
 		return self::settled_response( $settlement, '', 200 );
+	}
+
+	/**
+	 * Processes several events from one request.
+	 *
+	 * Each is settled on its own terms: one malformed event in a batch of ten
+	 * must not cost the other nine, and the client needs to know which is which
+	 * so it deletes exactly the events the server accepted.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @param array           $events  Raw events.
+	 * @return WP_REST_Response
+	 */
+	private static function handle_event_batch( WP_REST_Request $request, array $events ) {
+		$events = array_slice( $events, 0, self::MAX_BATCH );
+
+		// Resolved once for the whole batch: identity is a property of the
+		// request, not of each event in it.
+		$identity_context = self::resolve_identity_context( $request, isset( $events[0] ) && is_array( $events[0] ) ? $events[0] : array() );
+		$context          = array(
+			'site_id'                 => BAP_Settings::resolved_site_id(),
+			'wp_user_id'              => $identity_context['wp_user_id'],
+			'woocommerce_customer_id' => $identity_context['woocommerce_customer_id'],
+			'ip'                      => BAP_Event_Factory::client_ip(),
+			'origin'                  => 'browser',
+		);
+
+		$configured = BAP_Settings::is_configured();
+		$results    = array();
+		$retryable  = false;
+
+		foreach ( $events as $raw ) {
+			if ( ! is_array( $raw ) ) {
+				continue;
+			}
+
+			$event    = BAP_Event_Validator::validate_event( $raw, $context );
+			$event_id = isset( $raw['event_id'] ) ? sanitize_text_field( (string) $raw['event_id'] ) : '';
+
+			if ( isset( $event['__error'] ) ) {
+				$results[] = array(
+					'event_id'  => $event_id,
+					'status'    => 'rejected',
+					'error'     => (string) $event['__error'],
+					'retryable' => false,
+				);
+				continue;
+			}
+
+			BAP_Rollup::observe( $event );
+			BAP_Local_Store::record( $event );
+
+			if ( ! $configured ) {
+				$results[] = array(
+					'event_id' => $event['event_id'],
+					'status'   => 'stored',
+				);
+				continue;
+			}
+
+			$sent = BAP_Transport::send_event( $event );
+
+			if ( empty( $sent['ok'] ) ) {
+				$retryable = $retryable || ! empty( $sent['retryable'] );
+				$results[] = array(
+					'event_id'  => $event['event_id'],
+					'status'    => 'error',
+					'error'     => 'upstream_error',
+					'retryable' => ! empty( $sent['retryable'] ),
+				);
+				continue;
+			}
+
+			$results[] = array(
+				'event_id' => $event['event_id'],
+				'status'   => 'stored',
+			);
+		}
+
+		// 200 even when some events failed: the batch itself was understood, and
+		// the per-event verdicts say what to retry. A non-2xx here would make the
+		// client resend events the server already stored.
+		return new WP_REST_Response(
+			array(
+				'status'    => 'batch',
+				'results'   => $results,
+				'retryable' => $retryable,
+			),
+			200
+		);
 	}
 
 	/**
@@ -1219,9 +1375,9 @@ class BAP_REST_Controller {
 				'woocommerce'    => BAP_WooCommerce::is_active(),
 				'modules'        => array(
 					'experience' => (bool) BAP_Settings::get( 'module_experience' ),
-					'funnels'    => (bool) BAP_Settings::get( 'module_funnels' ),
+					'funnels'    => (bool) BAP_Settings::get( 'module_funnels' ) && BAP_Entitlements::can( 'funnels' ),
 					'journeys'   => (bool) BAP_Settings::get( 'module_journeys' ),
-					'ai'         => (bool) BAP_Settings::get( 'module_ai' ),
+					'ai'         => (bool) BAP_Settings::get( 'module_ai' ) && BAP_Entitlements::can( 'ai_center' ),
 				),
 				'ai'             => array(
 					'enabled'            => (bool) BAP_Settings::get( 'ai_enabled' ),

@@ -209,6 +209,18 @@ class BAP_WooCommerce {
 			return;
 		}
 		$order->update_meta_data( self::ANON_META, $anonymous_id );
+
+		// Once checkout gives us a verified WooCommerce identity, connect the
+		// anonymous browser history to the same pseudonymous key used by the ML
+		// export. This enables customer-level behavior features without exporting
+		// the shopper's email or postal address.
+		$customer_key = BAP_ML_Auth::customer_key(
+			method_exists( $order, 'get_billing_email' ) ? $order->get_billing_email() : '',
+			method_exists( $order, 'get_customer_id' ) ? (int) $order->get_customer_id() : 0
+		);
+		if ( '' !== $customer_key ) {
+			BAP_Local_Store::link_customer( $anonymous_id, $customer_key );
+		}
 	}
 
 	/**

@@ -1,0 +1,746 @@
+/*
+ * Bahoosh Analytics Pro — admin design system.
+ *
+ * This file replaces three separate `.bap-wrap` token blocks that had
+ * accumulated in `admin.css`, each redefining the same variables and each
+ * overriding the last. That is why the interface looked unfinished: not a
+ * shortage of styling, but four years of patches with no single authority on
+ * what a card, a heading or a number is supposed to look like.
+ *
+ * Four decisions carry most of the change:
+ *
+ * 1. **Cards lost their 2px accent border.** Outlining every surface in the
+ *    brand colour is the clearest signal of an unfinished interface — it gives
+ *    nine cards equal, maximum emphasis, so nothing stands out. Depth now comes
+ *    from a hairline border and a shadow, and the accent is spent on the one
+ *    thing per screen that deserves it.
+ *
+ * 2. **One type scale.** Sizes were 30px, 14px, 12px, 11px, 10.5px and 9.5px,
+ *    chosen individually. There are now six steps and everything uses them.
+ *
+ * 3. **Tabular numerals everywhere a figure appears.** Persian digits in a
+ *    proportional font make columns of numbers wobble; `tabular-nums` makes
+ *    them line up and makes a changing dashboard stop shifting under the eye.
+ *
+ * 4. **A 4px spacing rhythm.** Padding was 20px, 25px, 11px, 9px, 13px. It is
+ *    now drawn from one scale, which is most of why a layout reads as
+ *    deliberate rather than assembled.
+ */
+
+/* ---------------------------------------------------------------- Tokens */
+
+.bap-wrap {
+  /* Surfaces, from deepest to highest. */
+  --bap-bg: #070912;
+  --bap-bg-2: #0a0d18;
+  --bap-surface: #0f1320;
+  --bap-surface-2: #141929;
+  --bap-surface-3: #1a2033;
+
+  --bap-border: rgba(255, 255, 255, 0.08);
+  --bap-border-soft: rgba(255, 255, 255, 0.055);
+  --bap-border-strong: rgba(255, 255, 255, 0.14);
+
+  --bap-text: #f4f6fb;
+  --bap-text-2: #c7cddd;
+  --bap-muted: #8b94ad;
+  --bap-faint: #646d85;
+
+  --bap-accent: #7c5cff;
+  --bap-accent-2: #9d86ff;
+  --bap-accent-soft: rgba(124, 92, 255, 0.14);
+
+  --bap-success: #34d399;
+  --bap-warning: #fbbf24;
+  --bap-danger: #fb7185;
+  --bap-info: #38bdf8;
+
+  /* Type scale. */
+  --bap-fs-display: 26px;
+  --bap-fs-xl: 19px;
+  --bap-fs-lg: 15px;
+  --bap-fs-md: 13px;
+  --bap-fs-sm: 12px;
+  --bap-fs-xs: 11px;
+
+  /* Spacing rhythm, 4px based. */
+  --bap-sp-1: 4px;
+  --bap-sp-2: 8px;
+  --bap-sp-3: 12px;
+  --bap-sp-4: 16px;
+  --bap-sp-5: 22px;
+  --bap-sp-6: 30px;
+
+  --bap-radius: 14px;
+  --bap-radius-lg: 20px;
+  --bap-radius-sm: 9px;
+
+  --bap-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+  --bap-shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.3), 0 24px 56px -20px rgba(0, 0, 0, 0.6);
+
+  --bap-font: "Peyda", "IRANSansX", "Yekan Bakh", "Vazirmatn", -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Tahoma, sans-serif;
+
+  direction: rtl;
+  text-align: right;
+  font-family: var(--bap-font);
+  font-size: var(--bap-fs-md);
+  line-height: 1.75;
+  color: var(--bap-text);
+
+  /* A single, low-contrast wash. The previous background layered a 22%
+     radial gradient over a three-stop linear one, which fought every surface
+     placed on top of it. */
+  background: radial-gradient(120% 80% at 88% -20%, rgba(124, 92, 255, 0.1), transparent 55%),
+    linear-gradient(180deg, var(--bap-bg-2), var(--bap-bg));
+
+  border: 1px solid var(--bap-border-soft);
+  border-radius: var(--bap-radius-lg);
+  box-shadow: var(--bap-shadow-lg);
+  padding: var(--bap-sp-6);
+  margin: 18px 12px 24px 20px;
+  min-height: calc(100vh - 120px);
+  -webkit-font-smoothing: antialiased;
+}
+
+.bap-wrap :where(h1, h2, h3, h4) {
+  color: var(--bap-text);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+/* Every figure in the interface. Persian digits in a proportional font make a
+   column of numbers wobble as values update; this stops it. */
+.bap-wrap :where(.bap-value, .bap-kpi-card__value, .bap-funnel-count, .bap-explorer-stat b,
+  .bap-product-step b, td, .bap-metric-figure) {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* ------------------------------------------------------------ Page header */
+
+.bap-page-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--bap-sp-5);
+  flex-wrap: wrap;
+  padding-bottom: var(--bap-sp-5);
+  margin-bottom: var(--bap-sp-5);
+  border-bottom: 1px solid var(--bap-border-soft);
+}
+
+.bap-page-hero__copy h1 {
+  font-size: var(--bap-fs-display);
+  line-height: 1.4;
+  margin: var(--bap-sp-1) 0 var(--bap-sp-2);
+}
+
+.bap-page-hero__copy p {
+  margin: 0;
+  color: var(--bap-muted);
+  font-size: var(--bap-fs-md);
+  max-width: 68ch;
+}
+
+/* The eyebrow above a heading. Uppercase tracking is a Latin convention and
+   does nothing for Persian, so it is distinguished by colour and weight. */
+.bap-kicker {
+  display: inline-block;
+  font-size: var(--bap-fs-xs);
+  font-weight: 700;
+  color: var(--bap-accent-2);
+  margin-bottom: var(--bap-sp-1);
+}
+
+.bap-version-pill,
+.bap-version-text {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bap-sp-1);
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: var(--bap-fs-xs);
+  color: var(--bap-muted);
+  background: var(--bap-surface-2);
+  border: 1px solid var(--bap-border-soft);
+}
+
+/* ------------------------------------------------------------- Navigation */
+
+.bap-primary-nav {
+  display: flex;
+  gap: var(--bap-sp-1);
+  flex-wrap: wrap;
+  padding: var(--bap-sp-1);
+  margin-bottom: var(--bap-sp-5);
+  background: var(--bap-surface);
+  border: 1px solid var(--bap-border-soft);
+  border-radius: var(--bap-radius);
+}
+
+.bap-primary-nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bap-sp-2);
+  padding: 8px 14px;
+  border-radius: var(--bap-radius-sm);
+  font-size: var(--bap-fs-md);
+  font-weight: 600;
+  color: var(--bap-muted);
+  text-decoration: none;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.bap-primary-nav a:hover {
+  color: var(--bap-text);
+  background: var(--bap-surface-2);
+}
+
+/* The active tab is the one place the accent earns a solid fill. */
+.bap-primary-nav a.is-active {
+  color: #fff;
+  background: var(--bap-accent);
+  box-shadow: 0 2px 12px -2px rgba(124, 92, 255, 0.55);
+}
+
+.bap-primary-nav .dashicons {
+  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  opacity: 0.85;
+}
+
+.bap-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bap-sp-2);
+}
+
+.bap-brand__copy {
+  display: grid;
+  line-height: 1.35;
+}
+
+.bap-brand__copy strong {
+  font-size: var(--bap-fs-lg);
+  letter-spacing: -0.02em;
+}
+
+.bap-brand__copy small {
+  font-size: var(--bap-fs-xs);
+  color: var(--bap-faint);
+}
+
+/* --------------------------------------------------------------- Toolbars */
+
+.bap-toolbar,
+.bap-toolbar--glass,
+.bap-toolbar--floating {
+  display: flex;
+  align-items: center;
+  gap: var(--bap-sp-3);
+  flex-wrap: wrap;
+  padding: var(--bap-sp-3) var(--bap-sp-4);
+  margin-bottom: var(--bap-sp-4);
+  background: var(--bap-surface);
+  border: 1px solid var(--bap-border-soft);
+  border-radius: var(--bap-radius);
+}
+
+.bap-toolbar label,
+.bap-toolbar-field > span {
+  font-size: var(--bap-fs-sm);
+  color: var(--bap-muted);
+}
+
+.bap-toolbar-field {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bap-sp-2);
+}
+
+.bap-wrap :where(select, input[type="text"], input[type="url"], input[type="number"],
+  input[type="password"], input[type="date"], textarea) {
+  background: var(--bap-bg-2);
+  color: var(--bap-text);
+  border: 1px solid var(--bap-border);
+  border-radius: var(--bap-radius-sm);
+  padding: 7px 11px;
+  font-family: inherit;
+  font-size: var(--bap-fs-md);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.bap-wrap :where(select, input, textarea):focus {
+  border-color: var(--bap-accent);
+  box-shadow: 0 0 0 3px var(--bap-accent-soft);
+  outline: none;
+}
+
+.bap-status {
+  margin-inline-start: auto;
+  font-size: var(--bap-fs-sm);
+  color: var(--bap-faint);
+}
+
+.bap-status.is-error {
+  color: var(--bap-danger);
+}
+
+/* ---------------------------------------------------------------- Buttons */
+
+.bap-wrap .button,
+.bap-wrap .button-secondary {
+  background: var(--bap-surface-2);
+  border: 1px solid var(--bap-border);
+  color: var(--bap-text-2);
+  border-radius: var(--bap-radius-sm);
+  padding: 6px 14px;
+  height: auto;
+  font-family: inherit;
+  font-size: var(--bap-fs-md);
+  font-weight: 600;
+  line-height: 1.9;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.bap-wrap .button:hover {
+  background: var(--bap-surface-3);
+  border-color: var(--bap-border-strong);
+  color: var(--bap-text);
+}
+
+.bap-wrap .button-primary,
+.bap-wrap .bap-primary {
+  background: var(--bap-accent);
+  border-color: var(--bap-accent);
+  color: #fff;
+  box-shadow: 0 2px 14px -3px rgba(124, 92, 255, 0.6);
+}
+
+.bap-wrap .button-primary:hover,
+.bap-wrap .bap-primary:hover {
+  background: var(--bap-accent-2);
+  border-color: var(--bap-accent-2);
+  color: #fff;
+}
+
+.bap-wrap .button[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* --------------------------------------------------------------- Sections */
+
+.bap-section {
+  background: var(--bap-surface);
+  border: 1px solid var(--bap-border-soft);
+  border-radius: var(--bap-radius);
+  padding: var(--bap-sp-5);
+  margin-bottom: var(--bap-sp-4);
+  box-shadow: var(--bap-shadow);
+}
+
+.bap-section--elevated {
+  background: linear-gradient(180deg, var(--bap-surface-2), var(--bap-surface));
+  border-color: var(--bap-border);
+}
+
+.bap-section-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--bap-sp-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--bap-sp-4);
+}
+
+.bap-section-title h2 {
+  font-size: var(--bap-fs-xl);
+  line-height: 1.5;
+}
+
+.bap-section-title p {
+  margin: var(--bap-sp-1) 0 0;
+  color: var(--bap-muted);
+  font-size: var(--bap-fs-sm);
+  max-width: 72ch;
+}
+
+.bap-section-badge {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: var(--bap-fs-xs);
+  font-weight: 600;
+  color: var(--bap-accent-2);
+  background: var(--bap-accent-soft);
+  white-space: nowrap;
+}
+
+.bap-muted {
+  color: var(--bap-muted);
+  font-size: var(--bap-fs-sm);
+}
+
+/* ------------------------------------------------------------------ Cards */
+
+.bap-card,
+.bap-kpi-card {
+  position: relative;
+  background: var(--bap-surface);
+  /* A hairline, not a 2px accent outline. Nine cards each shouting in the
+     brand colour is nine cards with no hierarchy between them. */
+  border: 1px solid var(--bap-border-soft);
+  border-radius: var(--bap-radius);
+  padding: var(--bap-sp-4) var(--bap-sp-4) var(--bap-sp-3);
+  box-shadow: var(--bap-shadow);
+  transition: border-color 0.18s ease, transform 0.18s ease;
+}
+
+.bap-card:hover,
+.bap-kpi-card:hover {
+  border-color: var(--bap-border-strong);
+  transform: translateY(-1px);
+}
+
+.bap-card h3,
+.bap-kpi-card__label {
+  font-size: var(--bap-fs-sm);
+  font-weight: 600;
+  color: var(--bap-muted);
+  margin: 0 0 var(--bap-sp-2);
+}
+
+.bap-value,
+.bap-kpi-card__value {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  color: var(--bap-text);
+}
+
+.bap-value--text {
+  font-size: var(--bap-fs-xl);
+}
+
+.bap-card-hint {
+  margin: var(--bap-sp-2) 0 0;
+  padding-top: var(--bap-sp-2);
+  border-top: 1px solid var(--bap-border-soft);
+  font-size: var(--bap-fs-xs);
+  line-height: 1.85;
+  color: var(--bap-faint);
+  transition: color 0.18s ease;
+}
+
+.bap-card:hover .bap-card-hint {
+  color: var(--bap-muted);
+}
+
+.bap-kpi-card__icon {
+  position: absolute;
+  inset-block-start: var(--bap-sp-4);
+  inset-inline-end: var(--bap-sp-4);
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--bap-radius-sm);
+  background: var(--bap-accent-soft);
+  color: var(--bap-accent-2);
+}
+
+.bap-grid,
+.bap-kpi-grid {
+  display: grid;
+  gap: var(--bap-sp-3);
+  margin-bottom: var(--bap-sp-4);
+}
+
+#bap-cards {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.bap-kpi-grid {
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+@media (max-width: 1180px) {
+  #bap-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  #bap-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+#bap-cards .bap-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 136px;
+}
+
+#bap-cards .bap-card-hint {
+  margin-top: auto;
+}
+
+/* Period-over-period movement. */
+.bap-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: var(--bap-sp-2);
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: var(--bap-fs-xs);
+  font-weight: 700;
+  width: fit-content;
+}
+
+.bap-delta.is-up {
+  color: var(--bap-success);
+  background: rgba(52, 211, 153, 0.12);
+}
+
+.bap-delta.is-down {
+  color: var(--bap-danger);
+  background: rgba(251, 113, 133, 0.12);
+}
+
+.bap-delta.is-flat {
+  color: var(--bap-faint);
+  background: var(--bap-surface-2);
+}
+
+/* ------------------------------------------------------------ Data tables */
+
+.bap-rows {
+  display: grid;
+  gap: var(--bap-sp-1);
+}
+
+.bap-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--bap-sp-3);
+  padding: 8px 11px;
+  border-radius: var(--bap-radius-sm);
+  background: var(--bap-surface-2);
+  overflow: hidden;
+}
+
+/* The proportional bar behind each row sits under the text, not over it. */
+.bap-row-bar {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  background: var(--bap-accent-soft);
+  z-index: 0;
+}
+
+.bap-row-label,
+.bap-row-value {
+  position: relative;
+  z-index: 1;
+}
+
+.bap-row-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: ltr;
+  text-align: start;
+  font-size: var(--bap-fs-sm);
+}
+
+.bap-row-value {
+  color: var(--bap-text-2);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.bap-wrap :where(.form-table th, .form-table td) {
+  color: var(--bap-text);
+  font-size: var(--bap-fs-md);
+}
+
+.bap-wrap .form-table th {
+  color: var(--bap-text-2);
+  font-weight: 600;
+}
+
+.bap-wrap .description {
+  color: var(--bap-muted);
+  font-size: var(--bap-fs-sm);
+  line-height: 1.85;
+}
+
+.bap-wrap code {
+  background: var(--bap-surface-3);
+  color: var(--bap-accent-2);
+  border-radius: 5px;
+  padding: 1px 6px;
+  font-size: var(--bap-fs-xs);
+}
+
+/* ------------------------------------------------- Badges, chips, statuses */
+
+.bap-badge,
+.bap-status-chip,
+.bap-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bap-sp-1);
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: var(--bap-fs-xs);
+  font-weight: 600;
+  background: var(--bap-surface-3);
+  color: var(--bap-muted);
+  white-space: nowrap;
+}
+
+.bap-badge.is-active,
+.bap-badge.is-good,
+.bap-status-chip--active {
+  background: rgba(52, 211, 153, 0.14);
+  color: var(--bap-success);
+}
+
+.bap-badge.is-recommended,
+.bap-status-chip--warning {
+  background: rgba(251, 191, 36, 0.14);
+  color: var(--bap-warning);
+}
+
+.bap-badge.is-inactive,
+.bap-badge.is-critical,
+.bap-status-chip--error {
+  background: rgba(251, 113, 133, 0.14);
+  color: var(--bap-danger);
+}
+
+.bap-severity.is-critical {
+  background: rgba(251, 113, 133, 0.16);
+  color: var(--bap-danger);
+}
+
+.bap-severity.is-high {
+  background: rgba(251, 191, 36, 0.16);
+  color: var(--bap-warning);
+}
+
+.bap-severity.is-medium,
+.bap-severity.is-low {
+  background: var(--bap-accent-soft);
+  color: var(--bap-accent-2);
+}
+
+/* ----------------------------------------------------------- Empty states */
+
+.bap-empty-state,
+.bap-empty-mini {
+  display: grid;
+  place-items: center;
+  gap: var(--bap-sp-2);
+  padding: var(--bap-sp-6) var(--bap-sp-4);
+  border: 1px dashed var(--bap-border);
+  border-radius: var(--bap-radius);
+  background: rgba(255, 255, 255, 0.012);
+  color: var(--bap-muted);
+  font-size: var(--bap-fs-sm);
+  text-align: center;
+  line-height: 1.9;
+}
+
+.bap-empty-mini {
+  padding: var(--bap-sp-4);
+}
+
+.bap-empty-state .dashicons,
+.bap-empty-mini .dashicons {
+  font-size: 26px;
+  width: 26px;
+  height: 26px;
+  opacity: 0.4;
+}
+
+/* ------------------------------------------------------------ Focus states */
+
+.bap-wrap :where(a, button, select, input, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--bap-accent-2);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bap-wrap *,
+  .bap-wrap *::before,
+  .bap-wrap *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ---------------------------------------------------------------- Density */
+
+.bap-wrap[data-density="compact"],
+body.bap-density-compact .bap-wrap {
+  --bap-sp-4: 12px;
+  --bap-sp-5: 16px;
+  --bap-sp-6: 22px;
+  line-height: 1.65;
+}
+
+/* ----------------------------------------------------------------- Mobile */
+
+@media screen and (max-width: 782px) {
+  .bap-wrap {
+    margin: 10px 0 16px;
+    padding: var(--bap-sp-4);
+    border-radius: var(--bap-radius);
+  }
+
+  .bap-page-hero__copy h1 {
+    font-size: 21px;
+  }
+
+  .bap-toolbar,
+  .bap-toolbar--glass {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .bap-status {
+    margin-inline-start: 0;
+  }
+
+  .bap-value,
+  .bap-kpi-card__value {
+    font-size: 25px;
+  }
+
+  .bap-primary-nav {
+    /* One scrollable row beats a six-line wrap on a phone. */
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .bap-primary-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .bap-primary-nav a {
+    white-space: nowrap;
+  }
+}

@@ -223,7 +223,7 @@ class BAP_Settings_Page {
 								<?php esc_html_e( 'مستقیم از مرورگر (نیازمند کالکتور v3 و کلید عمومی دریافت داده)', 'bahoosh-analytics-pro' ); ?>
 							</label>
 							<p class="description"><?php esc_html_e( 'حالت پروکسی کلید محرمانه API را روی سرور نگه می‌دارد و وردپرس پیش از ارسال، هویت بازدیدکننده را تأیید می‌کند. حالت مستقیم وردپرس را دور می‌زند و به کلید جداگانه فقط‌نوشتنی نیاز دارد؛ در این حالت کالکتور هویت اعلام‌شده توسط مرورگر را می‌پذیرد.', 'bahoosh-analytics-pro' ); ?></p>
-							<p class="description"><strong><?php esc_html_e( 'حالت مستقیم به کالکتوری نیاز دارد که Schema نسخه ۳ را پشتیبانی کند.', 'bahoosh-analytics-pro' ); ?></strong> <?php esc_html_e( 'تا زمانی که کالکتور روی نسخه ۲ است، وردپرس تبدیل داده را انجام می‌دهد؛ بنابراین فقط حالت پروکسی به‌صورت کامل کار می‌کند.', 'bahoosh-analytics-pro' ); ?></p>
+							<p class="description"><strong><?php esc_html_e( 'حالت مستقیم به کالکتوری نیاز دارد که نسخه ۳ قرارداد داده را پشتیبانی کند.', 'bahoosh-analytics-pro' ); ?></strong> <?php esc_html_e( 'تا زمانی که کالکتور روی نسخه ۲ است، وردپرس تبدیل داده را انجام می‌دهد؛ بنابراین فقط حالت پروکسی به‌صورت کامل کار می‌کند.', 'bahoosh-analytics-pro' ); ?></p>
 						</td>
 					</tr>
 					<tr>
@@ -279,7 +279,7 @@ class BAP_Settings_Page {
 					self::checkbox( 'track_js_errors', __( 'خطاهای جاوااسکریپت', 'bahoosh-analytics-pro' ), $settings, __( 'خلاصه خطاهای پاک‌سازی‌شده را بدون Stack Trace یا محتوای صفحه ثبت می‌کند.', 'bahoosh-analytics-pro' ) );
 					self::checkbox( 'track_web_vitals', __( 'شاخص‌های حیاتی وب', 'bahoosh-analytics-pro' ), $settings, __( 'LCP، CLS، INP، FCP و TTFB به‌صورت رویداد ساختاریافته ثبت می‌شوند.', 'bahoosh-analytics-pro' ) );
 					self::checkbox( 'track_media', __( 'تعامل با رسانه', 'bahoosh-analytics-pro' ), $settings, __( 'پخش، توقف، پایان و پیشرفت ۲۵/۵۰/۷۵/۱۰۰٪ برای ویدئو و صوت HTML5 ثبت می‌شود.', 'bahoosh-analytics-pro' ) );
-					self::checkbox( 'track_copy', __( 'رفتار کپی', 'bahoosh-analytics-pro' ), $settings, __( 'فقط تعداد کاراکتر کپی‌شده و زمینه عنصر را ثبت می‌کند و هرگز متن Clipboard ذخیره نمی‌شود.', 'bahoosh-analytics-pro' ) );
+					self::checkbox( 'track_copy', __( 'رفتار کپی', 'bahoosh-analytics-pro' ), $settings, __( 'فقط تعداد نویسه‌های کپی‌شده و محل آن را ثبت می‌کند؛ خودِ متن کپی‌شده هرگز ذخیره نمی‌شود.', 'bahoosh-analytics-pro' ) );
 					?>
 				</table>
 
@@ -376,7 +376,7 @@ class BAP_Settings_Page {
 				<table class="form-table" role="presentation">
 					<tr><td colspan="2"><p class="description"><?php esc_html_e( 'این دو اختیاری هستند و جای داده خود افزونه را نمی‌گیرند. گوگل آنالیتیکس تاریخچه پیش از نصب این افزونه را دارد و کلاریتی می‌گوید روی کدام صفحه دقیقاً چه چیزی خراب است.', 'bahoosh-analytics-pro' ); ?></p></td></tr>
 
-					<tr><th scope="row"><label for="bap-ga4-property"><?php esc_html_e( 'شناسه Property گوگل آنالیتیکس ۴', 'bahoosh-analytics-pro' ); ?></label></th><td>
+					<tr><th scope="row"><label for="bap-ga4-property"><?php esc_html_e( 'شناسه پراپرتی گوگل آنالیتیکس ۴', 'bahoosh-analytics-pro' ); ?></label></th><td>
 						<input type="text" class="regular-text code" id="bap-ga4-property" name="bap[ga4_property_id]"
 							value="<?php echo esc_attr( $settings['ga4_property_id'] ); ?>" placeholder="123456789" />
 						<p class="description"><?php esc_html_e( 'فقط عدد. در گوگل آنالیتیکس: Admin ← Property Settings ← Property ID. این با کد G-XXXXXXX فرق دارد.', 'bahoosh-analytics-pro' ); ?></p>

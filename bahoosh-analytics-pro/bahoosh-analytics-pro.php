@@ -3,7 +3,7 @@
  * Plugin Name: Bahoosh Analytics Pro
  * Plugin URI:  https://bahoosh.ai/
  * Description: First-party analytics, experience intelligence, funnels, journeys and safe AI orchestration for WordPress and WooCommerce.
- * Version:     4.7.0
+ * Version:     4.9.1
  * Author:      Bahoosh_developers
  * License:     GPL-2.0-or-later
  * Text Domain: bahoosh-analytics-pro
@@ -16,12 +16,19 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'BAP_VERSION', '4.7.0' );
-define( 'BAP_SCHEMA_VERSION', 3 );
+define( 'BAP_VERSION', '4.9.1' );
+define( 'BAP_SCHEMA_VERSION', 4 );
+define( 'BAP_API_CONTRACT', 'v4' );
 define( 'BAP_PLUGIN_FILE', __FILE__ );
 define( 'BAP_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'BAP_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'BAP_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
+
+// Commercial endpoints are deployment configuration, not source-controlled secrets.
+// Define these in the production build/environment or via the documented filters.
+if ( ! defined( 'BAP_COMMERCIAL_API_URL' ) ) {
+	define( 'BAP_COMMERCIAL_API_URL', '' );
+}
 
 /**
  * Version 1 exposed configuration as constants in this file. Installations that

@@ -24,8 +24,21 @@ function bap_uninstall_site() {
 	// Every table the plugin owns. `bap_local_events` and `bap_rollup` hold this
 	// site's own analytics history, so dropping them is a real loss of data —
 	// which is exactly what uninstalling a plugin is understood to mean, and why
-	// the admin screens point at the export tools before you get here.
-	foreach ( array( 'bap_outbox', 'bap_rollup', 'bap_local_events' ) as $suffix ) {
+	// the admin screens point at the export tools before you get here. The
+	// bap_ml_* tables hold ML segments, the action audit trail and the
+	// key -> user/order map used to address coupons.
+	$tables = array(
+		'bap_outbox',
+		'bap_rollup',
+		'bap_local_events',
+		'bap_ml_identities',
+		'bap_ml_segments',
+		'bap_ml_assignments',
+		'bap_ml_actions',
+		'bap_ml_action_results',
+		'bap_ml_audit',
+	);
+	foreach ( $tables as $suffix ) {
 		$table = $wpdb->prefix . $suffix;
 		$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB
 	}
@@ -51,6 +64,17 @@ function bap_uninstall_site() {
 		'bap_workspace_alerts',
 		'bap_workspace_annotations',
 		'bap_workspace_dashboard',
+		'bap_ml_secret',
+		'bap_ml_customer_salt',
+		'bap_ml_policy',
+		'bap_ml_latest_run',
+		'bap_ml_insights',
+		'bap_ml_last_results_at',
+		'bap_ml_published_segments',
+		'bap_ml_unsubscribed',
+		'bap_license_key_enc',
+		'bap_license_snapshot',
+		'bap_release_channel',
 	);
 
 	foreach ( $options as $option ) {
@@ -61,10 +85,13 @@ function bap_uninstall_site() {
 	delete_transient( 'bap_outbox_purged' );
 	delete_transient( 'bap_local_pruned' );
 	delete_transient( 'bap_ga4_token' );
+	delete_transient( 'bap_license_validate_cache' );
+	delete_transient( 'bap_license_update_cache' );
 
 	// Product meta the agent writes before changing a sale price, so a revert
 	// can restore exactly what was there.
 	delete_metadata( 'post', 0, '_bap_agent_restore', '', true );
+	delete_metadata( 'post', 0, '_bap_ml_action_id', '', true );
 
 	// Per-user flags used to emit one login/signup event.
 	//
@@ -95,6 +122,9 @@ function bap_uninstall_site() {
 	}
 
 	wp_clear_scheduled_hook( 'bap_process_outbox' );
+	wp_clear_scheduled_hook( 'bap_ml_execute_auto' );
+	wp_clear_scheduled_hook( 'bap_license_validate' );
+	wp_unschedule_hook( 'bap_ml_send_campaign' );
 }
 
 // Multisite installs need every site cleaned, not just the one that triggered

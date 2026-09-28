@@ -74,6 +74,16 @@ class BAP_Dashboard_Page {
 			),
 		);
 
+		$icons = array(
+			'total_events' => 'dashicons-chart-line', 'unique_users' => 'dashicons-groups', 'sessions' => 'dashicons-clock',
+			'realtime_users' => 'dashicons-controls-play', 'page_views' => 'dashicons-visibility', 'searches' => 'dashicons-search',
+			'conversions' => 'dashicons-cart', 'revenue' => 'dashicons-money-alt', 'conversion_rate' => 'dashicons-performance',
+		);
+		foreach ( $cards as $metric => &$definition ) {
+			$definition['icon'] = $icons[ $metric ] ?? 'dashicons-chart-bar';
+		}
+		unset( $definition );
+
 		/**
 		 * Filters the dashboard metric cards.
 		 *
@@ -127,7 +137,16 @@ class BAP_Dashboard_Page {
 				BAP_Admin::MENU_SLUG
 			); ?>
 
-			<div class="bap-toolbar">
+			<section class="bap-command-center" aria-label="<?php esc_attr_e( 'میانبرهای عملیات فروش', 'bahoosh-analytics-pro' ); ?>">
+				<div class="bap-command-center__intro"><span class="bap-live-dot"></span><div><strong><?php esc_html_e( 'مرکز فرمان فروش', 'bahoosh-analytics-pro' ); ?></strong><small><?php esc_html_e( 'از رفتار تا تصمیم و اقدام، همه در یک‌جا', 'bahoosh-analytics-pro' ); ?></small></div></div>
+				<div class="bap-command-center__links">
+					<a href="<?php echo esc_url( admin_url( 'admin.php?page=' . BAP_Admin::SEGMENTS_SLUG ) ); ?>"><span class="dashicons dashicons-groups"></span><b><?php esc_html_e( 'هوش مشتری', 'bahoosh-analytics-pro' ); ?></b><small><?php esc_html_e( 'دسته‌بندی و اقدام', 'bahoosh-analytics-pro' ); ?></small></a>
+					<a href="<?php echo esc_url( admin_url( 'admin.php?page=' . BAP_Admin::AI_SLUG ) ); ?>"><span class="dashicons dashicons-superhero-alt"></span><b><?php esc_html_e( 'پیشنهادهای AI', 'bahoosh-analytics-pro' ); ?></b><small><?php esc_html_e( 'فرصت‌های فروش', 'bahoosh-analytics-pro' ); ?></small></a>
+					<a href="<?php echo esc_url( admin_url( 'admin.php?page=' . BAP_Admin::ACCOUNT_SLUG ) ); ?>"><span class="dashicons dashicons-shield-alt"></span><b><?php esc_html_e( 'سرویس و انتشار', 'bahoosh-analytics-pro' ); ?></b><small><?php esc_html_e( 'لایسنس و به‌روزرسانی', 'bahoosh-analytics-pro' ); ?></small></a>
+				</div>
+			</section>
+
+			<div class="bap-toolbar bap-toolbar--floating">
 				<label for="bap-range"><?php esc_html_e( 'بازه زمانی', 'bahoosh-analytics-pro' ); ?></label>
 				<select id="bap-range">
 					<?php foreach ( BAP_Reports::ranges() as $key => $label ) : ?>
@@ -178,8 +197,8 @@ class BAP_Dashboard_Page {
 
 			<div class="bap-grid" id="bap-cards">
 				<?php foreach ( self::cards() as $metric => $card ) : ?>
-					<div class="bap-card" data-metric="<?php echo esc_attr( $metric ); ?>" data-format="<?php echo esc_attr( $card['format'] ); ?>" <?php echo in_array( $metric, $visible_cards, true ) ? '' : 'hidden'; ?>>
-						<h3><?php echo esc_html( $card['label'] ); ?></h3>
+					<div class="bap-card bap-metric-card" data-metric="<?php echo esc_attr( $metric ); ?>" data-format="<?php echo esc_attr( $card['format'] ); ?>" <?php echo in_array( $metric, $visible_cards, true ) ? '' : 'hidden'; ?>>
+						<div class="bap-metric-card__top"><span class="bap-metric-icon"><span class="dashicons <?php echo esc_attr( $card['icon'] ); ?>"></span></span><span class="bap-metric-card__label"><?php echo esc_html( $card['label'] ); ?></span></div>
 						<div class="bap-value" data-value>--</div>
 						<?php if ( ! empty( $card['hint'] ) ) : ?>
 							<p class="bap-card-hint"><?php echo esc_html( $card['hint'] ); ?></p>
@@ -189,7 +208,7 @@ class BAP_Dashboard_Page {
 			</div>
 
 			<div class="bap-section bap-chart-section">
-				<h2><?php esc_html_e( 'روند تغییرات', 'bahoosh-analytics-pro' ); ?></h2>
+				<div class="bap-section-title"><div><span class="bap-kicker"><?php esc_html_e( 'روند', 'bahoosh-analytics-pro' ); ?></span><h2><?php esc_html_e( 'نبض فروشگاه در طول زمان', 'bahoosh-analytics-pro' ); ?></h2></div><span class="bap-section-badge"><?php esc_html_e( 'به‌روز', 'bahoosh-analytics-pro' ); ?></span></div>
 				<div id="bap-chart">
 					<p class="bap-muted"><?php esc_html_e( 'در حال بارگذاری…', 'bahoosh-analytics-pro' ); ?></p>
 				</div>

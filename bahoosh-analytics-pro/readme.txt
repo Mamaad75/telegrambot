@@ -4,7 +4,7 @@ Tags: analytics, woocommerce, tracking, gdpr, ecommerce, funnels, ai, heatmap
 Requires at least: 5.8
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 4.2.1
+Stable tag: 4.9.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -139,6 +139,22 @@ Yes. Set `window.bapConsent` before the tracker loads, or dispatch a
 consent" enabled, nothing is collected until analytics consent is granted.
 
 == Changelog ==
+
+= 4.9.0 =
+* New: Commerce OS admin shell with a SaaS-style sidebar, command center, metric hierarchy, responsive customer intelligence cards and a unified RTL design system.
+* New: Commercial license manager with encrypted-at-rest key storage, explicit license states, cached validation, offline grace handling and site binding metadata.
+* New: Central entitlement and feature-flag abstractions so plans, capabilities and remote rollouts remain separate concepts.
+* New: Native WordPress premium updater integration with release channels, API/backend compatibility metadata and just-in-time refresh of short-lived signed package URLs.
+* New: Customer-level behavioral features join WooCommerce RFM/order features without exporting raw email, search text, click labels or page URLs to the ML service.
+* New: Behavior-aware segmentation/prediction feature version cf-2 and multi-tenant daily behavior aggregation.
+* New: Bounded concurrent multi-store pipeline runner with optional automatic retraining of missing/stale active models.
+* Improved: Customer/order/action/traffic synchronization is more incremental and suitable for long-running SaaS installations.
+* Improved: Customer Intelligence screen prioritizes operational segment cards, repeat-purchase/churn indicators and one-click campaign/coupon workflows.
+* Improved: Commercial outages do not catastrophically disable existing analytics; WordPress receives clear account/compatibility diagnostics instead.
+* Fixed: Campaign links now attribute clicks to the actual send/schedule action measured by the feedback loop.
+* Fixed: Version metadata is release-gated so plugin header, BAP_VERSION, readme Stable tag and generated tracker cannot silently drift.
+* Security: Premium actions remain schema/policy/capability checked; commercial secrets are never put in URLs, frontend JavaScript or routine logs.
+
 
 = 4.2.1 =
 * Unified: Dashboard, Experience, Funnels, Journeys, AI Center, Settings, Event Inspector and Diagnostics now use the same dark Persian design system, shared hero and primary navigation.

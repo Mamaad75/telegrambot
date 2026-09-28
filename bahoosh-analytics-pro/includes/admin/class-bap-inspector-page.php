@@ -214,8 +214,8 @@ class BAP_Inspector_Page {
 							'format'    => '',
 							'current'   => $page,
 							'total'     => $pages,
-							'prev_text' => __( '&laquo; قبلی', 'bahoosh-analytics-pro' ),
-							'next_text' => __( 'بعدی &raquo;', 'bahoosh-analytics-pro' ),
+							'prev_text' => __( '&raquo; قبلی', 'bahoosh-analytics-pro' ),
+							'next_text' => __( 'بعدی &laquo;', 'bahoosh-analytics-pro' ),
 						)
 					)
 				);

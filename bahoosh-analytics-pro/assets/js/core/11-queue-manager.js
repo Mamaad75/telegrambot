@@ -429,6 +429,16 @@
    */
   QueueManager.prototype._deliverAll = function (records) {
     var self = this;
+
+    // One request for the whole claim when the endpoint is this site's own
+    // proxy. Each event still carries its own id and gets its own verdict; what
+    // is saved is the WordPress bootstrap, which on shared hosting dominates
+    // the cost. Direct-to-collector mode keeps one request per event, because
+    // that is the collector's contract and not ours to change.
+    if (records.length > 1 && self.transport.supportsBatch && self.transport.supportsBatch()) {
+      return self._deliverBatch(records);
+    }
+
     var queue = records.slice();
     var summary = { sent: 0, removed: 0, kept: 0 };
     var lanes = Math.max(1, Math.min(this.transport.maxConcurrent || 1, queue.length));
@@ -442,6 +452,103 @@
 
     for (var i = 0; i < lanes; i++) workers.push(next());
     return Promise.all(workers).then(function () {
+      return summary;
+    });
+  };
+
+  /**
+   * Sends a claimed group as a single request.
+   *
+   * Falls back to one-at-a-time whenever the answer is not a batch verdict, so
+   * an older server, a proxy that rewrites the body, or a security plugin that
+   * mangles the route can never cost data.
+   *
+   * @param {Array} records Claimed records.
+   * @returns {Promise<Object>} Summary.
+   */
+  QueueManager.prototype._deliverBatch = function (records) {
+    var self = this;
+    var summary = { sent: 0, removed: 0, kept: 0 };
+
+    return this.transport
+      .sendBatch(
+        records.map(function (record) {
+          return record.payload;
+        })
+      )
+      .then(function (result) {
+        if (!result || !result.results) {
+          // Not a batch-aware answer. Deliver individually rather than guess.
+          self.logger.debug("batch not supported by server, falling back");
+          return self._deliverSequentially(records, summary);
+        }
+
+        var verdicts = {};
+        for (var i = 0; i < result.results.length; i++) {
+          verdicts[result.results[i].event_id] = result.results[i];
+        }
+
+        var writes = [];
+
+        for (var j = 0; j < records.length; j++) {
+          var record = records[j];
+          var verdict = verdicts[record.event_id];
+
+          // No verdict for this event means the server did not speak about it.
+          // Treated as unsent: the lease lapses and the next pass retries.
+          if (!verdict) {
+            summary.kept++;
+            continue;
+          }
+
+          if (verdict.status === "stored" || verdict.status === "duplicate") {
+            summary.sent++;
+            summary.removed++;
+            self.stats.stored++;
+            self._release(record.event_id);
+            writes.push(record.event_id);
+          } else if (verdict.retryable === false) {
+            summary.removed++;
+            self.stats.rejected++;
+            self.logger.warn("event rejected and discarded", record.event_id, verdict.error || "");
+            self._release(record.event_id);
+            writes.push(record.event_id);
+          } else {
+            summary.kept++;
+            self._reschedule(record, { settlement: SETTLEMENT.RETRY, status: 0 });
+          }
+        }
+
+        if (!writes.length) return summary;
+
+        return self.store.remove(writes).then(function () {
+          return summary;
+        });
+      })
+      .catch(function (error) {
+        self.logger.debug("batch delivery failed", error && error.message);
+        return self._deliverSequentially(records, summary);
+      });
+  };
+
+  /**
+   * The original one-request-per-event path, used as the batch fallback.
+   *
+   * @param {Array} records Records.
+   * @param {Object} summary Summary to fill.
+   * @returns {Promise<Object>}
+   */
+  QueueManager.prototype._deliverSequentially = function (records, summary) {
+    var self = this;
+    var queue = records.slice();
+
+    function next() {
+      var record = queue.shift();
+      if (!record) return Promise.resolve();
+      return self._deliverOne(record, summary).then(next);
+    }
+
+    return next().then(function () {
       return summary;
     });
   };

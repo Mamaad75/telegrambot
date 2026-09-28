@@ -12,7 +12,7 @@ defined( 'ABSPATH' ) || exit;
  */
 class BAP_Installer {
 
-	const DB_VERSION = 9;
+	const DB_VERSION = 11;
 
 	/**
 	 * Runs on activation.
@@ -23,7 +23,8 @@ class BAP_Installer {
 		$installed = (int) get_option( BAP_Settings::OPTION_DB_VERSION, 0 );
 		BAP_Outbox::install();
 		BAP_Rollup::install();
-		BAP_Local_Store::install();
+		self::migrate_to_v11( $installed );
+		BAP_ML_Store::install();
 		self::migrate_from_v1();
 		self::migrate_to_v3( $installed );
 		BAP_Settings::ensure_ai_webhook_secret();
@@ -39,6 +40,8 @@ class BAP_Installer {
 	 */
 	public static function deactivate() {
 		wp_clear_scheduled_hook( BAP_Outbox::CRON_HOOK );
+		wp_clear_scheduled_hook( BAP_ML_Actions::CRON_EXECUTE );
+		wp_clear_scheduled_hook( BAP_License_Manager::VALIDATE_HOOK );
 	}
 
 	/**
@@ -54,7 +57,8 @@ class BAP_Installer {
 
 		BAP_Outbox::install();
 		BAP_Rollup::install();
-		BAP_Local_Store::install();
+		self::migrate_to_v11( $installed );
+		BAP_ML_Store::install();
 		self::migrate_from_v1();
 		self::migrate_to_v3( $installed );
 		BAP_Settings::ensure_ai_webhook_secret();
@@ -62,6 +66,24 @@ class BAP_Installer {
 		self::schedule_cron();
 		update_option( BAP_Settings::OPTION_DB_VERSION, self::DB_VERSION, true );
 		BAP_Logger::debug( 'upgraded schema from version ' . $installed . ' to ' . self::DB_VERSION );
+	}
+
+
+	/**
+	 * v11 adds a pseudonymous customer key to local behavioral events.
+	 *
+	 * dbDelta makes this safe for both fresh installs and direct upgrades from
+	 * any older schema. Existing anonymous history is preserved; rows are linked
+	 * lazily when a future authenticated/order identity becomes available.
+	 *
+	 * @param int $installed Previously installed DB version.
+	 * @return void
+	 */
+	private static function migrate_to_v11( $installed ) {
+		BAP_Local_Store::install();
+		if ( $installed > 0 && $installed < 11 ) {
+			BAP_Logger::debug( 'v11 migration added pseudonymous customer linkage to behavioral events' );
+		}
 	}
 
 	/**

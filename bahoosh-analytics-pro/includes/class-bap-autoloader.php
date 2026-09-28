@@ -23,6 +23,8 @@ class BAP_Autoloader {
 		'includes/api/',
 		'includes/integrations/',
 		'includes/privacy/',
+		'includes/ml/',
+		'includes/commercial/',
 		'includes/admin/',
 		'includes/',
 	);

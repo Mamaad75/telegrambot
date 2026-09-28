@@ -439,14 +439,14 @@ class BAP_Diagnostics_Page {
 	 * @return array
 	 */
 	private static function check_bundle() {
-		$label  = __( 'باندل Tracker', 'bahoosh-analytics-pro' );
+		$label  = __( 'فایل یکپارچه ردیاب', 'bahoosh-analytics-pro' );
 		$bundle = BAP_PLUGIN_DIR . 'assets/js/dist/bahoosh-tracker.js';
 
 		if ( ! is_readable( $bundle ) ) {
 			return self::result(
 				$label,
 				self::STATUS_RECOMMENDED,
-				__( 'فایل تجمیعی Tracker وجود ندارد؛ بنابراین ماژول‌ها جداگانه بارگذاری می‌شوند. رهگیری کار می‌کند اما درخواست‌های بیشتری ایجاد می‌شود.', 'bahoosh-analytics-pro' ),
+				__( 'فایل یکپارچه ردیاب وجود ندارد؛ بنابراین ماژول‌ها جداگانه بارگذاری می‌شوند. رهگیری کار می‌کند اما درخواست‌های بیشتری ایجاد می‌شود.', 'bahoosh-analytics-pro' ),
 				__( 'برای ساخت مجدد، دستور npm run build را در پوشه افزونه اجرا کنید.', 'bahoosh-analytics-pro' )
 			);
 		}
@@ -461,7 +461,7 @@ class BAP_Diagnostics_Page {
 			return self::result(
 				$label,
 				self::STATUS_RECOMMENDED,
-				__( 'فایل تجمیعی Tracker از ماژول‌های منبع قدیمی‌تر است و ممکن است تغییرات جدید فعال نشده باشند.', 'bahoosh-analytics-pro' ),
+				__( 'فایل یکپارچه ردیاب از کدهای منبع قدیمی‌تر است و ممکن است تغییرات جدید فعال نشده باشند.', 'bahoosh-analytics-pro' ),
 				__( 'دستور npm run build را در پوشه افزونه اجرا کنید.', 'bahoosh-analytics-pro' )
 			);
 		}

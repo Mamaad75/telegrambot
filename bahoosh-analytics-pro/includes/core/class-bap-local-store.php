@@ -107,6 +107,7 @@ class BAP_Local_Store {
 			event_id VARCHAR(64) NOT NULL DEFAULT '',
 			event_type VARCHAR(64) NOT NULL DEFAULT '',
 			anonymous_id VARCHAR(64) NOT NULL DEFAULT '',
+			customer_key VARCHAR(40) NOT NULL DEFAULT '',
 			page_view_id VARCHAR(64) NOT NULL DEFAULT '',
 			page_path VARCHAR(190) NOT NULL DEFAULT '',
 			referrer_host VARCHAR(190) NOT NULL DEFAULT '',
@@ -119,7 +120,8 @@ class BAP_Local_Store {
 			UNIQUE KEY event_id (event_id),
 			KEY occurred_at (occurred_at),
 			KEY type_time (event_type, occurred_at),
-			KEY visitor (anonymous_id, occurred_at)
+			KEY visitor (anonymous_id, occurred_at),
+			KEY customer_time (customer_key, occurred_at)
 		) {$collate};";
 
 		dbDelta( $sql );
@@ -153,10 +155,15 @@ class BAP_Local_Store {
 			? (float) $data['value']
 			: 0.0;
 
+		$customer_key = self::customer_key_for(
+			isset( $event['identity']['wp_user_id'] ) ? (int) $event['identity']['wp_user_id'] : 0
+		);
+
 		$row = array(
 			'event_id'      => substr( (string) ( $event['event_id'] ?? '' ), 0, 64 ),
 			'event_type'    => substr( $type, 0, 64 ),
 			'anonymous_id'  => substr( (string) ( $event['identity']['anonymous_id'] ?? '' ), 0, 64 ),
+			'customer_key'  => $customer_key,
 			'page_view_id'  => substr( (string) ( $event['page_view_id'] ?? '' ), 0, 64 ),
 			'page_path'     => BAP_Rollup::normalize_path( $path ),
 			'referrer_host' => self::referrer_host( (string) ( $page['referrer'] ?? '' ) ),
@@ -174,7 +181,95 @@ class BAP_Local_Store {
 		$written  = $wpdb->insert( self::table(), $row ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 		$wpdb->suppress_errors( $previous );
 
+		// A write invalidates any event set already read in this request. The
+		// ingest route never reads a report afterwards, so this costs nothing
+		// there; it matters in cron and WP-CLI, where one process can record an
+		// event and then build a report that must include it.
+		if ( $written ) {
+			self::$event_memo = array();
+		}
+
 		return (bool) $written;
+	}
+
+
+	/**
+	 * Memoised customer keys, by WordPress user id.
+	 *
+	 * @var array<int,string>
+	 */
+	private static $customer_keys = array();
+
+	/**
+	 * The pseudonymous customer key for a WordPress user.
+	 *
+	 * Memoised because this sits on the hottest path in the plugin. It is
+	 * reached once per event, and the tracker sends one request per event: a
+	 * logged-in customer opening a product page fires a page view, a product
+	 * view, a scroll milestone and a click or two. Resolving the user and their
+	 * billing email each time turned that into ten extra queries for one page,
+	 * on requests the browser is waiting on.
+	 *
+	 * A user's identity cannot change within one request, so one lookup is
+	 * enough — and for guests, which is most traffic, there is no lookup at all.
+	 *
+	 * @param int $wp_user_id WordPress user id, 0 for guests.
+	 * @return string Empty for guests.
+	 */
+	private static function customer_key_for( $wp_user_id ) {
+		$wp_user_id = (int) $wp_user_id;
+
+		if ( $wp_user_id <= 0 ) {
+			return '';
+		}
+
+		if ( isset( self::$customer_keys[ $wp_user_id ] ) ) {
+			return self::$customer_keys[ $wp_user_id ];
+		}
+
+		$user = get_userdata( $wp_user_id );
+		$key  = '';
+
+		if ( $user ) {
+			$billing_email = (string) get_user_meta( $wp_user_id, 'billing_email', true );
+			$key           = BAP_ML_Auth::customer_key(
+				'' !== $billing_email ? $billing_email : $user->user_email,
+				$wp_user_id
+			);
+		}
+
+		self::$customer_keys[ $wp_user_id ] = $key;
+
+		return $key;
+	}
+
+	/**
+	 * Backfills a pseudonymous customer key onto this browser's earlier events.
+	 *
+	 * This is called only after WooCommerce has supplied an order identity. Raw
+	 * email/address data never enters the analytics table; the stable HMAC key is
+	 * the only customer-level join exported to the ML service.
+	 *
+	 * @param string $anonymous_id Browser anonymous id.
+	 * @param string $customer_key Pseudonymous customer key.
+	 * @return int Number of linked rows.
+	 */
+	public static function link_customer( $anonymous_id, $customer_key ) {
+		global $wpdb;
+		$anonymous_id = substr( sanitize_text_field( (string) $anonymous_id ), 0, 64 );
+		$customer_key = substr( sanitize_text_field( (string) $customer_key ), 0, 40 );
+		if ( '' === $anonymous_id || ! preg_match( '/^c_[a-f0-9]{32}$/', $customer_key ) ) {
+			return 0;
+		}
+		$table = self::table();
+		return (int) $wpdb->query( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare(
+				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- trusted table name.
+				"UPDATE {$table} SET customer_key = %s WHERE anonymous_id = %s AND customer_key = ''",
+				$customer_key,
+				$anonymous_id
+			)
+		);
 	}
 
 	/**
@@ -186,6 +281,23 @@ class BAP_Local_Store {
 	 */
 	public static function events( $from, $to ) {
 		global $wpdb;
+
+		// Memoised for the life of the request.
+		//
+		// One admin screen asks for the same window several times over: the
+		// funnel page computes the funnel, the per-product breakdown and the
+		// page list, and each used to read every row again. On a shop with a
+		// busy week that is three scans of the same hundred thousand rows to
+		// render one page, which is most of why the admin felt slow.
+		//
+		// Keyed by window, so a dashboard comparing two periods still reads
+		// both. Nothing is cached across requests: this table is written on
+		// every page view and a stale report would be worse than a slow one.
+		$memo_key = $from . '|' . $to;
+
+		if ( isset( self::$event_memo[ $memo_key ] ) ) {
+			return self::$event_memo[ $memo_key ];
+		}
 
 		$table = self::table();
 		$limit = self::MAX_REPORT_ROWS;
@@ -208,10 +320,41 @@ class BAP_Local_Store {
 		$rows      = is_array( $rows ) ? $rows : array();
 		$truncated = count( $rows ) > $limit;
 
-		return array(
+		$result = array(
 			'rows'      => $truncated ? array_slice( $rows, 0, $limit ) : $rows,
 			'truncated' => $truncated,
 		);
+
+		// Only the last two windows are held. A report comparing this period
+		// with the previous one needs two; holding every window a long-running
+		// request ever asked for would trade a speed problem for a memory one.
+		if ( count( self::$event_memo ) >= 2 ) {
+			array_shift( self::$event_memo );
+		}
+
+		self::$event_memo[ $memo_key ] = $result;
+
+		return $result;
+	}
+
+	/**
+	 * Event sets already read in this request, keyed by window.
+	 *
+	 * @var array<string,array>
+	 */
+	private static $event_memo = array();
+
+	/**
+	 * Drops the per-request event cache.
+	 *
+	 * Called after a write in a long-running process — a cron pass, WP-CLI —
+	 * where a report taken later in the same request should see what was
+	 * added since.
+	 *
+	 * @return void
+	 */
+	public static function flush_memo() {
+		self::$event_memo = array();
 	}
 
 	/**

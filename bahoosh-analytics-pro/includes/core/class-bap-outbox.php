@@ -93,7 +93,7 @@ class BAP_Outbox {
 		if ( ! isset( $schedules['bap_minute'] ) ) {
 			$schedules['bap_minute'] = array(
 				'interval' => 60,
-				'display'  => __( 'Every minute (Bahoosh Analytics)', 'bahoosh-analytics-pro' ),
+				'display'  => __( 'هر دقیقه (باهوش آنالیتیکس)', 'bahoosh-analytics-pro' ),
 			);
 		}
 		return $schedules;

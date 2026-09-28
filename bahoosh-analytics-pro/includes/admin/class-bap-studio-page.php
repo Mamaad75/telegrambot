@@ -48,6 +48,7 @@ class BAP_Studio_Page {
 	 */
 	public static function render_funnels() {
 		self::guard();
+		self::guard_entitlement( 'funnels' );
 		?>
 		<div class="wrap bap-wrap bap-studio" data-bap-screen="funnels">
 			<?php self::header( __( 'قیف خرید و رها کردن', 'bahoosh-analytics-pro' ), __( 'از مشاهده محصول تا پرداخت: در هر مرحله چند نفر ماندند، کجا رها کردند و چه چیزی روی آن صفحه خراب بوده.', 'bahoosh-analytics-pro' ), 'funnels' ); ?>
@@ -116,6 +117,7 @@ class BAP_Studio_Page {
 	/** Renders AI Center. */
 	public static function render_ai() {
 		self::guard();
+		self::guard_entitlement( 'ai_center' );
 		$recommendations = BAP_AI::recommendations();
 		$provider        = BAP_AI_Provider::current();
 		$agent_mode      = BAP_Commerce_Agent::mode();
@@ -263,6 +265,23 @@ class BAP_Studio_Page {
 	}
 
 	/** Permission gate shared by all reports. */
+
+	/** @param string $capability Commercial entitlement key. @return void */
+	private static function guard_entitlement( $capability ) {
+		if ( BAP_Entitlements::can( $capability ) ) {
+			return;
+		}
+		wp_die(
+			wp_kses_post(
+				sprintf(
+					/* translators: %s Account page URL. */
+					__( 'این قابلیت در پلن فعلی فعال نیست. <a href="%s">اشتراک و دسترسی‌ها</a> را بررسی کنید.', 'bahoosh-analytics-pro' ),
+					esc_url( admin_url( 'admin.php?page=' . BAP_Admin::ACCOUNT_SLUG ) )
+				)
+			)
+		);
+	}
+
 	private static function guard() {
 		if ( ! current_user_can( BAP_Admin::reports_capability() ) ) {
 			wp_die( esc_html__( 'اجازه مشاهده این صفحه را ندارید.', 'bahoosh-analytics-pro' ) );

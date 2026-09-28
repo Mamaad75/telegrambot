@@ -74,6 +74,11 @@ class BAP_Plugin {
 		BAP_REST_Controller::init();
 		BAP_Privacy::init();
 
+		// Commercial SaaS services are cached/background-only and never gate the
+		// front-end tracker on a remote licensing request.
+		BAP_License_Manager::init();
+		BAP_Updater::init();
+
 		// Registered unconditionally: `wp_enqueue_scripts` only fires on the
 		// front end anyway, while `wp_login` fires on wp-login.php and
 		// `user_register` can fire in wp-admin.
@@ -82,6 +87,11 @@ class BAP_Plugin {
 		// Order hooks fire in every context (admin edits, cron, gateway
 		// callbacks), so the WooCommerce integration is always registered.
 		BAP_WooCommerce::init();
+
+		// ML layer: signed routes for the Python service, and the executor's
+		// cron hooks / campaign links, which fire outside wp-admin too.
+		BAP_ML_REST::init();
+		BAP_ML_Actions::init();
 
 		if ( is_admin() ) {
 			BAP_Admin::init();

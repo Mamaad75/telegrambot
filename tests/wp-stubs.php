@@ -157,3 +157,11 @@ function wp_cache_set( $k, $v, $g = '', $e = 0 ) { $GLOBALS['bap_cache'][ $g ][ 
 function wp_cache_delete( $k, $g = '' ) { unset( $GLOBALS['bap_cache'][ $g ][ $k ] ); return true; }
 
 function wp_remote_retrieve_header( $r, $h ) { return is_array( $r ) && isset( $r['headers'][ $h ] ) ? $r['headers'][ $h ] : ''; }
+
+function get_userdata( $id ) { return $GLOBALS['bap_users'][ (int) $id ] ?? false; }
+function get_user_meta( $id, $key = '', $single = false ) { return $GLOBALS['bap_user_meta'][ (int) $id ][ $key ] ?? ''; }
+function is_email( $v ) { return (bool) filter_var( (string) $v, FILTER_VALIDATE_EMAIL ); }
+function wp_next_scheduled( $h, $a = array() ) { return false; }
+function wp_schedule_event( $t, $r, $h, $a = array() ) { return true; }
+function wp_unschedule_hook( $h ) { return 0; }
+function human_time_diff_stub() {}

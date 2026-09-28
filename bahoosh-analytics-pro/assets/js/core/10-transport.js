@@ -170,6 +170,87 @@
   };
 
   /**
+   * Whether the endpoint can accept several events in one request.
+   *
+   * Only this site's own proxy can. In direct mode the events go to the
+   * collector, whose contract is one event per request, so batching there would
+   * be a protocol change rather than an optimisation.
+   *
+   * @returns {boolean}
+   */
+  Transport.prototype.supportsBatch = function () {
+    return this.credentials !== "omit";
+  };
+
+  /**
+   * Sends several events as one request.
+   *
+   * @param {Array} events Event payloads.
+   * @returns {Promise<Object>} The decoded batch answer, or a retry verdict.
+   */
+  Transport.prototype.sendBatch = function (events) {
+    var self = this;
+
+    if (!this.fetchImpl) {
+      return Promise.resolve({ settlement: SETTLEMENT.RETRY, status: 0, networkError: true });
+    }
+
+    var payload = { events: [] };
+    for (var i = 0; i < events.length; i++) {
+      payload.events.push(this._stamp(events[i]));
+    }
+
+    var controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+    var timer = null;
+    if (controller) {
+      timer = setTimeout(function () {
+        controller.abort();
+      }, this.timeoutMs);
+    }
+
+    var init = {
+      method: "POST",
+      headers: this._headers(),
+      body: JSON.stringify(payload),
+      credentials: this.credentials,
+      keepalive: true,
+    };
+    if (controller) init.signal = controller.signal;
+
+    this.inFlight++;
+
+    return this.fetchImpl(this.endpoint, init)
+      .then(function (response) {
+        if (timer) clearTimeout(timer);
+        return response
+          .text()
+          .catch(function () {
+            return "";
+          })
+          .then(function (text) {
+            var decoded = NS.util.safeJsonParse(text, null);
+
+            // Anything that is not a batch verdict is reported as such, and the
+            // caller retries the events individually rather than assuming.
+            if (!decoded || !decoded.results) {
+              return { status: response.status, results: null, raw: text };
+            }
+
+            return { status: response.status, results: decoded.results };
+          });
+      })
+      .catch(function (error) {
+        if (timer) clearTimeout(timer);
+        self.logger.debug("batch transport failure", error && error.message);
+        return { settlement: SETTLEMENT.RETRY, status: 0, results: null, error: error && error.message };
+      })
+      .then(function (result) {
+        self.inFlight--;
+        return result;
+      });
+  };
+
+  /**
    * Best-effort delivery during page unload. Returns whether the browser
    * queued the request — never whether the server accepted it.
    */

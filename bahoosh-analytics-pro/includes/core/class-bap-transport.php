@@ -134,7 +134,7 @@ class BAP_Transport {
 	public static function dashboard( array $query ) {
 		$endpoint = BAP_Settings::endpoint( 'dashboard' );
 		if ( '' === $endpoint ) {
-			return self::error_result( 'not_configured', __( 'Collector URL is not configured.', 'bahoosh-analytics-pro' ) );
+			return self::error_result( 'not_configured', __( 'آدرس کالکتور تنظیم نشده است.', 'bahoosh-analytics-pro' ) );
 		}
 
 		$query['site_id'] = BAP_Settings::get( 'site_id' );
@@ -162,7 +162,7 @@ class BAP_Transport {
 	public static function get( $path, array $query = array() ) {
 		$endpoint = BAP_Settings::endpoint( $path );
 		if ( '' === $endpoint ) {
-			return self::error_result( 'not_configured', __( 'Collector URL is not configured.', 'bahoosh-analytics-pro' ) );
+			return self::error_result( 'not_configured', __( 'آدرس کالکتور تنظیم نشده است.', 'bahoosh-analytics-pro' ) );
 		}
 
 		$query['site_id'] = BAP_Settings::get( 'site_id' );
@@ -189,12 +189,12 @@ class BAP_Transport {
 	public static function request( $path, array $payload ) {
 		$endpoint = BAP_Settings::endpoint( $path );
 		if ( '' === $endpoint ) {
-			return self::error_result( 'not_configured', __( 'Collector URL is not configured.', 'bahoosh-analytics-pro' ) );
+			return self::error_result( 'not_configured', __( 'آدرس کالکتور تنظیم نشده است.', 'bahoosh-analytics-pro' ) );
 		}
 
 		$body = wp_json_encode( $payload );
 		if ( false === $body ) {
-			return self::error_result( 'encode_failed', __( 'Could not encode payload.', 'bahoosh-analytics-pro' ) );
+			return self::error_result( 'encode_failed', __( 'ساخت بسته ارسالی ناموفق بود.', 'bahoosh-analytics-pro' ) );
 		}
 
 		$timeout = max( 1, (int) round( BAP_Settings::get( 'request_timeout_ms', 15000 ) / 1000 ) );

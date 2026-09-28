@@ -1742,4 +1742,174 @@ test( 'outbox: a dead collector does not burn a whole cron pass', function () {
 	is_same( 3, BAP_Outbox::FAILURE_CUTOFF );
 } );
 
+/* ============================================================ */
+/* Speed                                                        */
+/* ============================================================ */
+
+test( 'speed: one admin screen reads the event table once, not four times', function () {
+	$today = gmdate( 'Y-m-d' );
+
+	foreach ( range( 1, 40 ) as $i ) {
+		BAP_Local_Store::record( bap_event( array( 'data' => array( 'item_name' => 'کالا' ) ) ) );
+	}
+
+	// The funnel screen builds three reports, and the explorer builds a fourth
+	// internally. Each used to scan the whole window again.
+	$GLOBALS['wpdb']->log = array();
+
+	BAP_Local_Reports::funnel( $today, $today );
+	BAP_Local_Reports::product_funnel( $today, $today );
+	BAP_Local_Reports::explorer( $today, $today );
+
+	$scans = 0;
+	foreach ( $GLOBALS['wpdb']->log as $sql ) {
+		if ( str_contains( $sql, 'SELECT event_type' ) ) { $scans++; }
+	}
+
+	is_same( 1, $scans, 'the window is read once and reused' );
+} );
+
+test( 'speed: a write invalidates what the request already read', function () {
+	$today = gmdate( 'Y-m-d' );
+
+	BAP_Local_Store::record( bap_event() );
+	is_same( 1, count( BAP_Local_Store::events( $today, $today )['rows'] ) );
+
+	// Cheap speed is worthless if it serves a stale answer: a cron pass that
+	// records an event and then builds a report must see it.
+	BAP_Local_Store::record( bap_event() );
+	is_same( 2, count( BAP_Local_Store::events( $today, $today )['rows'] ) );
+} );
+
+test( 'speed: a guest costs no user lookup on the ingest path', function () {
+	$GLOBALS['bap_users'][7] = (object) array( 'user_email' => 'a@b.c' );
+
+	BAP_Local_Store::record( bap_event() );
+	is_same( '', $GLOBALS['wpdb']->local[0]['customer_key'], 'guests are the common case and cost nothing' );
+
+	// And a signed-in visitor is resolved once, however many events they fire.
+	foreach ( range( 1, 5 ) as $i ) {
+		BAP_Local_Store::record( bap_event( array( 'identity' => array( 'anonymous_id' => 'anon_a', 'wp_user_id' => 7 ) ) ) );
+	}
+
+	$keys = array_unique( array_column( array_slice( $GLOBALS['wpdb']->local, 1 ), 'customer_key' ) );
+	is_same( 1, count( $keys ), 'one key, computed once' );
+	ok( '' !== reset( $keys ) );
+} );
+
+test( 'ingest: a batch settles each event on its own terms', function () {
+	$body = array(
+		'events' => array(
+			array(
+				'event_id'     => 'evt_batch_good_0001',
+				'event_type'   => 'page_view',
+				'page_view_id' => 'pv_batch_0000001',
+				'identity'     => array( 'anonymous_id' => 'anon_abcdef1234567890abcdef12345678' ),
+				'page'         => array( 'path' => '/shop' ),
+			),
+			// Malformed: must not cost the others.
+			array( 'event_id' => 'evt_batch_bad_00001', 'event_type' => 'not_a_real_type' ),
+			array(
+				'event_id'     => 'evt_batch_good_0002',
+				'event_type'   => 'search',
+				'page_view_id' => 'pv_batch_0000002',
+				'identity'     => array( 'anonymous_id' => 'anon_abcdef1234567890abcdef12345678' ),
+				'page'         => array( 'path' => '/' ),
+				'data'         => array( 'query' => 'رژ لب' ),
+			),
+		),
+	);
+
+	$response = BAP_REST_Controller::handle_events( new WP_REST_Request( array(), json_encode( $body ) ) );
+	$data     = $response->get_data();
+
+	is_same( 200, $response->get_status(), 'the batch was understood' );
+	is_same( 3, count( $data['results'] ) );
+
+	$verdicts = array_column( $data['results'], 'status', 'event_id' );
+	is_same( 'stored', $verdicts['evt_batch_good_0001'] );
+	is_same( 'stored', $verdicts['evt_batch_good_0002'] );
+	is_same( 'rejected', $verdicts['evt_batch_bad_00001'] );
+
+	is_same( 2, BAP_Local_Store::count( gmdate( 'Y-m-d' ), gmdate( 'Y-m-d' ) ), 'the good two were stored' );
+} );
+
+test( 'ingest: a batch is bounded', function () {
+	$events = array();
+	foreach ( range( 1, 60 ) as $i ) {
+		$events[] = array(
+			'event_id'     => 'evt_bounded_' . str_pad( (string) $i, 8, '0', STR_PAD_LEFT ),
+			'event_type'   => 'page_view',
+			'page_view_id' => 'pv_bounded_' . str_pad( (string) $i, 6, '0', STR_PAD_LEFT ),
+			'identity'     => array( 'anonymous_id' => 'anon_abcdef1234567890abcdef12345678' ),
+			'page'         => array( 'path' => '/' ),
+		);
+	}
+
+	$data = BAP_REST_Controller::handle_events( new WP_REST_Request( array(), json_encode( array( 'events' => $events ) ) ) )->get_data();
+
+	is_same( BAP_REST_Controller::MAX_BATCH, count( $data['results'] ), 'one request cannot be made arbitrarily expensive' );
+} );
+
+test( 'ingest: a single event still works exactly as before', function () {
+	$response = BAP_REST_Controller::handle_events( new WP_REST_Request( array(), json_encode( array(
+		'event_id'     => 'evt_single_00000001',
+		'event_type'   => 'page_view',
+		'page_view_id' => 'pv_single_000001',
+		'identity'     => array( 'anonymous_id' => 'anon_abcdef1234567890abcdef12345678' ),
+		'page'         => array( 'path' => '/' ),
+	) ) ) );
+
+	is_same( 200, $response->get_status() );
+	is_same( 1, BAP_Local_Store::count( gmdate( 'Y-m-d' ), gmdate( 'Y-m-d' ) ) );
+} );
+
+/* ============================================================ */
+/* Persian                                                      */
+/* ============================================================ */
+
+test( 'persian: no user-facing string is left in English', function () {
+	$offenders = array();
+
+	$files = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( BAP_PLUGIN_DIR . 'includes' ) );
+	foreach ( $files as $file ) {
+		if ( 'php' !== $file->getExtension() ) { continue; }
+
+		$source = (string) file_get_contents( $file->getPathname() );
+		preg_match_all(
+			"/(?:esc_html_e|esc_attr_e|esc_html__|esc_attr__|__)\(\s*'((?:[^'\\\\]|\\\\.)*)'\s*,\s*'bahoosh-analytics-pro'\s*\)/",
+			$source,
+			$matches
+		);
+
+		foreach ( $matches[1] as $text ) {
+			// A string with no Persian character at all is untranslated. Pure
+			// identifiers and version strings are exempt.
+			if ( preg_match( '/[\x{0600}-\x{06FF}]/u', $text ) ) { continue; }
+			if ( ! preg_match( '/[A-Za-z]{3,}/', $text ) ) { continue; }
+
+			$offenders[] = str_replace( BAP_PLUGIN_DIR, '', $file->getPathname() ) . ': ' . $text;
+		}
+	}
+
+	is_same( array(), $offenders, "English UI strings found:\n      " . implode( "\n      ", $offenders ) );
+} );
+
+/* ============================================================ */
+/* The stylesheet                                               */
+/* ============================================================ */
+
+test( 'ui: there is one authority on the design tokens', function () {
+	$system = file_get_contents( BAP_PLUGIN_DIR . 'assets/admin/design-system.css' );
+	$screen = file_get_contents( BAP_PLUGIN_DIR . 'assets/admin/admin.css' );
+
+	// admin.css used to carry three separate `.bap-wrap` blocks, each
+	// redefining the same variables and each overriding the last.
+	is_same( 0, substr_count( $screen, ".bap-wrap {\n  --bap-" ), 'screen styles no longer define tokens' );
+	ok( str_contains( $system, '--bap-accent:' ), 'the design system does' );
+
+	// The 2px accent outline on every card was the loudest "unfinished" signal.
+	ok( ! str_contains( $system, 'border: 2px solid var(--bap-accent)' ) );
+} );
+
 run_tests();

@@ -19,6 +19,8 @@ class BAP_Admin {
 	const EXPLORER_SLUG    = 'bahoosh-analytics-explorer';
 	const FUNNELS_SLUG     = 'bahoosh-analytics-funnels';
 	const AI_SLUG          = 'bahoosh-analytics-ai';
+	const SEGMENTS_SLUG    = 'bahoosh-analytics-segments';
+	const ACCOUNT_SLUG     = 'bahoosh-analytics-account';
 
 	/**
 	 * The capability required to read reports.
@@ -70,6 +72,8 @@ class BAP_Admin {
 		BAP_Settings_Page::init();
 		BAP_Diagnostics_Page::init();
 		BAP_Inspector_Page::init();
+		BAP_Segments_Page::init();
+		BAP_Account_Page::init();
 	}
 
 	/**
@@ -115,7 +119,7 @@ class BAP_Admin {
 			array( 'BAP_Explorer_Page', 'render' )
 		);
 
-		if ( BAP_Settings::get( 'module_funnels' ) ) {
+		if ( BAP_Settings::get( 'module_funnels' ) && BAP_Entitlements::can( 'funnels' ) ) {
 			add_submenu_page(
 				self::MENU_SLUG,
 				__( 'قیف خرید و رها کردن', 'bahoosh-analytics-pro' ),
@@ -126,7 +130,7 @@ class BAP_Admin {
 			);
 		}
 
-		if ( BAP_Settings::get( 'module_ai' ) ) {
+		if ( BAP_Settings::get( 'module_ai' ) && BAP_Entitlements::can( 'ai_center' ) ) {
 			add_submenu_page(
 				self::MENU_SLUG,
 				__( 'پیشنهادهای باهوش', 'bahoosh-analytics-pro' ),
@@ -136,6 +140,27 @@ class BAP_Admin {
 				array( 'BAP_Studio_Page', 'render_ai' )
 			);
 		}
+
+		// Only useful with WooCommerce: segments are built from orders.
+		if ( BAP_Commerce_Facts::available() && BAP_Entitlements::can( 'revenue_intelligence' ) ) {
+			add_submenu_page(
+				self::MENU_SLUG,
+				__( 'بخش‌بندی مشتریان و اقدام‌ها', 'bahoosh-analytics-pro' ),
+				__( 'بخش‌بندی مشتریان', 'bahoosh-analytics-pro' ),
+				self::reports_capability(),
+				self::SEGMENTS_SLUG,
+				array( 'BAP_Segments_Page', 'render' )
+			);
+		}
+
+		add_submenu_page(
+			self::MENU_SLUG,
+			__( 'اشتراک، لایسنس و انتشار', 'bahoosh-analytics-pro' ),
+			__( 'اشتراک و انتشار', 'bahoosh-analytics-pro' ),
+			self::settings_capability(),
+			self::ACCOUNT_SLUG,
+			array( 'BAP_Account_Page', 'render' )
+		);
 
 		add_submenu_page(
 			self::MENU_SLUG,
@@ -178,13 +203,15 @@ class BAP_Admin {
 	 */
 	public static function navigation_items() {
 		return array(
-			array( 'slug' => self::MENU_SLUG,        'label' => __( 'داشبورد', 'bahoosh-analytics-pro' ),           'capability' => self::reports_capability(),  'enabled' => true ),
-			array( 'slug' => self::EXPLORER_SLUG,    'label' => __( 'رویدادها و صفحات', 'bahoosh-analytics-pro' ),  'capability' => self::reports_capability(),  'enabled' => true ),
-			array( 'slug' => self::FUNNELS_SLUG,     'label' => __( 'قیف خرید', 'bahoosh-analytics-pro' ),          'capability' => self::reports_capability(),  'enabled' => (bool) BAP_Settings::get( 'module_funnels' ) ),
-			array( 'slug' => self::AI_SLUG,          'label' => __( 'پیشنهادهای باهوش', 'bahoosh-analytics-pro' ),   'capability' => self::reports_capability(),  'enabled' => (bool) BAP_Settings::get( 'module_ai' ) ),
-			array( 'slug' => self::INSPECTOR_SLUG,   'label' => __( 'صف ارسال', 'bahoosh-analytics-pro' ),          'capability' => self::reports_capability(),  'enabled' => BAP_Settings::is_configured() ),
-			array( 'slug' => self::DIAGNOSTICS_SLUG, 'label' => __( 'عیب‌یابی', 'bahoosh-analytics-pro' ),           'capability' => self::settings_capability(), 'enabled' => true ),
-			array( 'slug' => self::SETTINGS_SLUG,    'label' => __( 'تنظیمات', 'bahoosh-analytics-pro' ),           'capability' => self::settings_capability(), 'enabled' => true ),
+			array( 'slug' => self::MENU_SLUG,        'label' => __( 'نمای کلی', 'bahoosh-analytics-pro' ),            'icon' => 'dashicons-grid-view',         'capability' => self::reports_capability(),  'enabled' => true ),
+			array( 'slug' => self::EXPLORER_SLUG,    'label' => __( 'رفتار کاربران', 'bahoosh-analytics-pro' ),       'icon' => 'dashicons-visibility',        'capability' => self::reports_capability(),  'enabled' => true ),
+			array( 'slug' => self::FUNNELS_SLUG,     'label' => __( 'قیف فروش', 'bahoosh-analytics-pro' ),           'icon' => 'dashicons-filter',            'capability' => self::reports_capability(),  'enabled' => (bool) BAP_Settings::get( 'module_funnels' ) && BAP_Entitlements::can( 'funnels' ) ),
+			array( 'slug' => self::SEGMENTS_SLUG,    'label' => __( 'مشتریان', 'bahoosh-analytics-pro' ),            'icon' => 'dashicons-groups',            'capability' => self::reports_capability(),  'enabled' => BAP_Commerce_Facts::available() && BAP_Entitlements::can( 'revenue_intelligence' ) ),
+			array( 'slug' => self::AI_SLUG,          'label' => __( 'هوش فروش', 'bahoosh-analytics-pro' ),           'icon' => 'dashicons-superhero-alt',     'capability' => self::reports_capability(),  'enabled' => (bool) BAP_Settings::get( 'module_ai' ) && BAP_Entitlements::can( 'ai_center' ) ),
+			array( 'slug' => self::ACCOUNT_SLUG,     'label' => __( 'اشتراک و انتشار', 'bahoosh-analytics-pro' ),     'icon' => 'dashicons-shield-alt',        'capability' => self::settings_capability(), 'enabled' => true ),
+			array( 'slug' => self::SETTINGS_SLUG,    'label' => __( 'تنظیمات', 'bahoosh-analytics-pro' ),            'icon' => 'dashicons-admin-generic',     'capability' => self::settings_capability(), 'enabled' => true ),
+			array( 'slug' => self::INSPECTOR_SLUG,   'label' => __( 'صف ارسال', 'bahoosh-analytics-pro' ),           'icon' => 'dashicons-randomize',         'capability' => self::reports_capability(),  'enabled' => BAP_Settings::is_configured() ),
+			array( 'slug' => self::DIAGNOSTICS_SLUG, 'label' => __( 'سلامت سیستم', 'bahoosh-analytics-pro' ),         'icon' => 'dashicons-heart',             'capability' => self::settings_capability(), 'enabled' => true ),
 		);
 	}
 
@@ -199,9 +226,31 @@ class BAP_Admin {
 	 */
 	public static function render_page_header( $title, $subtitle, $active, $kicker = '' ) {
 		if ( '' === $kicker ) {
-			$kicker = __( 'باهوش', 'bahoosh-analytics-pro' );
+			$kicker = __( 'هوش تجاری باهوش', 'bahoosh-analytics-pro' );
 		}
+		$snapshot = BAP_License_Manager::snapshot();
+		$status   = (string) ( $snapshot['status'] ?? 'inactive' );
+		$plan     = (string) ( $snapshot['plan'] ?? '' );
+		$status_class = in_array( $status, array( 'active', 'grace_period' ), true ) ? 'is-healthy' : ( 'inactive' === $status ? 'is-neutral' : 'is-warning' );
 		?>
+		<nav class="bap-primary-nav" aria-label="<?php esc_attr_e( 'ناوبری باهوش', 'bahoosh-analytics-pro' ); ?>">
+			<a class="bap-brand" href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::MENU_SLUG ) ); ?>">
+				<span class="bap-brand__mark" aria-hidden="true"><i></i><i></i><i></i></span>
+				<span class="bap-brand__copy"><strong>Bahoosh</strong><small><?php esc_html_e( 'سامانه فروشگاه', 'bahoosh-analytics-pro' ); ?></small></span>
+			</a>
+			<div class="bap-nav-group">
+			<?php foreach ( self::navigation_items() as $item ) : ?>
+				<?php if ( empty( $item['enabled'] ) || ! current_user_can( $item['capability'] ) ) { continue; } ?>
+				<a class="bap-nav-link <?php echo $active === $item['slug'] ? 'is-active' : ''; ?>" href="<?php echo esc_url( admin_url( 'admin.php?page=' . $item['slug'] ) ); ?>" <?php echo $active === $item['slug'] ? 'aria-current="page"' : ''; ?>>
+					<span class="dashicons <?php echo esc_attr( $item['icon'] ); ?>" aria-hidden="true"></span><span><?php echo esc_html( $item['label'] ); ?></span>
+				</a>
+			<?php endforeach; ?>
+			</div>
+			<div class="bap-nav-footer">
+				<div class="bap-nav-license <?php echo esc_attr( $status_class ); ?>"><span class="bap-nav-license__dot"></span><div><small><?php esc_html_e( 'وضعیت سرویس', 'bahoosh-analytics-pro' ); ?></small><strong><?php echo esc_html( $plan ?: ucfirst( $status ) ); ?></strong></div></div>
+				<span class="bap-version-text">Bahoosh v<?php echo esc_html( BAP_VERSION ); ?></span>
+			</div>
+		</nav>
 		<header class="bap-page-hero">
 			<div class="bap-page-hero__copy">
 				<span class="bap-kicker"><?php echo esc_html( $kicker ); ?></span>
@@ -209,17 +258,10 @@ class BAP_Admin {
 				<p><?php echo esc_html( $subtitle ); ?></p>
 			</div>
 			<div class="bap-page-hero__meta">
-				<span class="bap-version-pill">v<?php echo esc_html( BAP_VERSION ); ?></span>
+				<a class="bap-command-link" href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::AI_SLUG ) ); ?>"><span class="dashicons dashicons-superhero-alt"></span><?php esc_html_e( 'پیشنهادهای هوشمند', 'bahoosh-analytics-pro' ); ?></a>
+				<span class="bap-status-chip <?php echo esc_attr( $status_class ); ?>"><span></span><?php echo esc_html( 'active' === $status ? __( 'سرویس فعال', 'bahoosh-analytics-pro' ) : ucfirst( str_replace( '_', ' ', $status ) ) ); ?></span>
 			</div>
 		</header>
-		<nav class="bap-primary-nav" aria-label="<?php esc_attr_e( 'ناوبری باهوش آنالیتیکس', 'bahoosh-analytics-pro' ); ?>">
-			<?php foreach ( self::navigation_items() as $item ) : ?>
-				<?php if ( empty( $item['enabled'] ) || ! current_user_can( $item['capability'] ) ) { continue; } ?>
-				<a class="<?php echo $active === $item['slug'] ? 'is-active' : ''; ?>" href="<?php echo esc_url( admin_url( 'admin.php?page=' . $item['slug'] ) ); ?>" <?php echo $active === $item['slug'] ? 'aria-current="page"' : ''; ?>>
-					<?php echo esc_html( $item['label'] ); ?>
-				</a>
-			<?php endforeach; ?>
-		</nav>
 		<?php
 	}
 
@@ -256,6 +298,8 @@ class BAP_Admin {
 			self::EXPLORER_SLUG,
 			self::FUNNELS_SLUG,
 			self::AI_SLUG,
+			self::SEGMENTS_SLUG,
+			self::ACCOUNT_SLUG,
 		);
 	}
 
@@ -300,13 +344,24 @@ class BAP_Admin {
 		}
 
 		$page      = self::current_page_slug();
+		$system    = BAP_PLUGIN_DIR . 'assets/admin/design-system.css';
 		$css_file  = BAP_PLUGIN_DIR . 'assets/admin/admin.css';
 		$css_ver   = BAP_VERSION . '.' . ( is_readable( $css_file ) ? (int) filemtime( $css_file ) : time() );
+
+		// Tokens and shared components first, screen-specific rules second, so
+		// the cascade runs in one direction. Three competing `.bap-wrap` blocks
+		// used to fight over the same variables inside a single file.
+		wp_enqueue_style(
+			'bahoosh-admin-system',
+			BAP_PLUGIN_URL . 'assets/admin/design-system.css',
+			array(),
+			BAP_VERSION . '.' . ( is_readable( $system ) ? (int) filemtime( $system ) : time() )
+		);
 
 		wp_enqueue_style(
 			'bahoosh-admin',
 			BAP_PLUGIN_URL . 'assets/admin/admin.css',
-			array(),
+			array( 'bahoosh-admin-system' ),
 			$css_ver
 		);
 
@@ -324,7 +379,21 @@ class BAP_Admin {
 			$accent = '#7c5cff';
 		}
 		$density = 'compact' === BAP_Settings::get( 'admin_density' ) ? 'compact' : 'comfortable';
-		wp_add_inline_style( 'bahoosh-admin', '.bap-wrap{--bap-accent:' . $accent . ';--bap-density:' . ( 'compact' === $density ? '0.82' : '1' ) . ';}' );
+		// The chosen accent has to reach its derived tokens too, or a custom
+		// colour changes the buttons and leaves every hover, chip and bar still
+		// violet. `color-mix` keeps one source of truth instead of asking the
+		// administrator to pick three colours.
+		$inline = sprintf(
+			'.bap-wrap{--bap-accent:%1$s;--bap-accent-2:color-mix(in srgb,%1$s 72%%,#fff);' .
+			'--bap-accent-soft:color-mix(in srgb,%1$s 16%%,transparent);}',
+			$accent
+		);
+
+		if ( 'compact' === $density ) {
+			$inline .= '.bap-wrap{--bap-sp-4:12px;--bap-sp-5:16px;--bap-sp-6:22px;line-height:1.65;}';
+		}
+
+		wp_add_inline_style( 'bahoosh-admin', $inline );
 
 		if ( self::EXPLORER_SLUG === $page ) {
 			self::enqueue_explorer();
@@ -574,7 +643,7 @@ class BAP_Admin {
 						'noConsentCookie'      => __( 'هیچ رضایتی در این مرورگر ثبت نشده است', 'bahoosh-analytics-pro' ),
 						'noStorage'            => __( 'فضای ذخیره مرورگر در دسترس نیست', 'bahoosh-analytics-pro' ),
 						'nothingQueued'        => __( 'صف خالی است.', 'bahoosh-analytics-pro' ),
-						'trackerMissing'       => __( 'باندل Tracker بارگذاری نشد. آن را با npm run build دوباره بسازید.', 'bahoosh-analytics-pro' ),
+						'trackerMissing'       => __( 'فایل یکپارچه ردیاب بارگذاری نشد. آن را با دستور npm run build دوباره بسازید.', 'bahoosh-analytics-pro' ),
 						'error'                => __( 'خطایی رخ داد.', 'bahoosh-analytics-pro' ),
 						'working'              => __( 'در حال انجام…', 'bahoosh-analytics-pro' ),
 						'refreshed'            => __( 'به‌روزرسانی شد.', 'bahoosh-analytics-pro' ),

@@ -40,12 +40,12 @@ class BAP_Privacy {
 		}
 
 		$content = '<p>' . esc_html__(
-			'This site uses Bahoosh Analytics Pro to understand how visitors use it. The plugin stores a randomly generated anonymous identifier in your browser and records the pages you view, the searches you run, and the actions you take on the site. If you have an account and are signed in, this activity is associated with your account.',
+			'این سایت برای شناخت نحوه استفاده بازدیدکنندگان از افزونه باهوش آنالیتیکس استفاده می‌کند. یک شناسه تصادفی و ناشناس در مرورگر شما ذخیره می‌شود و صفحه‌هایی که می‌بینید، عبارت‌هایی که جست‌وجو می‌کنید و کارهایی که در سایت انجام می‌دهید ثبت می‌شود. اگر حساب کاربری داشته باشید و وارد شده باشید، این فعالیت به حساب شما نسبت داده می‌شود.',
 			'bahoosh-analytics-pro'
 		) . '</p>';
 
 		$content .= '<p>' . esc_html__(
-			'The plugin does not collect passwords, authentication tokens, or payment card details. IP addresses are truncated before storage when IP anonymization is enabled. You can request an export or erasure of this data using the tools on this site.',
+			'این افزونه رمز عبور، توکن ورود یا اطلاعات کارت بانکی جمع نمی‌کند. اگر ناشناس‌سازی IP روشن باشد، نشانی IP پیش از ذخیره کوتاه می‌شود. می‌توانید با ابزارهای همین سایت، خروجی گرفتن یا حذف این داده‌ها را درخواست کنید.',
 			'bahoosh-analytics-pro'
 		) . '</p>';
 
@@ -183,7 +183,7 @@ class BAP_Privacy {
 		if ( empty( $result['ok'] ) ) {
 			$response['items_retained'] = true;
 			$response['messages'][]     = __(
-				'Analytics data held by the Bahoosh collector could not be erased automatically. Contact your analytics administrator to complete the request.',
+				'داده‌های نگهداری‌شده در کالکتور باهوش به‌صورت خودکار حذف نشدند. برای تکمیل درخواست با مدیر سامانه تحلیل تماس بگیرید.',
 				'bahoosh-analytics-pro'
 			);
 			BAP_Logger::warn( 'privacy erase failed: ' . $result['error'] );
