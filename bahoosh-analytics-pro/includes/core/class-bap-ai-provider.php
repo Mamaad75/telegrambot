@@ -327,7 +327,18 @@ class BAP_AI_Provider {
 		$decoded = is_array( $decoded ) ? $decoded : array();
 
 		if ( $status < 200 || $status >= 300 ) {
-			BAP_Debug_Log::log( 'ai', 'gemini returned an error status', array( 'status' => $status ) );
+			// `reason` is Google's machine-readable status; the human sentence
+			// goes through gemini_error(), which scrubs it. Logging the status
+			// alone was not enough to diagnose a 403.
+			BAP_Debug_Log::log(
+				'ai',
+				'gemini returned an error status',
+				array(
+					'status' => $status,
+					'reason' => (string) ( $decoded['error']['status'] ?? '' ),
+				)
+			);
+
 			return self::result( false, self::PROVIDER_GEMINI, array(), self::gemini_error( $status, $decoded ) );
 		}
 
@@ -410,12 +421,46 @@ class BAP_AI_Provider {
 			return __( 'سهمیه کلید Google تمام شده است. کلید رایگان AI Studio در هر روز تعداد محدودی درخواست دارد؛ فردا دوباره کار می‌کند. تا آن موقع تحلیل با موتور قانون‌محور داخلی انجام می‌شود.', 'bahoosh-analytics-pro' );
 		}
 
+		// Where the call comes from, not whose key it is. Gemini is unavailable
+		// in a number of countries and the request is made by the web server, so
+		// what matters is the server's location — which no amount of changing the
+		// key will fix. Checked before the generic 400 and 403 branches because
+		// Google reports it as both, depending on the endpoint.
+		if ( 'FAILED_PRECONDITION' === $reason || false !== stripos( $detail, 'location is not supported' ) || false !== stripos( $detail, 'user location' ) ) {
+			return self::with_google_detail(
+				__( 'Google این سرویس را برای موقعیت جغرافیایی سرور شما ارائه نمی‌دهد. درخواست از خود سرور وردپرس می‌رود، نه از مرورگر شما، پس کلید و تنظیمات بی‌تقصیرند و عوض‌کردنشان فایده ندارد. دو راه: از گزینه «وبهوک اتومیشن» استفاده کنید تا n8n از سرور خودش مدل را صدا بزند، یا سرور لاما را روی ماشینی بالا بیاورید که خودتان کنترلش می‌کنید.', 'bahoosh-analytics-pro' ),
+				$detail
+			);
+		}
+
 		if ( 400 === $status && ( 'INVALID_ARGUMENT' === $reason || false !== stripos( $detail, 'api key' ) ) ) {
-			return __( 'کلید Google پذیرفته نشد. یک کلید تازه از aistudio.google.com/apikey بسازید و جایگزین کنید.', 'bahoosh-analytics-pro' );
+			return self::with_google_detail(
+				__( 'کلید Google پذیرفته نشد. یک کلید تازه از aistudio.google.com/apikey بسازید و جایگزین کنید.', 'bahoosh-analytics-pro' ),
+				$detail
+			);
 		}
 
 		if ( 403 === $status ) {
-			return __( 'Google این کلید را رد کرد. مطمئن شوید Generative Language API برای پروژه آن کلید فعال است و کلید به دامنه یا IP دیگری محدود نشده.', 'bahoosh-analytics-pro' );
+			// Three different problems share this status, and Google's own
+			// sentence is what tells them apart.
+			if ( false !== stripos( $detail, 'has not been used in project' ) || false !== stripos( $detail, 'is disabled' ) ) {
+				return self::with_google_detail(
+					__( 'Generative Language API برای پروژه این کلید فعال نیست. در Google Cloud Console همان پروژه، این API را Enable کنید — یا ساده‌تر، کلید را از aistudio.google.com/apikey بسازید که خودش پروژه را آماده می‌کند.', 'bahoosh-analytics-pro' ),
+					$detail
+				);
+			}
+
+			if ( false !== stripos( $detail, 'referer' ) || false !== stripos( $detail, 'referrer' ) || false !== stripos( $detail, 'blocked' ) ) {
+				return self::with_google_detail(
+					__( 'کلید به دامنه یا IP دیگری محدود شده است. در صفحه کلید، محدودیت را بردارید یا IP خروجی سرور را اضافه کنید. توجه کنید درخواست از سرور می‌رود نه از مرورگر، پس محدودیت بر اساس دامنه (HTTP referrer) هیچ‌وقت کار نمی‌کند.', 'bahoosh-analytics-pro' ),
+					$detail
+				);
+			}
+
+			return self::with_google_detail(
+				__( 'Google این درخواست را رد کرد (۴۰۳). متن خود گوگل در ادامه می‌گوید چرا.', 'bahoosh-analytics-pro' ),
+				$detail
+			);
 		}
 
 		if ( 404 === $status ) {
@@ -426,11 +471,46 @@ class BAP_AI_Provider {
 			);
 		}
 
-		return sprintf(
-			/* translators: %d: HTTP status code. */
-			__( 'سرویس Gemini با کد %d پاسخ داد.', 'bahoosh-analytics-pro' ),
-			$status
+		return self::with_google_detail(
+			sprintf(
+				/* translators: %d: HTTP status code. */
+				__( 'سرویس Gemini با کد %d پاسخ داد.', 'bahoosh-analytics-pro' ),
+				$status
+			),
+			$detail
 		);
+	}
+
+	/**
+	 * Appends Google's own sentence to our advice.
+	 *
+	 * Discarding it was a mistake: three unrelated problems arrive as 403, and
+	 * guessing which one sends people to check settings that were never wrong.
+	 * Google's message is an error string rather than anything confidential, but
+	 * it is scrubbed of anything key-shaped before being shown, because this
+	 * text reaches a screen and a log the shop owner may paste into a support
+	 * thread.
+	 *
+	 * @param string $advice Our own guidance.
+	 * @param string $detail Google's `error.message`.
+	 * @return string
+	 */
+	private static function with_google_detail( $advice, $detail ) {
+		$detail = trim( (string) $detail );
+
+		if ( '' === $detail ) {
+			return $advice;
+		}
+
+		$detail = (string) preg_replace( '/AIza[0-9A-Za-z_\-]{10,}/', '[کلید حذف شد]', $detail );
+		$detail = sanitize_text_field( $detail );
+
+		if ( strlen( $detail ) > 300 ) {
+			$detail = substr( $detail, 0, 300 ) . '…';
+		}
+
+		/* translators: 1: our advice, 2: Google's own error message. */
+		return sprintf( __( '%1$s — پاسخ گوگل: %2$s', 'bahoosh-analytics-pro' ), $advice, $detail );
 	}
 
 	/**

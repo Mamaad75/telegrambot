@@ -4,7 +4,7 @@ Tags: analytics, woocommerce, tracking, gdpr, ecommerce, funnels, ai, heatmap
 Requires at least: 5.8
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 4.13.0
+Stable tag: 4.13.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -139,6 +139,12 @@ Yes. Set `window.bapConsent` before the tracker loads, or dispatch a
 consent" enabled, nothing is collected until analytics consent is granted.
 
 == Changelog ==
+
+= 4.13.1 =
+* Fixed: A Gemini error now carries Google's own sentence instead of discarding it. Three unrelated problems arrive as HTTP 403 — the API not enabled on the project, a key restricted to a domain or IP, and the server's country not being served — and reporting one guess for all three sent people to check settings that were never wrong.
+* New: A location refusal is recognised and says so, including that the call is made by the web server rather than the browser, so no key change can fix it, and names the two options that do work: the automation webhook or a Llama server.
+* Security: Google's message is scrubbed of anything key-shaped before it is shown or logged, because this text reaches a screen and a diagnostic log that gets pasted into support threads.
+* Improved: The debug log records Google's machine-readable status alongside the HTTP code; the code alone was not enough to diagnose a 403.
 
 = 4.13.0 =
 * New: Customer Segments can import a results file. A shop whose server does not accept traffic from outside — which is the normal case for Iranian hosting with a notebook running on Colab — had no way to get an analysis back: the dataset could be exported, but nothing could be delivered. Now the analysis is carried as a file and uploaded.

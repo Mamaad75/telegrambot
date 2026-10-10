@@ -735,6 +735,57 @@ test( 'gemini: a rejected key and an unknown model do not get the same message',
 	ok( $bad_key !== $bad_model, 'two different problems, two different messages' );
 } );
 
+test( 'gemini: a 403 says which of its three causes it was', function () {
+	seed_shop();
+	set_settings( array( 'ai_provider' => 'gemini' ) );
+	BAP_AI_Provider::set_api_key( 'AIzaSyFAKEKEYFORTESTSONLY00000000000' );
+	$packet = BAP_Analysis_Packet::build( gmdate( 'Y-m-d' ), gmdate( 'Y-m-d' ) );
+
+	// Reporting all three as "check the API is enabled and the key is not
+	// restricted" sends two of them to inspect settings that were never wrong.
+	fake_http( 403, array( 'error' => array( 'status' => 'PERMISSION_DENIED', 'message' => 'Generative Language API has not been used in project 12345 before or it is disabled.' ) ) );
+	$disabled = BAP_AI_Provider::analyze( $packet )['error'];
+
+	fake_http( 403, array( 'error' => array( 'status' => 'PERMISSION_DENIED', 'message' => 'Requests from referer https://shop.test/ are blocked.' ) ) );
+	$restricted = BAP_AI_Provider::analyze( $packet )['error'];
+
+	fake_http( 400, array( 'error' => array( 'status' => 'FAILED_PRECONDITION', 'message' => 'User location is not supported for the API use.' ) ) );
+	$located = BAP_AI_Provider::analyze( $packet )['error'];
+
+	ok( str_contains( $disabled, 'Enable' ), 'enablement: ' . $disabled );
+	ok( str_contains( $restricted, 'محدود' ), 'restriction: ' . $restricted );
+	ok( str_contains( $located, 'موقعیت جغرافیایی' ), 'location: ' . $located );
+	ok( $disabled !== $restricted && $restricted !== $located, 'three causes, three messages' );
+
+	// A server-location refusal is not fixable by changing settings, so the
+	// message has to name the two things that actually work.
+	ok( str_contains( $located, 'وبهوک' ) && str_contains( $located, 'لاما' ), 'location error offers the two real options' );
+} );
+
+test( 'gemini: google own words are shown, with anything key-shaped removed', function () {
+	seed_shop();
+	set_settings( array( 'ai_provider' => 'gemini' ) );
+	BAP_AI_Provider::set_api_key( 'AIzaSyFAKEKEYFORTESTSONLY00000000000' );
+	$packet = BAP_Analysis_Packet::build( gmdate( 'Y-m-d' ), gmdate( 'Y-m-d' ) );
+
+	// Dropping this sentence is what made a 403 undiagnosable.
+	fake_http( 403, array( 'error' => array( 'status' => 'PERMISSION_DENIED', 'message' => 'Some reason only Google knows' ) ) );
+	$shown = BAP_AI_Provider::analyze( $packet )['error'];
+	ok( str_contains( $shown, 'Some reason only Google knows' ), 'the detail survives: ' . $shown );
+
+	// But this text reaches a screen and a log that gets pasted into support
+	// threads, so a key echoed back must not travel with it.
+	fake_http( 403, array( 'error' => array( 'status' => 'PERMISSION_DENIED', 'message' => 'Key AIzaSyFAKEKEYFORTESTSONLY00000000000 is blocked' ) ) );
+	$scrubbed = BAP_AI_Provider::analyze( $packet )['error'];
+	ok( ! str_contains( $scrubbed, 'AIzaSy' ), 'the key is scrubbed: ' . $scrubbed );
+	ok( str_contains( $scrubbed, 'حذف شد' ), 'and the removal is visible rather than silent' );
+
+	// A reply with no message at all must not leave a dangling separator.
+	fake_http( 403, array( 'error' => array( 'status' => 'PERMISSION_DENIED' ) ) );
+	$bare = BAP_AI_Provider::analyze( $packet )['error'];
+	ok( ! str_contains( $bare, 'پاسخ گوگل:' ), 'no empty detail is appended: ' . $bare );
+} );
+
 test( 'gemini: a blocked prompt and a truncated reply are told apart', function () {
 	seed_shop();
 	set_settings( array( 'ai_provider' => 'gemini' ) );
