@@ -770,6 +770,72 @@ test( 'gemini: the connection test lists only models that can answer a prompt', 
 } );
 
 /* ============================================================ */
+/* Importing a results file                                     */
+/* ============================================================ */
+
+test( 'import: a file is held to the same rules as a signed request', function () {
+	$good = array( 'run_id' => '0f3a9c1e-2b44-4d77-8a10-5e6f7c8d9a0b', 'segments' => array() );
+
+	is_same( null, BAP_ML_REST::reject_payload( $good ), 'a well-formed payload is accepted' );
+
+	// The gate both entry points run. A second way in that forgot one of these
+	// would be a hole, which is why the check lives in one place.
+	is_same( array( 'invalid_json', 400 ), BAP_ML_REST::reject_payload( 'nonsense' ) );
+	is_same( array( 'invalid_json', 400 ), BAP_ML_REST::reject_payload( null ), 'a file that did not parse is not an empty run' );
+	is_same( array( 'invalid_run_id', 422 ), BAP_ML_REST::reject_payload( array( 'segments' => array() ) ) );
+	is_same( array( 'invalid_run_id', 422 ), BAP_ML_REST::reject_payload( array( 'run_id' => 'not-a-uuid' ) ) );
+} );
+
+test( 'import: a run built on synthetic data is refused however it arrives', function () {
+	$synthetic = array(
+		'run_id'       => '0f3a9c1e-2b44-4d77-8a10-5e6f7c8d9a0b',
+		'is_synthetic' => true,
+		'segments'     => array( array( 'segment_key' => 'loyal', 'label' => 'وفادار', 'customer_count' => 40 ) ),
+	);
+
+	// Made-up numbers driving a real shop's prices and emails is the failure
+	// this refusal exists to prevent, and carrying the file by hand must not be
+	// a way around it.
+	is_same( array( 'synthetic_results_refused', 422 ), BAP_ML_REST::reject_payload( $synthetic ) );
+
+	// Truthy in any of the shapes JSON can produce it.
+	foreach ( array( 1, '1', 'true', array( 'x' ) ) as $truthy ) {
+		$synthetic['is_synthetic'] = $truthy;
+		is_same( array( 'synthetic_results_refused', 422 ), BAP_ML_REST::reject_payload( $synthetic ), 'failed for ' . var_export( $truthy, true ) );
+	}
+
+	// And accepted once it is genuinely absent or false.
+	$synthetic['is_synthetic'] = false;
+	is_same( null, BAP_ML_REST::reject_payload( $synthetic ) );
+} );
+
+test( 'import: the upload screen explains each refusal rather than echoing a code', function () {
+	$page = file_get_contents( BAP_PLUGIN_DIR . 'includes/admin/class-bap-segments-page.php' );
+
+	ok( str_contains( $page, 'bap_ml_import_results' ), 'the handler is registered' );
+	ok( str_contains( $page, 'is_uploaded_file' ), 'a real upload is told from a supplied path' );
+	ok( str_contains( $page, 'MAX_IMPORT_BYTES' ), 'the file size is bounded' );
+
+	// The three refusal codes each need their own sentence; a shop owner
+	// holding a file needs to know which file to pick, not a status code.
+	foreach ( array( 'invalid_json', 'synthetic_results_refused', 'invalid_run_id' ) as $code ) {
+		ok( str_contains( $page, "case '{$code}'" ), "no message for {$code}" );
+	}
+
+	ok( ! str_contains( $page, 'reject_payload' ) || str_contains( $page, 'BAP_ML_REST::reject_payload' ), 'the shared gate is used, not reimplemented' );
+	ok( str_contains( $page, 'BAP_ML_REST::store_payload' ), 'and so is the shared storage path' );
+} );
+
+test( 'import: the signed route still answers with a status code, not an array', function () {
+	// store_payload() returning a plain array is what let the upload reuse it;
+	// the REST route has to keep wrapping that in a response.
+	$rest = file_get_contents( BAP_PLUGIN_DIR . 'includes/ml/class-bap-ml-rest.php' );
+
+	ok( str_contains( $rest, 'return new WP_REST_Response( self::store_payload( $body ) );' ), 'the route wraps the shared result' );
+	ok( str_contains( $rest, "array( 'error' => \$refusal[0] ), \$refusal[1]" ), 'and reports the shared refusal with its status' );
+} );
+
+/* ============================================================ */
 /* The WooCommerce agent                                        */
 /* ============================================================ */
 

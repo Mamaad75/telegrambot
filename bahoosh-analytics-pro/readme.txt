@@ -4,7 +4,7 @@ Tags: analytics, woocommerce, tracking, gdpr, ecommerce, funnels, ai, heatmap
 Requires at least: 5.8
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 4.12.0
+Stable tag: 4.13.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -139,6 +139,11 @@ Yes. Set `window.bapConsent` before the tracker loads, or dispatch a
 consent" enabled, nothing is collected until analytics consent is granted.
 
 == Changelog ==
+
+= 4.13.0 =
+* New: Customer Segments can import a results file. A shop whose server does not accept traffic from outside — which is the normal case for Iranian hosting with a notebook running on Colab — had no way to get an analysis back: the dataset could be exported, but nothing could be delivered. Now the analysis is carried as a file and uploaded.
+* Security: An imported file is held to exactly the rules the signed route applies, because both now run the same code. A run built on synthetic data is refused on upload just as it is over HTTP, and proposed actions still pass through the shop's policy. In place of a signature, the upload requires a logged-in administrator with the settings capability, a nonce, a genuine `is_uploaded_file()` upload and a size bound.
+* Improved: Each refusal says which file to pick instead of echoing a code — invalid JSON, a synthetic run, and a missing `run_id` (usually the input dataset chosen by mistake) each get their own sentence.
 
 = 4.12.0 =
 * New: Google Gemini as an AI provider, through a free Google AI Studio key. The address and model name fill themselves in; only the key has to be entered.

@@ -28,7 +28,7 @@ class BAP_Segments_Page {
 	 * @return void
 	 */
 	public static function init() {
-		foreach ( array( 'save_policy', 'rotate_secret', 'download_bundle', 'decide', 'manual_coupon', 'manual_campaign' ) as $handler ) {
+		foreach ( array( 'save_policy', 'rotate_secret', 'download_bundle', 'import_results', 'decide', 'manual_coupon', 'manual_campaign' ) as $handler ) {
 			add_action( 'admin_post_bap_ml_' . $handler, array( __CLASS__, 'handle_' . $handler ) );
 		}
 	}
@@ -352,6 +352,15 @@ class BAP_Segments_Page {
 				<button class="button"><?php esc_html_e( 'دانلود دیتاست (JSON) برای گوگل کولب', 'bahoosh-analytics-pro' ); ?></button>
 			</form>
 			<p class="bap-muted"><?php esc_html_e( 'فایل دانلودی شامل نام، ایمیل، تلفن یا آدرس مشتری نیست؛ مشتریان با شناسه مستعار مشخص می‌شوند. با این حال آن را مثل داده محرمانه فروشگاه نگه دارید.', 'bahoosh-analytics-pro' ); ?></p>
+
+			<h3><?php esc_html_e( 'ورود نتیجه از فایل', 'bahoosh-analytics-pro' ); ?></h3>
+			<p class="bap-muted"><?php esc_html_e( 'اگر سرویس پایتون نمی‌تواند به این سایت وصل شود — مثلاً نوت‌بوک روی گوگل کولب اجرا می‌شود و سرور سایت ترافیک بیرون را نمی‌پذیرد — نتیجه را به‌صورت فایل بیاورید. دقیقاً همان بررسی‌هایی روی آن انجام می‌شود که روی درخواست شبکه: نتیجه ساختگی پذیرفته نمی‌شود، و پیشنهادها باز هم از سیاست فروشگاه عبور می‌کنند.', 'bahoosh-analytics-pro' ); ?></p>
+			<form method="post" action="<?php echo esc_url( $post_url ); ?>" enctype="multipart/form-data">
+				<?php wp_nonce_field( 'bap_ml_import_results' ); ?>
+				<input type="hidden" name="action" value="bap_ml_import_results">
+				<input type="file" name="results" accept=".json,application/json" required>
+				<button class="button button-primary bap-primary"><?php esc_html_e( 'بارگذاری نتیجه', 'bahoosh-analytics-pro' ); ?></button>
+			</form>
 		</section>
 		<?php
 	}
@@ -406,6 +415,114 @@ class BAP_Segments_Page {
 		}
 		BAP_ML_Store::audit( '', 'bundle_downloaded' );
 		BAP_ML_Export::stream_bundle();
+	}
+
+	/**
+	 * Largest results file accepted.
+	 *
+	 * A run for a shop with tens of thousands of customers is still a few
+	 * megabytes of JSON; well past that and something other than a results file
+	 * has been chosen.
+	 *
+	 * @var int
+	 */
+	const MAX_IMPORT_BYTES = 12582912;
+
+	/**
+	 * Imports a results file produced somewhere the site cannot be reached from.
+	 *
+	 * This is the same payload the ML service would have POSTed to
+	 * `/ml/results`, carried by hand instead. It exists because a shop whose
+	 * server refuses foreign traffic has no other way to get an analysis back:
+	 * the notebook can read an exported dataset, but it cannot deliver anything.
+	 *
+	 * Being an upload makes it no more trusted. The file is held to the same
+	 * rules as the signed route — {@see BAP_ML_REST::reject_payload()} and
+	 * {@see BAP_ML_REST::store_payload()} are the same code both paths run — so
+	 * a synthetic run is still refused and every proposed action still goes
+	 * through the shop's policy. What replaces the signature here is the
+	 * administrator's own capability and nonce: a file cannot arrive this way
+	 * without a logged-in user with `settings_capability` choosing it.
+	 *
+	 * @return void
+	 */
+	public static function handle_import_results() {
+		self::guard( 'bap_ml_import_results' );
+
+		$upload = isset( $_FILES['results'] ) && is_array( $_FILES['results'] ) ? $_FILES['results'] : array(); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- each member is checked below.
+		$error  = isset( $upload['error'] ) ? (int) $upload['error'] : UPLOAD_ERR_NO_FILE;
+
+		if ( UPLOAD_ERR_OK !== $error ) {
+			self::back(
+				UPLOAD_ERR_INI_SIZE === $error || UPLOAD_ERR_FORM_SIZE === $error
+					? __( 'فایل از حد مجاز آپلود این سرور بزرگ‌تر است.', 'bahoosh-analytics-pro' )
+					: __( 'فایلی انتخاب نشد یا آپلود کامل نشد.', 'bahoosh-analytics-pro' )
+			);
+		}
+
+		$path = isset( $upload['tmp_name'] ) ? (string) $upload['tmp_name'] : '';
+
+		// is_uploaded_file() is what separates a real upload from a path someone
+		// managed to put in the request.
+		if ( '' === $path || ! is_uploaded_file( $path ) ) {
+			self::back( __( 'فایل آپلودشده معتبر نیست.', 'bahoosh-analytics-pro' ) );
+		}
+
+		if ( filesize( $path ) > self::MAX_IMPORT_BYTES ) {
+			self::back(
+				sprintf(
+					/* translators: %s: size limit, already formatted. */
+					__( 'فایل بزرگ‌تر از %s است. مطمئن شوید فایل نتیجه را انتخاب کرده‌اید، نه دیتاست ورودی را.', 'bahoosh-analytics-pro' ),
+					size_format( self::MAX_IMPORT_BYTES )
+				)
+			);
+		}
+
+		$body    = json_decode( (string) file_get_contents( $path ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- a local temp file, not a URL.
+		$refusal = BAP_ML_REST::reject_payload( $body );
+
+		if ( $refusal ) {
+			self::back( self::import_refusal_message( $refusal[0] ) );
+		}
+
+		$stored = BAP_ML_REST::store_payload( $body );
+
+		BAP_ML_Store::audit( '', 'results_imported', array( 'run_id' => $stored['run_id'], 'segments' => $stored['segments'] ) );
+
+		if ( 0 === (int) $stored['segments'] && ! $stored['actions'] ) {
+			self::back( __( 'فایل خوانده شد اما هیچ بخشی در آن نبود. مطمئن شوید کلید segments در فایل هست.', 'bahoosh-analytics-pro' ) );
+		}
+
+		self::back(
+			sprintf(
+				/* translators: 1: segment count, 2: assignment count. */
+				__( 'نتیجه وارد شد: %1$s بخش و %2$s مشتری ثبت شد.', 'bahoosh-analytics-pro' ),
+				number_format_i18n( (int) $stored['segments'] ),
+				number_format_i18n( (int) $stored['assignments'] )
+			)
+		);
+	}
+
+	/**
+	 * Says why an imported file was refused, in the words of someone holding it.
+	 *
+	 * @param string $code Refusal code from {@see BAP_ML_REST::reject_payload()}.
+	 * @return string
+	 */
+	private static function import_refusal_message( $code ) {
+		switch ( $code ) {
+			case 'invalid_json':
+				return __( 'این فایل JSON معتبر نیست. فایلی را انتخاب کنید که نوت‌بوک ساخته است.', 'bahoosh-analytics-pro' );
+
+			case 'synthetic_results_refused':
+				// The same refusal the network route gives, for the same reason.
+				return __( 'این نتیجه روی داده ساختگی ساخته شده و برای یک فروشگاه واقعی پذیرفته نمی‌شود. در نوت‌بوک DATA_SOURCE را روی bundle بگذارید و دوباره اجرا کنید.', 'bahoosh-analytics-pro' );
+
+			case 'invalid_run_id':
+				return __( 'فایل شناسه اجرای معتبر (run_id) ندارد. احتمالاً دیتاست ورودی را انتخاب کرده‌اید، نه فایل نتیجه.', 'bahoosh-analytics-pro' );
+		}
+
+		return __( 'فایل پذیرفته نشد.', 'bahoosh-analytics-pro' );
 	}
 
 	/** Approve / reject / rollback. */

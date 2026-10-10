@@ -155,17 +155,53 @@ class BAP_ML_REST {
 	 */
 	public static function results( WP_REST_Request $request ) {
 		$body = json_decode( (string) $request->get_body(), true );
-		if ( ! is_array( $body ) ) {
-			return new WP_REST_Response( array( 'error' => 'invalid_json' ), 400 );
+
+		$refusal = self::reject_payload( $body );
+
+		if ( $refusal ) {
+			return new WP_REST_Response( array( 'error' => $refusal[0] ), $refusal[1] );
 		}
+
+		return new WP_REST_Response( self::store_payload( $body ) );
+	}
+
+	/**
+	 * Why a results payload cannot be accepted, if it cannot.
+	 *
+	 * Shared with the file import on the Customers screen, so a payload that
+	 * arrives as an upload is held to exactly the same three rules as one that
+	 * arrives over HTTP. Keeping this in one place is the point: the synthetic
+	 * check in particular must not be something a second entry point can
+	 * forget.
+	 *
+	 * @param mixed $body Decoded payload.
+	 * @return array{0:string,1:int}|null Error code and HTTP status, or null when acceptable.
+	 */
+	public static function reject_payload( $body ) {
+		if ( ! is_array( $body ) ) {
+			return array( 'invalid_json', 400 );
+		}
+
 		if ( ! empty( $body['is_synthetic'] ) ) {
 			// Numbers from a synthetic dataset must never drive a real shop.
-			return new WP_REST_Response( array( 'error' => 'synthetic_results_refused' ), 422 );
+			return array( 'synthetic_results_refused', 422 );
 		}
-		$run_id = (string) ( $body['run_id'] ?? '' );
-		if ( ! preg_match( '/^[a-f0-9\-]{36}$/', $run_id ) ) {
-			return new WP_REST_Response( array( 'error' => 'invalid_run_id' ), 422 );
+
+		if ( ! preg_match( '/^[a-f0-9\-]{36}$/', (string) ( $body['run_id'] ?? '' ) ) ) {
+			return array( 'invalid_run_id', 422 );
 		}
+
+		return null;
+	}
+
+	/**
+	 * Stores an already-accepted results payload.
+	 *
+	 * @param array $body Payload that {@see reject_payload()} has passed.
+	 * @return array Summary of what was stored.
+	 */
+	public static function store_payload( array $body ) {
+		$run_id = (string) $body['run_id'];
 
 		$out = array( 'run_id' => $run_id, 'segments' => 0, 'assignments' => 0, 'actions' => array(), 'results' => 0 );
 
@@ -227,7 +263,8 @@ class BAP_ML_REST {
 
 		update_option( 'bap_ml_last_results_at', gmdate( 'c' ), false );
 		BAP_ML_Store::audit( '', 'results_received', array( 'run_id' => $run_id, 'segments' => $out['segments'], 'actions' => count( $out['actions'] ) ) );
-		return new WP_REST_Response( $out );
+
+		return $out;
 	}
 
 	/**
