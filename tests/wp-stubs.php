@@ -75,7 +75,12 @@ function admin_url( $p = '' ) { return 'https://shop.test/wp-admin/' . $p; }
 function is_ssl() { return true; }
 function wp_is_mobile() { return false; }
 function current_user_can( $c ) { return true; }
-function wp_remote_post( $url, $args = array() ) { return $GLOBALS['bap_http_response'] ?? new WP_Error( 'no_stub', 'no response configured' ); }
+// The last request is recorded so a test can assert what was actually put on
+// the wire — the URL, the headers and the body — not merely that a call was made.
+function wp_remote_post( $url, $args = array() ) {
+	$GLOBALS['bap_http_request'] = array( 'method' => 'POST', 'url' => $url, 'args' => $args );
+	return $GLOBALS['bap_http_response'] ?? new WP_Error( 'no_stub', 'no response configured' );
+}
 function wp_remote_retrieve_response_code( $r ) { return is_array( $r ) ? ( $r['response']['code'] ?? 0 ) : 0; }
 function wp_remote_retrieve_body( $r ) { return is_array( $r ) ? ( $r['body'] ?? '' ) : ''; }
 function is_wp_error( $t ) { return $t instanceof WP_Error; }
@@ -103,7 +108,10 @@ function add_query_arg( $args, $url = '' ) {
 	$sep = str_contains( (string) $url, '?' ) ? '&' : '?';
 	return $url . $sep . http_build_query( (array) $args );
 }
-function wp_remote_get( $url, $args = array() ) { return $GLOBALS['bap_http_response'] ?? new WP_Error( 'no_stub', 'no response configured' ); }
+function wp_remote_get( $url, $args = array() ) {
+	$GLOBALS['bap_http_request'] = array( 'method' => 'GET', 'url' => $url, 'args' => $args );
+	return $GLOBALS['bap_http_response'] ?? new WP_Error( 'no_stub', 'no response configured' );
+}
 
 // --- REST stubs, so the ingest and dashboard routes can be called for real ---
 

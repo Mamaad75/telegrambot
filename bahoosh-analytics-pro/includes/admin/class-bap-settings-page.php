@@ -308,12 +308,14 @@ class BAP_Settings_Page {
 					<tr><th scope="row"><label for="bap-ai-provider"><?php esc_html_e( 'مدل زبانی', 'bahoosh-analytics-pro' ); ?></label></th><td>
 						<select name="bap[ai_provider]" id="bap-ai-provider">
 							<option value="llama" <?php selected( 'llama', $settings['ai_provider'] ); ?>><?php esc_html_e( 'سرور لامای اختصاصی (Ollama / llama.cpp / vLLM)', 'bahoosh-analytics-pro' ); ?></option>
+							<option value="gemini" <?php selected( 'gemini', $settings['ai_provider'] ); ?>><?php esc_html_e( 'جمینای گوگل (Google AI Studio — کلید رایگان)', 'bahoosh-analytics-pro' ); ?></option>
 							<option value="webhook" <?php selected( 'webhook', $settings['ai_provider'] ); ?>><?php esc_html_e( 'وبهوک اتومیشن (n8n / Make / Zapier)', 'bahoosh-analytics-pro' ); ?></option>
 							<option value="openai_compatible" <?php selected( 'openai_compatible', $settings['ai_provider'] ); ?>><?php esc_html_e( 'سرویس سازگار با OpenAI', 'bahoosh-analytics-pro' ); ?></option>
 							<option value="local" <?php selected( 'local', $settings['ai_provider'] ); ?>><?php esc_html_e( 'بدون مدل — فقط موتور قانون‌محور داخلی', 'bahoosh-analytics-pro' ); ?></option>
 						</select>
 						<p class="description"><?php esc_html_e( 'اگر مدل در دسترس نباشد، قواعد داخلی خود افزونه همان اعداد را تحلیل می‌کنند و صفحه خالی نمی‌ماند. بالای نتیجه همیشه نوشته می‌شود که پاسخ را کدام‌یک ساخته.', 'bahoosh-analytics-pro' ); ?></p>
-						<p class="description"><?php esc_html_e( 'راهنمای سرور لاما و ایمن‌سازی آن: docs/REMOTE-LLAMA-SERVER.md — راهنمای اتصال n8n: docs/CONNECT-N8N.md', 'bahoosh-analytics-pro' ); ?></p>
+						<p class="description"><?php esc_html_e( 'جمینای سریع‌ترین راه شروع است: کلید از aistudio.google.com/apikey رایگان ساخته می‌شود و آدرس و نام مدل را خود افزونه پر می‌کند — فقط کلید را پایین‌تر ذخیره کنید. سهمیه رایگان روزانه محدود است و همین برای این قابلیت کافی است، چون تحلیل را شما دستی اجرا می‌کنید نه برای هر بازدیدکننده. در عوض، بسته تحلیل از سایت خارج می‌شود و به گوگل می‌رسد: مشتری در آن نیست، ولی نام محصول و رقم فروش هست. اگر این را نمی‌خواهید، سرور لاما همه‌چیز را روی ماشین خودتان نگه می‌دارد.', 'bahoosh-analytics-pro' ); ?></p>
+						<p class="description"><?php esc_html_e( 'راهنمای سرور لاما و ایمن‌سازی آن: docs/REMOTE-LLAMA-SERVER.md — راهنمای اتصال n8n: docs/CONNECT-N8N.md — راهنمای جمینای: docs/CONNECT-GEMINI.md', 'bahoosh-analytics-pro' ); ?></p>
 					</td></tr>
 
 					<tr><th scope="row"><label for="bap-ai-provider-url"><?php esc_html_e( 'آدرس سرویس مدل', 'bahoosh-analytics-pro' ); ?></label></th><td>
@@ -322,6 +324,13 @@ class BAP_Settings_Page {
 							placeholder="<?php echo esc_attr( BAP_AI_Provider::LLAMA_DEFAULT_URL ); ?>" />
 						<p class="description"><?php esc_html_e( 'برای سرور لاما: آدرس همان سروری که مدل روی آن نصب است، مثل http://۱۲۳.۴۵.۶۷.۸۹:11434/v1 — آدرس ریشه، مسیر v1 یا آدرس کامل chat/completions هر سه پذیرفته می‌شوند.', 'bahoosh-analytics-pro' ); ?></p>
 						<p class="description"><?php esc_html_e( 'برای وبهوک اتومیشن: آدرس Production وبهوک، مثل https://xxx.app.n8n.cloud/webhook/analyze-website', 'bahoosh-analytics-pro' ); ?></p>
+						<p class="description"><?php
+							printf(
+								/* translators: %s: Gemini API root. */
+								esc_html__( 'برای جمینای خالی بگذارید؛ خودش %s را به‌کار می‌برد.', 'bahoosh-analytics-pro' ),
+								'<code>' . esc_html( BAP_AI_Provider::GEMINI_DEFAULT_URL ) . '</code>'
+							);
+						?></p>
 					</td></tr>
 
 					<tr><th scope="row"><label for="bap-ai-provider-model"><?php esc_html_e( 'نام مدل', 'bahoosh-analytics-pro' ); ?></label></th><td>
@@ -336,12 +345,19 @@ class BAP_Settings_Page {
 								'<code>ollama pull ' . esc_html( BAP_AI_Provider::LLAMA_DEFAULT_MODEL ) . '</code>'
 							);
 						?></p>
+						<p class="description"><?php
+							printf(
+								/* translators: %s: default Gemini model name. */
+								esc_html__( 'برای جمینای خالی بگذارید؛ %s استفاده می‌شود. مدل‌های Flash همان‌هایی هستند که سهمیه رایگان رویشان باز است.', 'bahoosh-analytics-pro' ),
+								'<code>' . esc_html( BAP_AI_Provider::GEMINI_DEFAULT_MODEL ) . '</code>'
+							);
+						?></p>
 					</td></tr>
 
 					<tr><th scope="row"><label for="bap-ai-provider-key"><?php esc_html_e( 'کلید سرویس مدل', 'bahoosh-analytics-pro' ); ?></label></th><td>
 						<input type="password" class="regular-text code" id="bap-ai-provider-key" name="bap_ai_provider_key" autocomplete="off"
-							placeholder="<?php echo $has_provider_key ? esc_attr__( 'ذخیره شده — برای تغییر مقدار جدید وارد کنید', 'bahoosh-analytics-pro' ) : esc_attr__( 'برای لامای محلی لازم نیست', 'bahoosh-analytics-pro' ); ?>" />
-						<p class="description"><?php esc_html_e( 'سرور لامای بدون احراز هویت به کلید نیاز ندارد. برای وبهوک، اگر مقداری بگذارید به‌صورت هدر Authorization و X-Bahoosh-Token فرستاده می‌شود تا ورک‌فلو بتواند درخواست‌های ناشناس را رد کند. این کلید هرگز به مرورگر فرستاده نمی‌شود.', 'bahoosh-analytics-pro' ); ?></p>
+							placeholder="<?php echo $has_provider_key ? esc_attr__( 'ذخیره شده — برای تغییر مقدار جدید وارد کنید', 'bahoosh-analytics-pro' ) : esc_attr__( 'برای لامای محلی لازم نیست — برای جمینای لازم است', 'bahoosh-analytics-pro' ); ?>" />
+						<p class="description"><?php esc_html_e( 'برای جمینای همان کلید AI Studio را اینجا بگذارید؛ در هدر x-goog-api-key فرستاده می‌شود، نه در آدرس، تا در لاگ‌ها نماند. سرور لامای بدون احراز هویت به کلید نیاز ندارد. برای وبهوک، اگر مقداری بگذارید به‌صورت هدر Authorization و X-Bahoosh-Token فرستاده می‌شود تا ورک‌فلو بتواند درخواست‌های ناشناس را رد کند. این کلید هرگز به مرورگر فرستاده نمی‌شود.', 'bahoosh-analytics-pro' ); ?></p>
 						<?php if ( $has_provider_key ) : ?>
 							<label><input type="checkbox" name="bap_clear_ai_provider_key" value="1" /> <?php esc_html_e( 'حذف کلید ذخیره‌شده', 'bahoosh-analytics-pro' ); ?></label>
 						<?php endif; ?>

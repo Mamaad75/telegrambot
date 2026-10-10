@@ -501,7 +501,7 @@ test( 'provider: the external analysis service is gone', function () {
 
 	ok( ! str_contains( $source, 'PROVIDER_BACKEND' ), 'the backend provider constant is removed' );
 	ok( ! str_contains( $source, "BAP_Transport::request( 'ai/analyze'" ), 'nothing calls out to an analysis service' );
-	is_same( array( 'llama', 'webhook', 'openai_compatible', 'local' ), BAP_AI_Provider::providers() );
+	is_same( array( 'llama', 'gemini', 'webhook', 'openai_compatible', 'local' ), BAP_AI_Provider::providers() );
 
 	$routes = file_get_contents( BAP_PLUGIN_DIR . 'includes/api/class-bap-rest-controller.php' );
 	ok( ! str_contains( $routes, "'/ai/callback'" ), 'the unauthenticated callback route is removed' );
@@ -599,6 +599,174 @@ test( 'provider: a real model reply is accepted and attributed to the model', fu
 	is_same( 'llama', $result['provider'] );
 	is_same( false, $result['fallback'] );
 	is_same( 'موبایل را جدی بگیرید', $result['recommendations'][0]['title'] );
+} );
+
+test( 'gemini: address and model fill themselves in, the key does not', function () {
+	set_settings( array( 'ai_provider' => 'gemini' ) );
+
+	is_same( 'gemini', BAP_AI_Provider::current() );
+	is_same( BAP_AI_Provider::GEMINI_DEFAULT_URL, BAP_AI_Provider::base_url(), 'there is only one Gemini address' );
+	is_same( BAP_AI_Provider::GEMINI_DEFAULT_MODEL, BAP_AI_Provider::model() );
+	is_same( '', BAP_AI_Provider::api_key(), 'but the key is the one thing only the shop owner has' );
+} );
+
+test( 'gemini: whatever shape of root is pasted, the method URL is right', function () {
+	$expected = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+
+	foreach ( array(
+		'',
+		'https://generativelanguage.googleapis.com',
+		'https://generativelanguage.googleapis.com/',
+		'https://generativelanguage.googleapis.com/v1beta',
+		'https://generativelanguage.googleapis.com/v1beta/',
+		'https://generativelanguage.googleapis.com/v1beta/models',
+	) as $base ) {
+		is_same( $expected, BAP_AI_Provider::gemini_endpoint( $base, 'gemini-2.5-flash', 'generateContent' ), "failed for root '{$base}'" );
+	}
+
+	// Google's own listing prints model names with a `models/` prefix, so that
+	// is what gets copied into the field.
+	is_same( $expected, BAP_AI_Provider::gemini_endpoint( '', 'models/gemini-2.5-flash', 'generateContent' ) );
+} );
+
+test( 'gemini: without a key nothing is sent anywhere', function () {
+	seed_shop();
+	set_settings( array( 'ai_provider' => 'gemini' ) );
+
+	$result = BAP_AI_Provider::analyze( BAP_Analysis_Packet::build( gmdate( 'Y-m-d' ), gmdate( 'Y-m-d' ) ) );
+
+	is_same( null, $GLOBALS['bap_http_request'], 'no request is attempted without a key' );
+	is_same( 'local', $result['provider'], 'the rule engine answers instead' );
+	is_same( true, $result['fallback'] );
+} );
+
+test( 'gemini: the key travels in a header, never in the URL', function () {
+	seed_shop();
+	set_settings( array( 'ai_provider' => 'gemini' ) );
+	BAP_AI_Provider::set_api_key( 'AIzaSyFAKEKEYFORTESTSONLY00000000000' );
+
+	$packet = BAP_Analysis_Packet::build( gmdate( 'Y-m-d' ), gmdate( 'Y-m-d' ) );
+	$fact   = $packet['facts'][0]['id'];
+
+	fake_http( 200, array( 'candidates' => array( array( 'content' => array( 'parts' => array(
+		array( 'text' => json_encode( array( 'recommendations' => array( array(
+			'title'    => 'موبایل را جدی بگیرید',
+			'summary'  => 'بیشتر سفارش‌ها از موبایل می‌آید.',
+			'evidence' => array( $fact ),
+		) ) ) ) ),
+	) ) ) ) ) );
+
+	$result  = BAP_AI_Provider::analyze( $packet );
+	$request = $GLOBALS['bap_http_request'];
+
+	is_same( true, $result['ok'] );
+	is_same( 'gemini', $result['provider'] );
+	is_same( false, $result['fallback'] );
+
+	// A key in a query string is copied into every access log and proxy log it
+	// passes through. This assertion is the whole reason the stub records URLs.
+	ok( ! str_contains( $request['url'], 'AIzaSy' ), 'the key is not in the URL' );
+	ok( ! str_contains( $request['url'], 'key=' ), 'not even as an empty-looking parameter' );
+	is_same( 'AIzaSyFAKEKEYFORTESTSONLY00000000000', $request['args']['headers']['x-goog-api-key'] );
+	ok( str_ends_with( $request['url'], ':generateContent' ), 'the native API, not the compatibility shim' );
+
+	$body = json_decode( $request['args']['body'], true );
+	is_same( 'application/json', $body['generationConfig']['responseMimeType'] );
+	ok( isset( $body['system_instruction']['parts'][0]['text'] ), 'the rules go in system_instruction' );
+	ok( ! str_contains( $request['args']['body'], 'AIzaSy' ), 'nor is the key in the body' );
+} );
+
+test( 'gemini: a reply split across parts is reassembled, not truncated', function () {
+	seed_shop();
+	set_settings( array( 'ai_provider' => 'gemini' ) );
+	BAP_AI_Provider::set_api_key( 'AIzaSyFAKEKEYFORTESTSONLY00000000000' );
+
+	$packet = BAP_Analysis_Packet::build( gmdate( 'Y-m-d' ), gmdate( 'Y-m-d' ) );
+	$fact   = $packet['facts'][0]['id'];
+	$whole  = json_encode( array( 'recommendations' => array( array(
+		'title'    => 'دو تکه',
+		'summary'  => 'پاسخ در دو قطعه آمد.',
+		'evidence' => array( $fact ),
+	) ) ) );
+
+	// Taking only parts[0] would leave half a JSON document and no
+	// recommendations at all — a silent failure that looks like a bad model.
+	fake_http( 200, array( 'candidates' => array( array( 'content' => array( 'parts' => array(
+		array( 'text' => substr( $whole, 0, 20 ) ),
+		array( 'text' => substr( $whole, 20 ) ),
+	) ) ) ) ) );
+
+	$result = BAP_AI_Provider::analyze( $packet );
+
+	is_same( true, $result['ok'] );
+	is_same( 'دو تکه', $result['recommendations'][0]['title'] );
+} );
+
+test( 'gemini: a spent free quota says to wait, not to check the settings', function () {
+	seed_shop();
+	set_settings( array( 'ai_provider' => 'gemini' ) );
+	BAP_AI_Provider::set_api_key( 'AIzaSyFAKEKEYFORTESTSONLY00000000000' );
+
+	fake_http( 429, array( 'error' => array( 'status' => 'RESOURCE_EXHAUSTED', 'message' => 'Quota exceeded' ) ) );
+
+	$result = BAP_AI_Provider::analyze( BAP_Analysis_Packet::build( gmdate( 'Y-m-d' ), gmdate( 'Y-m-d' ) ) );
+
+	// The analysis still produces something; the reason is kept alongside it.
+	is_same( 'local', $result['provider'] );
+	is_same( true, $result['fallback'] );
+	ok( str_contains( $result['error'], 'سهمیه' ), 'the message names the quota: ' . $result['error'] );
+	ok( ! str_contains( $result['error'], '429' ), 'a status code is not an explanation' );
+} );
+
+test( 'gemini: a rejected key and an unknown model do not get the same message', function () {
+	seed_shop();
+	set_settings( array( 'ai_provider' => 'gemini', 'ai_provider_model' => 'gemini-9-imaginary' ) );
+	BAP_AI_Provider::set_api_key( 'AIzaSyFAKEKEYFORTESTSONLY00000000000' );
+	$packet = BAP_Analysis_Packet::build( gmdate( 'Y-m-d' ), gmdate( 'Y-m-d' ) );
+
+	fake_http( 400, array( 'error' => array( 'status' => 'INVALID_ARGUMENT', 'message' => 'API key not valid' ) ) );
+	$bad_key = BAP_AI_Provider::analyze( $packet )['error'];
+
+	fake_http( 404, array( 'error' => array( 'status' => 'NOT_FOUND', 'message' => 'models/gemini-9-imaginary is not found' ) ) );
+	$bad_model = BAP_AI_Provider::analyze( $packet )['error'];
+
+	ok( str_contains( $bad_key, 'aistudio.google.com' ), 'the key error says where to get a new one' );
+	ok( str_contains( $bad_model, 'gemini-9-imaginary' ), 'the model error names the model: ' . $bad_model );
+	ok( $bad_key !== $bad_model, 'two different problems, two different messages' );
+} );
+
+test( 'gemini: a blocked prompt and a truncated reply are told apart', function () {
+	seed_shop();
+	set_settings( array( 'ai_provider' => 'gemini' ) );
+	BAP_AI_Provider::set_api_key( 'AIzaSyFAKEKEYFORTESTSONLY00000000000' );
+	$packet = BAP_Analysis_Packet::build( gmdate( 'Y-m-d' ), gmdate( 'Y-m-d' ) );
+
+	// Both arrive as HTTP 200 with no text, and they need opposite fixes.
+	fake_http( 200, array( 'promptFeedback' => array( 'blockReason' => 'SAFETY' ), 'candidates' => array() ) );
+	$blocked = BAP_AI_Provider::analyze( $packet )['error'];
+
+	fake_http( 200, array( 'candidates' => array( array( 'finishReason' => 'MAX_TOKENS', 'content' => array( 'parts' => array() ) ) ) ) );
+	$truncated = BAP_AI_Provider::analyze( $packet )['error'];
+
+	ok( str_contains( $blocked, 'فیلتر' ), 'blocked: ' . $blocked );
+	ok( str_contains( $truncated, 'کوتاه‌تر' ), 'truncated says to shrink the range: ' . $truncated );
+} );
+
+test( 'gemini: the connection test lists only models that can answer a prompt', function () {
+	set_settings( array( 'ai_provider' => 'gemini' ) );
+	BAP_AI_Provider::set_api_key( 'AIzaSyFAKEKEYFORTESTSONLY00000000000' );
+
+	fake_http( 200, array( 'models' => array(
+		array( 'name' => 'models/gemini-2.5-flash', 'supportedGenerationMethods' => array( 'generateContent' ) ),
+		array( 'name' => 'models/text-embedding-004', 'supportedGenerationMethods' => array( 'embedContent' ) ),
+	) ) );
+
+	$probe = BAP_AI_Provider::probe();
+
+	is_same( true, $probe['ok'] );
+	is_same( array( 'gemini-2.5-flash' ), $probe['models'], 'the embedding model is not something to choose' );
+	ok( str_ends_with( $GLOBALS['bap_http_request']['url'], '/v1beta/models' ), 'listing, not generating — it does not spend a free analysis' );
+	ok( ! str_contains( $GLOBALS['bap_http_request']['url'], 'AIzaSy' ), 'the key is not in the URL here either' );
 } );
 
 /* ============================================================ */

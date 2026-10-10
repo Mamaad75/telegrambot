@@ -4,7 +4,7 @@ Tags: analytics, woocommerce, tracking, gdpr, ecommerce, funnels, ai, heatmap
 Requires at least: 5.8
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 4.11.0
+Stable tag: 4.12.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -139,6 +139,14 @@ Yes. Set `window.bapConsent` before the tracker loads, or dispatch a
 consent" enabled, nothing is collected until analytics consent is granted.
 
 == Changelog ==
+
+= 4.12.0 =
+* New: Google Gemini as an AI provider, through a free Google AI Studio key. The address and model name fill themselves in; only the key has to be entered.
+* New: The connection test lists the models that key may actually use, and asks Google's listing endpoint rather than spending one of the day's free analyses.
+* Security: The Gemini key is sent in the `x-goog-api-key` header, never in the query string, so it cannot be copied into web-server, proxy or error logs. It is stored outside the settings array without autoload, is never sent to the browser, and never appears in the diagnostic report.
+* Improved: Gemini failures are told apart instead of being reported as a status code — a spent free quota says to wait, a rejected key says where to make a new one, an unknown model names the model, and a content filter is distinguished from a reply cut off at the token limit.
+* Improved: A Gemini reply split across several response parts is reassembled; taking only the first part would have left half a JSON document and no recommendations.
+* Fixed: The AI Center printed the raw provider id for the automation webhook because that provider had no display label.
 
 = 4.11.0 =
 * New: A "Tasks" screen listing the real problems the data found — the page each one happens on, what to change, and a button that opens whichever editor actually owns that page (Elementor, block, classic or the WooCommerce product screen).

@@ -15,13 +15,18 @@ defined( 'ABSPATH' ) || exit;
  * in this plugin. The site talks to a model the site owner controls, and to
  * nothing else.
  *
- * Three providers:
+ * The providers:
  *
  * - `llama` — a Llama model served locally by Ollama, llama.cpp, LM Studio or
  *   vLLM. This is the default. Nothing leaves the machine, there is no key and
  *   no bill, and the shop's product names and revenue figures never travel to a
  *   third party. It speaks the OpenAI chat-completions shape, which every one of
  *   those servers exposes.
+ * - `gemini` — Google's Gemini through an AI Studio key. The cheapest way to
+ *   get a capable model running in minutes: a key is free to create and the
+ *   free tier allows a modest number of requests a day, which is the right
+ *   shape for this feature because an analysis is run on demand, not per
+ *   visitor. The packet leaves the site, same trade as the webhook below.
  * - `openai_compatible` — the same wire protocol pointed at a remote service:
  *   a free tier, a paid endpoint, a company gateway. Identical code, different
  *   address, and a key when the service wants one.
@@ -42,8 +47,30 @@ class BAP_AI_Provider {
 	const PROVIDER_LLAMA  = 'llama';
 	const PROVIDER_OPENAI = 'openai_compatible';
 	const PROVIDER_WEBHOOK = 'webhook';
+	const PROVIDER_GEMINI  = 'gemini';
 
 	const OPTION_API_KEY = 'bap_ai_provider_key';
+
+	/**
+	 * Gemini's API root.
+	 *
+	 * Filled in automatically, because unlike a Llama server there is only one
+	 * address and nobody should have to find it. Overriding it is still allowed,
+	 * for a regional endpoint or a corporate proxy.
+	 *
+	 * @var string
+	 */
+	const GEMINI_DEFAULT_URL = 'https://generativelanguage.googleapis.com/v1beta';
+
+	/**
+	 * Gemini model asked for by default.
+	 *
+	 * A Flash model on purpose: it is the one the free tier is generous with,
+	 * and reading a few dozen precomputed numbers does not need the large one.
+	 *
+	 * @var string
+	 */
+	const GEMINI_DEFAULT_MODEL = 'gemini-2.5-flash';
 
 	/**
 	 * Where a local Llama server listens by default.
@@ -98,9 +125,13 @@ class BAP_AI_Provider {
 			return self::result( true, self::PROVIDER_LOCAL, self::attach_actions( BAP_Local_Insights::derive( $packet ), $packet ), '' );
 		}
 
-		$result = self::PROVIDER_WEBHOOK === $provider
-			? self::analyze_webhook( $packet )
-			: self::analyze_chat( $packet, $provider );
+		if ( self::PROVIDER_WEBHOOK === $provider ) {
+			$result = self::analyze_webhook( $packet );
+		} elseif ( self::PROVIDER_GEMINI === $provider ) {
+			$result = self::analyze_gemini( $packet );
+		} else {
+			$result = self::analyze_chat( $packet, $provider );
+		}
 
 		// A model that is down must not mean a blank screen. The rule engine
 		// answers from the same facts, and the caller is told which source
@@ -220,6 +251,210 @@ class BAP_AI_Provider {
 		}
 
 		return self::result( true, $provider, $items, '' );
+	}
+
+	/**
+	 * Calls Gemini's generateContent endpoint.
+	 *
+	 * Gemini does publish an OpenAI-compatible surface, and routing through
+	 * {@see analyze_chat()} would have been fewer lines. The native API is used
+	 * instead for one reason that matters to whoever is setting this up: its
+	 * errors are specific. A free-tier key that has run out of requests for the
+	 * day returns 429 with a quota reason, and that deserves "you have used
+	 * today's free allowance" rather than "the model service answered with 429".
+	 * The compatibility shim flattens exactly those details away.
+	 *
+	 * The packet leaves the site and reaches Google. It contains no customers —
+	 * {@see BAP_Analysis_Packet} builds aggregates only — but it does contain
+	 * product names, order counts and revenue. Worth knowing before choosing
+	 * this over a Llama server on your own machine.
+	 *
+	 * @param array $packet Analysis packet.
+	 * @return array Result.
+	 */
+	private static function analyze_gemini( array $packet ) {
+		$key = self::api_key();
+
+		if ( '' === $key ) {
+			return self::result(
+				false,
+				self::PROVIDER_GEMINI,
+				array(),
+				__( 'کلید Google AI Studio وارد نشده است. از aistudio.google.com/apikey یک کلید بسازید و در همین صفحه ذخیره کنید.', 'bahoosh-analytics-pro' )
+			);
+		}
+
+		$response = wp_remote_post(
+			self::gemini_endpoint( self::base_url(), self::model(), 'generateContent' ),
+			array(
+				'timeout' => self::TIMEOUT,
+				'headers' => array(
+					'Content-Type' => 'application/json',
+					// In the header, never the query string: a key in a URL ends
+					// up in access logs, proxy logs and error reports.
+					'x-goog-api-key' => $key,
+				),
+				'body'    => wp_json_encode(
+					array(
+						'system_instruction' => array(
+							'parts' => array( array( 'text' => self::system_prompt() ) ),
+						),
+						'contents'           => array(
+							array(
+								'role'  => 'user',
+								'parts' => array( array( 'text' => wp_json_encode( $packet ) ) ),
+							),
+						),
+						'generationConfig'   => array(
+							'temperature'      => 0.2,
+							// Gemini honours this properly, unlike most of the
+							// OpenAI-compatible servers, so the reply really is
+							// JSON rather than JSON wrapped in prose.
+							'responseMimeType' => 'application/json',
+						),
+					)
+				),
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			BAP_Debug_Log::log( 'ai', 'gemini request failed', array( 'error' => $response->get_error_message() ) );
+			return self::result( false, self::PROVIDER_GEMINI, array(), self::connection_hint( $response->get_error_message() ) );
+		}
+
+		$status  = (int) wp_remote_retrieve_response_code( $response );
+		$decoded = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+		$decoded = is_array( $decoded ) ? $decoded : array();
+
+		if ( $status < 200 || $status >= 300 ) {
+			BAP_Debug_Log::log( 'ai', 'gemini returned an error status', array( 'status' => $status ) );
+			return self::result( false, self::PROVIDER_GEMINI, array(), self::gemini_error( $status, $decoded ) );
+		}
+
+		$content = self::gemini_content( $decoded );
+
+		if ( '' === $content ) {
+			return self::result( false, self::PROVIDER_GEMINI, array(), self::gemini_empty_reason( $decoded ) );
+		}
+
+		$items = self::parse_recommendations( $content, $packet );
+
+		if ( ! $items ) {
+			return self::result( false, self::PROVIDER_GEMINI, array(), __( 'مدل هیچ پیشنهاد معتبری تولید نکرد.', 'bahoosh-analytics-pro' ) );
+		}
+
+		return self::result( true, self::PROVIDER_GEMINI, $items, '' );
+	}
+
+	/**
+	 * Builds a Gemini method URL from a configured root.
+	 *
+	 * Accepts the root with or without a version, and with or without a
+	 * trailing `/models`, because all three are what people paste.
+	 *
+	 * @param string $base   Configured URL.
+	 * @param string $model  Model name, with or without the `models/` prefix.
+	 * @param string $method API method, e.g. `generateContent`.
+	 * @return string
+	 */
+	public static function gemini_endpoint( $base, $model, $method ) {
+		$base  = rtrim( trim( (string) $base ), '/' );
+		$base  = '' === $base ? self::GEMINI_DEFAULT_URL : $base;
+		$base  = (string) preg_replace( '#/models$#', '', $base );
+		$model = ltrim( trim( (string) $model ), '/' );
+		$model = (string) preg_replace( '#^models/#', '', $model );
+
+		if ( ! preg_match( '#/v\d+[a-z0-9]*$#', $base ) ) {
+			$base .= '/v1beta';
+		}
+
+		return $base . '/models/' . rawurlencode( $model ) . ':' . $method;
+	}
+
+	/**
+	 * The text of a Gemini reply.
+	 *
+	 * Gemini may split one answer across several `parts`, so they are joined
+	 * rather than the first one taken — taking only the first truncates a long
+	 * reply into invalid JSON.
+	 *
+	 * @param array $decoded Decoded response body.
+	 * @return string
+	 */
+	private static function gemini_content( array $decoded ) {
+		$text = '';
+
+		foreach ( (array) ( $decoded['candidates'][0]['content']['parts'] ?? array() ) as $part ) {
+			if ( isset( $part['text'] ) && is_string( $part['text'] ) ) {
+				$text .= $part['text'];
+			}
+		}
+
+		return trim( $text );
+	}
+
+	/**
+	 * Turns a Gemini error status into something actionable.
+	 *
+	 * @param int   $status  HTTP status.
+	 * @param array $decoded Decoded response body.
+	 * @return string
+	 */
+	private static function gemini_error( $status, array $decoded ) {
+		$reason = (string) ( $decoded['error']['status'] ?? '' );
+		$detail = (string) ( $decoded['error']['message'] ?? '' );
+
+		if ( 429 === $status ) {
+			// The one people hit on a free key, and the one where the right
+			// advice is "wait", not "check your settings".
+			return __( 'سهمیه کلید Google تمام شده است. کلید رایگان AI Studio در هر روز تعداد محدودی درخواست دارد؛ فردا دوباره کار می‌کند. تا آن موقع تحلیل با موتور قانون‌محور داخلی انجام می‌شود.', 'bahoosh-analytics-pro' );
+		}
+
+		if ( 400 === $status && ( 'INVALID_ARGUMENT' === $reason || false !== stripos( $detail, 'api key' ) ) ) {
+			return __( 'کلید Google پذیرفته نشد. یک کلید تازه از aistudio.google.com/apikey بسازید و جایگزین کنید.', 'bahoosh-analytics-pro' );
+		}
+
+		if ( 403 === $status ) {
+			return __( 'Google این کلید را رد کرد. مطمئن شوید Generative Language API برای پروژه آن کلید فعال است و کلید به دامنه یا IP دیگری محدود نشده.', 'bahoosh-analytics-pro' );
+		}
+
+		if ( 404 === $status ) {
+			return sprintf(
+				/* translators: %s: model name. */
+				__( 'Google مدل «%s» را نمی‌شناسد. نام مدل را بررسی کنید؛ فهرست مدل‌های همین کلید را دکمه «آزمایش اتصال» نشان می‌دهد.', 'bahoosh-analytics-pro' ),
+				self::model()
+			);
+		}
+
+		return sprintf(
+			/* translators: %d: HTTP status code. */
+			__( 'سرویس Gemini با کد %d پاسخ داد.', 'bahoosh-analytics-pro' ),
+			$status
+		);
+	}
+
+	/**
+	 * Why a 200 from Gemini carried no usable text.
+	 *
+	 * A blocked prompt and a reply cut off at the token limit both arrive as a
+	 * successful response with nothing in it, and they need opposite fixes.
+	 *
+	 * @param array $decoded Decoded response body.
+	 * @return string
+	 */
+	private static function gemini_empty_reason( array $decoded ) {
+		$blocked = (string) ( $decoded['promptFeedback']['blockReason'] ?? '' );
+		$finish  = (string) ( $decoded['candidates'][0]['finishReason'] ?? '' );
+
+		if ( '' !== $blocked || 'SAFETY' === $finish ) {
+			return __( 'Google این درخواست را به‌دلیل فیلترهای محتوایی خود پاسخ نداد. نام محصولات بسته تحلیل احتمالاً فیلتری را فعال کرده است.', 'bahoosh-analytics-pro' );
+		}
+
+		if ( 'MAX_TOKENS' === $finish ) {
+			return __( 'پاسخ مدل نیمه‌کاره قطع شد. بازه زمانی تحلیل را کوتاه‌تر کنید تا بسته کوچک‌تر شود.', 'bahoosh-analytics-pro' );
+		}
+
+		return __( 'پاسخ مدل قابل خواندن نبود.', 'bahoosh-analytics-pro' );
 	}
 
 	/**
@@ -389,6 +624,10 @@ class BAP_AI_Provider {
 			);
 		}
 
+		if ( self::PROVIDER_GEMINI === $provider ) {
+			return self::probe_gemini();
+		}
+
 		$base = self::base_url();
 
 		if ( '' === $base ) {
@@ -494,6 +733,95 @@ class BAP_AI_Provider {
 				: sprintf(
 					/* translators: %s: model name. */
 					__( 'سرویس پاسخ داد اما مدل «%s» در فهرست آن نیست.', 'bahoosh-analytics-pro' ),
+					$wanted
+				),
+		);
+	}
+
+	/**
+	 * Asks Google which models this key may use.
+	 *
+	 * Listing models is itself a billable call on some projects but is outside
+	 * the generate quota, so a connection test does not spend one of the day's
+	 * free analyses — which matters when the whole appeal of this provider is a
+	 * small daily allowance.
+	 *
+	 * @return array{ok:bool,error:string,models:string[],note?:string}
+	 */
+	private static function probe_gemini() {
+		$key = self::api_key();
+
+		if ( '' === $key ) {
+			return array(
+				'ok'     => false,
+				'error'  => __( 'کلید Google AI Studio وارد نشده است. از aistudio.google.com/apikey یک کلید بسازید.', 'bahoosh-analytics-pro' ),
+				'models' => array(),
+			);
+		}
+
+		$base     = rtrim( self::base_url(), '/' );
+		$base     = '' === $base ? self::GEMINI_DEFAULT_URL : $base;
+		$response = wp_remote_get(
+			preg_match( '#/models$#', $base ) ? $base : $base . '/models',
+			array(
+				'timeout' => self::PROBE_TIMEOUT,
+				'headers' => array( 'x-goog-api-key' => $key ),
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			return array(
+				'ok'     => false,
+				'error'  => self::connection_hint( $response->get_error_message() ),
+				'models' => array(),
+			);
+		}
+
+		$status  = (int) wp_remote_retrieve_response_code( $response );
+		$decoded = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+		$decoded = is_array( $decoded ) ? $decoded : array();
+
+		if ( $status < 200 || $status >= 300 ) {
+			return array(
+				'ok'     => false,
+				'error'  => self::gemini_error( $status, $decoded ),
+				'models' => array(),
+			);
+		}
+
+		$models = array();
+
+		foreach ( (array) ( $decoded['models'] ?? array() ) as $row ) {
+			$name = isset( $row['name'] ) && is_scalar( $row['name'] ) ? (string) $row['name'] : '';
+
+			if ( '' === $name ) {
+				continue;
+			}
+
+			// Only the models that can answer a prompt. The list also carries
+			// embedding models, which would be a confusing thing to offer.
+			$methods = (array) ( $row['supportedGenerationMethods'] ?? array() );
+
+			if ( $methods && ! in_array( 'generateContent', $methods, true ) ) {
+				continue;
+			}
+
+			$models[] = sanitize_text_field( (string) preg_replace( '#^models/#', '', $name ) );
+		}
+
+		$models  = array_slice( $models, 0, 50 );
+		$wanted  = self::model();
+		$present = ! $models || in_array( $wanted, $models, true );
+
+		return array(
+			'ok'     => true,
+			'error'  => '',
+			'models' => $models,
+			'note'   => $present
+				? __( 'کلید Google پذیرفته شد.', 'bahoosh-analytics-pro' )
+				: sprintf(
+					/* translators: %s: model name. */
+					__( 'کلید کار می‌کند اما مدل «%s» در فهرست آن نیست.', 'bahoosh-analytics-pro' ),
 					$wanted
 				),
 		);
@@ -742,7 +1070,7 @@ Return ONLY JSON: {\"recommendations\":[{\"title\":\"…\",\"summary\":\"…\",\
 	 * @return string[]
 	 */
 	public static function providers() {
-		return array( self::PROVIDER_LLAMA, self::PROVIDER_WEBHOOK, self::PROVIDER_OPENAI, self::PROVIDER_LOCAL );
+		return array( self::PROVIDER_LLAMA, self::PROVIDER_GEMINI, self::PROVIDER_WEBHOOK, self::PROVIDER_OPENAI, self::PROVIDER_LOCAL );
 	}
 
 	/**
@@ -760,6 +1088,12 @@ Return ONLY JSON: {\"recommendations\":[{\"title\":\"…\",\"summary\":\"…\",\
 		// shop owner looking for a service that was never meant to be local.
 		if ( '' === $url && self::PROVIDER_LLAMA === self::current() && self::local_model_plausible() ) {
 			return self::LLAMA_DEFAULT_URL;
+		}
+
+		// Gemini has exactly one address, so leaving the field blank is the
+		// normal configuration rather than a missing one.
+		if ( '' === $url && self::PROVIDER_GEMINI === self::current() ) {
+			return self::GEMINI_DEFAULT_URL;
 		}
 
 		return $url;
@@ -791,6 +1125,10 @@ Return ONLY JSON: {\"recommendations\":[{\"title\":\"…\",\"summary\":\"…\",\
 
 		if ( '' === $model && self::PROVIDER_LLAMA === self::current() ) {
 			return self::LLAMA_DEFAULT_MODEL;
+		}
+
+		if ( '' === $model && self::PROVIDER_GEMINI === self::current() ) {
+			return self::GEMINI_DEFAULT_MODEL;
 		}
 
 		return $model;

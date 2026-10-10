@@ -67,6 +67,7 @@ function reset_state(): void {
 	$GLOBALS['bap_timezone']  = 'UTC';
 	$GLOBALS['bap_wc_active'] = true;
 	$GLOBALS['bap_http_response'] = null;
+	$GLOBALS['bap_http_request']  = null;
 	$GLOBALS['bap_posts']     = array();
 	$GLOBALS['bap_post_meta'] = array();
 	$GLOBALS['bap_url_posts'] = array();

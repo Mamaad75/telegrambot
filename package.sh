@@ -46,6 +46,12 @@ echo "  · checking for secrets and stray identifiers"
 if grep -rniE 'sk-[a-z0-9]{20,}|api[_-]?key["'"'"']\s*[:=]\s*["'"'"'][a-z0-9]{20,}' "$STAGE" >/dev/null 2>&1; then
   echo "    ! a literal key is present" >&2; exit 1
 fi
+# Google AI Studio keys, now that Gemini is a provider. Case-sensitive on
+# purpose: the prefix is literally AIza, and the docs mention it without a key
+# after it.
+if grep -rE 'AIza[0-9A-Za-z_-]{30,}' "$STAGE" >/dev/null 2>&1; then
+  echo "    ! a literal Google API key is present" >&2; exit 1
+fi
 if grep -rP "class_exists\(\s*'[^']*[\x{0600}-\x{06FF}]" "$STAGE" --include='*.php' >/dev/null 2>&1; then
   echo "    ! a PHP identifier has been translated" >&2; exit 1
 fi

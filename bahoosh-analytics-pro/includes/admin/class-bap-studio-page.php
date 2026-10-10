@@ -123,8 +123,12 @@ class BAP_Studio_Page {
 		$agent_mode      = BAP_Commerce_Agent::mode();
 		$ga4             = BAP_GA4::status();
 		$clarity         = BAP_Clarity::status();
+		// Every provider id needs a row here; without one the screen falls back
+		// to printing the raw id, which is how `webhook` showed up as "webhook".
 		$provider_labels = array(
 			'llama'             => __( 'لامای محلی', 'bahoosh-analytics-pro' ),
+			'gemini'            => __( 'جمینای گوگل', 'bahoosh-analytics-pro' ),
+			'webhook'           => __( 'وبهوک اتومیشن', 'bahoosh-analytics-pro' ),
 			'openai_compatible' => __( 'سرویس سازگار با OpenAI', 'bahoosh-analytics-pro' ),
 			'local'             => __( 'موتور قانون‌محور', 'bahoosh-analytics-pro' ),
 		);
