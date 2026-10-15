@@ -821,6 +821,263 @@ test( 'gemini: the connection test lists only models that can answer a prompt', 
 } );
 
 /* ============================================================ */
+/* Search rescue                                                */
+/* ============================================================ */
+
+/** A search event with a known result count. */
+function bap_search( string $term, int $results, string $visitor = 'anon_a' ): void {
+	$event = bap_event(
+		array(
+			'event_type' => 'search',
+			'identity'   => array( 'anonymous_id' => $visitor ),
+			'data'       => array( 'query' => $term, 'results_count' => $results ),
+		)
+	);
+
+	BAP_Local_Store::record( $event );
+}
+
+test( 'rescue: a zero-result search is told apart from one nobody clicked', function () {
+	$today = gmdate( 'Y-m-d' );
+
+	// Three searches that returned nothing: a catalogue or naming problem.
+	bap_search( 'استارز ۱۰۰۰', 0, 'anon_a' );
+	bap_search( 'استارز ۱۰۰۰', 0, 'anon_b' );
+	bap_search( 'استارز ۱۰۰۰', 0, 'anon_c' );
+
+	// Three that returned results. Nobody clicked, but that is a different
+	// problem with an opposite fix, and the old proxy could not see the
+	// difference.
+	bap_search( 'اشتراک', 12, 'anon_d' );
+	bap_search( 'اشتراک', 12, 'anon_e' );
+	bap_search( 'اشتراک', 12, 'anon_f' );
+
+	$searches = array();
+	foreach ( BAP_Local_Reports::explorer( $today, $today )['searches'] as $row ) {
+		$searches[ $row['term'] ] = $row;
+	}
+
+	is_same( true, $searches['استارز ۱۰۰۰']['no_results'], 'a measured zero is a zero' );
+	is_same( false, $searches['اشتراک']['no_results'], 'twelve results is not a catalogue gap' );
+	is_same( true, $searches['اشتراک']['no_click'], 'but nobody clicked it either' );
+	is_same( false, $searches['استارز ۱۰۰۰']['unmeasured'] );
+} );
+
+test( 'rescue: a search whose count was never reported is not called a failure', function () {
+	$today = gmdate( 'Y-m-d' );
+
+	// No results_count at all: the site's search is not WordPress's own, or the
+	// row predates the column. Calling that zero would invent a problem.
+	foreach ( range( 1, 3 ) as $i ) {
+		BAP_Local_Store::record(
+			bap_event( array( 'event_type' => 'search', 'data' => array( 'query' => 'نامشخص' ) ) )
+		);
+	}
+
+	$row = BAP_Local_Reports::explorer( $today, $today )['searches'][0];
+
+	is_same( true, $row['unmeasured'] );
+	is_same( false, $row['no_results'], 'unmeasured is not zero' );
+	is_same( array(), BAP_Search_Rescue::failed_terms( $today, $today ), 'and it never reaches the rescue list' );
+} );
+
+test( 'rescue: the two search problems become two tasks with opposite advice', function () {
+	$today = gmdate( 'Y-m-d' );
+
+	foreach ( range( 1, 4 ) as $i ) {
+		bap_search( 'استارز ۱۰۰۰', 0, 'anon_' . $i );
+	}
+	foreach ( range( 5, 8 ) as $i ) {
+		bap_search( 'اشتراک', 9, 'anon_' . $i );
+	}
+
+	$kinds = wp_list_pluck( BAP_UX_Tasks::build( $today, $today )['tasks'], 'kind' );
+
+	ok( in_array( 'search_no_results', $kinds, true ), 'the zero-result task exists' );
+	ok( in_array( 'search_barren', $kinds, true ), 'the no-click task is still separate' );
+
+	$tasks = array();
+	foreach ( BAP_UX_Tasks::build( $today, $today )['tasks'] as $task ) {
+		$tasks[ $task['kind'] ] = $task;
+	}
+
+	// Adding a product is the fix for one and useless for the other; the two
+	// messages must not be interchangeable.
+	ok( str_contains( $tasks['search_no_results']['what'], 'ندارید' ), 'zero-result advice: ' . $tasks['search_no_results']['what'] );
+	ok( str_contains( $tasks['search_barren']['what'], 'کمکی نمی‌کند' ), 'no-click advice says adding a product will not help' );
+	is_same( 'high', $tasks['search_no_results']['severity'] );
+	is_same( 'medium', $tasks['search_barren']['severity'] );
+} );
+
+test( 'rescue: a product id the model invented is discarded', function () {
+	$catalogue = array(
+		array( 'id' => 10, 'name' => '۱۰۰۰ استارز تلگرام' ),
+		array( 'id' => 11, 'name' => 'اشتراک یوتیوب' ),
+	);
+
+	// 999 is not in the catalogue we sent. A model naming inventory the shop
+	// does not have is the one failure this feature must never pass on.
+	$reply = json_encode(
+		array(
+			'matches' => array(
+				array( 'term' => 'استارز ۱۰۰۰', 'product_id' => 10, 'confidence' => 92, 'reason' => 'همان محصول' ),
+				array( 'term' => 'چیز دیگر', 'product_id' => 999, 'confidence' => 95, 'reason' => 'ساختگی' ),
+			),
+		)
+	);
+
+	$parsed = BAP_Search_Rescue::parse( $reply, $catalogue );
+
+	is_same( 10, $parsed['استارز ۱۰۰۰']['product_id'] );
+	is_same( 0, $parsed['چیز دیگر']['product_id'], 'an unknown id becomes no match, not a suggestion' );
+} );
+
+test( 'rescue: a low-confidence nearest product is reported as no match', function () {
+	$catalogue = array( array( 'id' => 10, 'name' => '۱۰۰۰ استارز تلگرام' ) );
+
+	// With a small catalogue there is always a nearest product. Showing it
+	// anyway would send someone to add a synonym pointing at the wrong thing.
+	$reply = json_encode(
+		array( 'matches' => array( array( 'term' => 'کفش ورزشی', 'product_id' => 10, 'confidence' => 20, 'reason' => 'نزدیک‌ترین' ) ) )
+	);
+
+	$parsed = BAP_Search_Rescue::parse( $reply, $catalogue );
+
+	is_same( 0, $parsed['کفش ورزشی']['product_id'] );
+	is_same( 20, $parsed['کفش ورزشی']['confidence'], 'the score is kept so the screen can explain itself' );
+} );
+
+test( 'rescue: json wrapped in prose is still read', function () {
+	$catalogue = array( array( 'id' => 7, 'name' => 'گیفت کارت' ) );
+	$reply     = "باشه، این نتیجه:\n```json\n" . json_encode( array( 'matches' => array( array( 'term' => 'گیفت', 'product_id' => 7, 'confidence' => 80 ) ) ) ) . "\n```";
+
+	is_same( 7, BAP_Search_Rescue::parse( $reply, $catalogue )['گیفت']['product_id'] );
+	is_same( array(), BAP_Search_Rescue::parse( 'سلام، چیزی پیدا نکردم.', $catalogue ), 'and a reply with no json at all is not guessed at' );
+} );
+
+test( 'rescue: persian spellings of the same word fold together', function () {
+	// The characters that make identical words unequal to a string comparison:
+	// Arabic ya and kaf, the zero-width non-joiner, and Persian digits.
+	is_same(
+		BAP_Search_Rescue::normalize( 'كيف' ),
+		BAP_Search_Rescue::normalize( 'کیف' ),
+		'Arabic kaf and ya fold to Persian'
+	);
+	is_same(
+		BAP_Search_Rescue::normalize( 'می‌خواهم' ),
+		BAP_Search_Rescue::normalize( 'می خواهم' ),
+		'the zero-width non-joiner is a space'
+	);
+	is_same( '1000 استارز', BAP_Search_Rescue::normalize( '۱۰۰۰ استارز' ), 'Persian digits become Latin' );
+	is_same( 'استارز تلگرام', BAP_Search_Rescue::normalize( '  استارز،  تلگرام!  ' ), 'punctuation and runs of space collapse' );
+} );
+
+test( 'rescue: the offline matcher catches spelling, and admits when it cannot', function () {
+	$catalogue = array(
+		array( 'id' => 10, 'name' => '۱۰۰۰ استارز تلگرام' ),
+		array( 'id' => 11, 'name' => 'اشتراک یوتیوب پریمیوم' ),
+	);
+
+	$matches = BAP_Search_Rescue::local_matches(
+		array(
+			array( 'term' => 'استارز ۱۰۰۰ تلگرام', 'searches' => 3, 'visitors' => 3 ),
+			array( 'term' => 'دوچرخه کوهستان', 'searches' => 3, 'visitors' => 3 ),
+		),
+		$catalogue
+	);
+
+	// Same words, different order and digit script: this is what the offline
+	// matcher is for, and it needs no model.
+	is_same( 10, $matches['استارز ۱۰۰۰ تلگرام']['product_id'] );
+	ok( $matches['استارز ۱۰۰۰ تلگرام']['confidence'] >= BAP_Search_Rescue::MIN_CONFIDENCE );
+
+	// Nothing in the catalogue is close, and it says so rather than returning
+	// the least-bad row.
+	is_same( 0, $matches['دوچرخه کوهستان']['product_id'] );
+} );
+
+test( 'rescue: without a model the report still answers, and says which matcher ran', function () {
+	$today = gmdate( 'Y-m-d' );
+	set_settings( array( 'ai_provider' => 'local' ) );
+
+	bap_add_product( 10, '۱۰۰۰ استارز تلگرام' );
+
+	foreach ( range( 1, 3 ) as $i ) {
+		bap_search( 'استارز ۱۰۰۰', 0, 'anon_' . $i );
+	}
+
+	$report = BAP_Search_Rescue::report( $today, $today, true );
+
+	is_same( 'local', $report['provider'], 'the rule engine has no model, so the text matcher answered' );
+	is_same( 1, count( $report['terms'] ) );
+	is_same( 10, $report['terms'][0]['product_id'] );
+	is_same( 'synonym', $report['terms'][0]['verdict'] );
+	is_same( 3, $report['counts']['lost_searches'] );
+	ok( '' !== $report['error'], 'and the reason the model was not used is reported' );
+} );
+
+test( 'rescue: a real model reply is used and attributed to the provider', function () {
+	$today = gmdate( 'Y-m-d' );
+	set_settings( array( 'ai_provider' => 'llama', 'ai_provider_url' => 'http://10.0.0.5:11434/v1' ) );
+
+	bap_add_product( 42, 'اشتراک یوتیوب پریمیوم' );
+
+	foreach ( range( 1, 3 ) as $i ) {
+		// Nothing a string comparison would match: only meaning connects
+		// "YouTube without ads" to "YouTube Premium subscription".
+		bap_search( 'یوتیوب بدون تبلیغ', 0, 'anon_' . $i );
+	}
+
+	fake_http( 200, array( 'choices' => array( array( 'message' => array(
+		'content' => json_encode(
+			array( 'matches' => array( array( 'term' => 'یوتیوب بدون تبلیغ', 'product_id' => 42, 'confidence' => 88, 'reason' => 'پریمیوم همان بدون تبلیغ است.' ) ) )
+		),
+	) ) ) ) );
+
+	$report = BAP_Search_Rescue::report( $today, $today, true );
+
+	is_same( 'llama', $report['provider'] );
+	is_same( 42, $report['terms'][0]['product_id'] );
+	is_same( 88, $report['terms'][0]['confidence'] );
+	is_same( 'synonym', $report['terms'][0]['verdict'] );
+	is_same( 1, $report['counts']['synonyms'] );
+	is_same( '', $report['error'] );
+} );
+
+test( 'rescue: the catalogue sent to the model carries no prices or stock', function () {
+	bap_add_product( 10, 'استارز تلگرام' );
+
+	$catalogue = BAP_Search_Rescue::catalogue();
+
+	// Deciding whether a word means a product needs the name and nothing else.
+	// Sending more would put more of the shop's data in front of a third party
+	// for no gain.
+	is_same( array( array( 'id' => 10, 'name' => 'استارز تلگرام' ) ), $catalogue );
+} );
+
+test( 'rescue: building the report writes no events and changes no products', function () {
+	$today = gmdate( 'Y-m-d' );
+	set_settings( array( 'ai_provider' => 'local' ) );
+
+	bap_add_product( 10, 'استارز تلگرام' );
+	foreach ( range( 1, 3 ) as $i ) {
+		bap_search( 'استارز', 0, 'anon_' . $i );
+	}
+
+	$products_before = $GLOBALS['bap_products'];
+	$GLOBALS['wpdb']->log = array();
+
+	BAP_Search_Rescue::report( $today, $today, true );
+
+	foreach ( $GLOBALS['wpdb']->log as $sql ) {
+		ok( ! str_contains( $sql, 'INSERT INTO' ), 'no event was written: ' . substr( $sql, 0, 60 ) );
+		ok( ! str_contains( $sql, 'DELETE FROM' ), 'nothing was deleted: ' . substr( $sql, 0, 60 ) );
+	}
+
+	is_same( $products_before, $GLOBALS['bap_products'], 'no product was touched' );
+} );
+
+/* ============================================================ */
 /* Importing a results file                                     */
 /* ============================================================ */
 

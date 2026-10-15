@@ -273,43 +273,78 @@ class BAP_UX_Tasks {
 	 */
 	private static function search_tasks( $from, $to ) {
 		$searches = BAP_Local_Reports::explorer( $from, $to )['searches'];
+		$empty    = array();
 		$barren   = array();
 
 		foreach ( $searches as $search ) {
-			if ( empty( $search['no_click'] ) || (int) $search['count'] < 3 ) {
+			if ( (int) $search['count'] < 3 ) {
 				continue;
 			}
 
-			$barren[] = $search;
+			// A measured zero is the stronger signal and gets its own task, so
+			// the advice can be "add the product or a synonym" rather than the
+			// older message that covered both cases and committed to neither.
+			if ( ! empty( $search['no_results'] ) ) {
+				$empty[] = $search;
+				continue;
+			}
+
+			if ( ! empty( $search['no_click'] ) ) {
+				$barren[] = $search;
+			}
 		}
 
-		if ( ! $barren ) {
-			return array();
-		}
+		$tasks = array();
 
-		$terms = array_slice( wp_list_pluck( $barren, 'term' ), 0, 6 );
-		$total = array_sum( wp_list_pluck( $barren, 'count' ) );
+		if ( $empty ) {
+			$terms = array_slice( wp_list_pluck( $empty, 'term' ), 0, 6 );
+			$total = array_sum( wp_list_pluck( $empty, 'count' ) );
 
-		return array(
-			self::task(
-				'search_barren',
+			$tasks[] = self::task(
+				'search_no_results',
 				'/',
-				'medium',
-				__( 'کاربران دنبال چیزی می‌گردند که پیدا نمی‌کنند', 'bahoosh-analytics-pro' ),
+				'high',
+				__( 'جست‌وجوهایی که هیچ نتیجه‌ای نداشتند', 'bahoosh-analytics-pro' ),
 				sprintf(
 					/* translators: %s: comma-separated search terms. */
-					__( 'این عبارت‌ها جست‌وجو شده‌اند و هیچ‌کس روی نتیجه‌ای کلیک نکرده: %s. یا این محصول‌ها را ندارید، یا نامشان با چیزی که مشتری می‌نویسد فرق دارد. افزودن محصول یا هم‌معنی کردن نام‌ها هر دو جواب می‌دهد.', 'bahoosh-analytics-pro' ),
+					__( 'این عبارت‌ها جست‌وجو شدند و جست‌وجوی سایت صفر نتیجه برگرداند: %s. یعنی این محصول را ندارید، یا دارید و نامش با چیزی که مشتری می‌نویسد فرق دارد. در صفحه «نجات جست‌وجو» می‌بینید کدام‌شان کدام است.', 'bahoosh-analytics-pro' ),
 					implode( '، ', $terms )
 				),
 				sprintf(
 					/* translators: 1: total searches, 2: number of terms. */
-					__( '%1$s جست‌وجو روی %2$s عبارت، بدون هیچ کلیکی', 'bahoosh-analytics-pro' ),
+					__( '%1$s جست‌وجو روی %2$s عبارت، با صفر نتیجه', 'bahoosh-analytics-pro' ),
+					number_format_i18n( $total ),
+					number_format_i18n( count( $empty ) )
+				),
+				(int) $total
+			);
+		}
+
+		if ( $barren ) {
+			$terms = array_slice( wp_list_pluck( $barren, 'term' ), 0, 6 );
+			$total = array_sum( wp_list_pluck( $barren, 'count' ) );
+
+			$tasks[] = self::task(
+				'search_barren',
+				'/',
+				'medium',
+				__( 'نتیجه آمد و کسی رویش کلیک نکرد', 'bahoosh-analytics-pro' ),
+				sprintf(
+					/* translators: %s: comma-separated search terms. */
+					__( 'این عبارت‌ها نتیجه داشتند ولی هیچ‌کس روی نتیجه‌ای کلیک نکرد: %s. محصول هست و شناخته نمی‌شود — عنوان، عکس، قیمت یا ترتیب نتایج را بررسی کنید. افزودن محصول اینجا کمکی نمی‌کند.', 'bahoosh-analytics-pro' ),
+					implode( '، ', $terms )
+				),
+				sprintf(
+					/* translators: 1: total searches, 2: number of terms. */
+					__( '%1$s جست‌وجو روی %2$s عبارت، با نتیجه ولی بدون کلیک', 'bahoosh-analytics-pro' ),
 					number_format_i18n( $total ),
 					number_format_i18n( count( $barren ) )
 				),
 				(int) $total
-			),
-		);
+			);
+		}
+
+		return $tasks;
 	}
 
 	/**

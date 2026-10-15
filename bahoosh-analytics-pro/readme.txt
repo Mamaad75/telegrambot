@@ -4,7 +4,7 @@ Tags: analytics, woocommerce, tracking, gdpr, ecommerce, funnels, ai, heatmap
 Requires at least: 5.8
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 4.13.1
+Stable tag: 4.14.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -139,6 +139,14 @@ Yes. Set `window.bapConsent` before the tracker loads, or dispatch a
 consent" enabled, nothing is collected until analytics consent is granted.
 
 == Changelog ==
+
+= 4.14.0 =
+* New: A "Search Rescue" screen. Searches that returned zero results are matched against the catalogue, so each one becomes an answer the shop can act on: there is a product that is probably what the shopper meant and the shop is missing the word, or there is not and the shop is missing the product. Those two need opposite fixes and were previously indistinguishable.
+* Fixed: The tracker has always sent the result count of each search — WordPress reads it from `$wp_query->found_posts` — and the event store dropped it, leaving the reports to guess from "searched and clicked nothing". That proxy conflated a catalogue gap with a presentation problem. The count is now stored, and the "searches that find nothing" task has split into two tasks with opposite advice.
+* New: A search whose result count was never reported — a site whose search bypasses `$wp_query`, or rows recorded before this version — is reported as unmeasured rather than counted as a failure, and the screen says how many are in that state.
+* New: Matching works with whichever model provider is configured, through a new plain `BAP_AI_Provider::complete()` entry point; with none configured, a built-in text matcher normalises Persian letter, zero-width-non-joiner and digit variants and compares character bigrams. The screen always states which of the two answered, because they differ in quality.
+* Security: A product id the model returns that was not in the list sent to it is discarded rather than shown, and a match below 55% confidence is reported as no match — with a small catalogue there is always a nearest product, and presenting it regardless would send shoppers to the wrong item. Only product ids and names are sent to the model; no prices, stock or descriptions.
+* Improved: Model results are cached against a fingerprint of the terms, catalogue, provider and model, so opening the screen costs no quota. Forcing a fresh run requires the settings capability.
 
 = 4.13.1 =
 * Fixed: A Gemini error now carries Google's own sentence instead of discarding it. Three unrelated problems arrive as HTTP 403 — the API not enabled on the project, a key restricted to a domain or IP, and the server's country not being served — and reporting one guess for all three sent people to check settings that were never wrong.

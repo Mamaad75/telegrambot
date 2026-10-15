@@ -20,6 +20,7 @@ class BAP_Admin {
 	const FUNNELS_SLUG     = 'bahoosh-analytics-funnels';
 	const AI_SLUG          = 'bahoosh-analytics-ai';
 	const TASKS_SLUG       = 'bahoosh-analytics-tasks';
+	const RESCUE_SLUG      = 'bahoosh-analytics-rescue';
 	const SEGMENTS_SLUG    = 'bahoosh-analytics-segments';
 	const ACCOUNT_SLUG     = 'bahoosh-analytics-account';
 
@@ -143,6 +144,17 @@ class BAP_Admin {
 			);
 		}
 
+		if ( BAP_Settings::get( 'module_search_rescue' ) && BAP_Commerce_Facts::available() ) {
+			add_submenu_page(
+				self::MENU_SLUG,
+				__( 'نجات جست‌وجو', 'bahoosh-analytics-pro' ),
+				__( 'نجات جست‌وجو', 'bahoosh-analytics-pro' ),
+				self::reports_capability(),
+				self::RESCUE_SLUG,
+				array( 'BAP_Rescue_Page', 'render' )
+			);
+		}
+
 		if ( BAP_Settings::get( 'module_ai' ) && BAP_Entitlements::can( 'ai_center' ) ) {
 			add_submenu_page(
 				self::MENU_SLUG,
@@ -221,6 +233,7 @@ class BAP_Admin {
 			array( 'slug' => self::FUNNELS_SLUG,     'label' => __( 'قیف فروش', 'bahoosh-analytics-pro' ),           'icon' => 'dashicons-filter',            'capability' => self::reports_capability(),  'enabled' => (bool) BAP_Settings::get( 'module_funnels' ) && BAP_Entitlements::can( 'funnels' ) ),
 			array( 'slug' => self::SEGMENTS_SLUG,    'label' => __( 'مشتریان', 'bahoosh-analytics-pro' ),            'icon' => 'dashicons-groups',            'capability' => self::reports_capability(),  'enabled' => BAP_Commerce_Facts::available() && BAP_Entitlements::can( 'revenue_intelligence' ) ),
 			array( 'slug' => self::TASKS_SLUG,       'label' => __( 'کارها', 'bahoosh-analytics-pro' ),               'icon' => 'dashicons-yes-alt',           'capability' => self::reports_capability(),  'enabled' => (bool) BAP_Settings::get( 'module_ux_tasks' ) ),
+			array( 'slug' => self::RESCUE_SLUG,      'label' => __( 'نجات جست‌وجو', 'bahoosh-analytics-pro' ),        'icon' => 'dashicons-search',            'capability' => self::reports_capability(),  'enabled' => (bool) BAP_Settings::get( 'module_search_rescue' ) && BAP_Commerce_Facts::available() ),
 			array( 'slug' => self::AI_SLUG,          'label' => __( 'هوش فروش', 'bahoosh-analytics-pro' ),           'icon' => 'dashicons-superhero-alt',     'capability' => self::reports_capability(),  'enabled' => (bool) BAP_Settings::get( 'module_ai' ) && BAP_Entitlements::can( 'ai_center' ) ),
 			array( 'slug' => self::ACCOUNT_SLUG,     'label' => __( 'اشتراک و انتشار', 'bahoosh-analytics-pro' ),     'icon' => 'dashicons-shield-alt',        'capability' => self::settings_capability(), 'enabled' => true ),
 			array( 'slug' => self::SETTINGS_SLUG,    'label' => __( 'تنظیمات', 'bahoosh-analytics-pro' ),            'icon' => 'dashicons-admin-generic',     'capability' => self::settings_capability(), 'enabled' => true ),
@@ -420,6 +433,11 @@ class BAP_Admin {
 			return;
 		}
 
+		if ( self::RESCUE_SLUG === $page ) {
+			self::enqueue_rescue();
+			return;
+		}
+
 		$studio_pages = array( self::FUNNELS_SLUG, self::AI_SLUG );
 		if ( in_array( $page, $studio_pages, true ) ) {
 			self::enqueue_studio();
@@ -527,6 +545,51 @@ class BAP_Admin {
 	 *
 	 * @return void
 	 */
+	/**
+	 * Script and strings for the search rescue screen.
+	 *
+	 * @return void
+	 */
+	private static function enqueue_rescue() {
+		wp_enqueue_script( 'bahoosh-rescue', BAP_PLUGIN_URL . 'assets/admin/rescue.js', array(), BAP_VERSION, true );
+
+		wp_localize_script(
+			'bahoosh-rescue',
+			'BAP_RESCUE',
+			array(
+				'restUrl' => rest_url( BAP_REST_Controller::NAMESPACE_V2 . '/search-rescue' ),
+				'nonce'   => wp_create_nonce( 'wp_rest' ),
+				'i18n'    => array(
+					'loading'        => __( 'در حال خواندن…', 'bahoosh-analytics-pro' ),
+					'asking'         => __( 'در حال تطبیق با مدل… چند ثانیه طول می‌کشد.', 'bahoosh-analytics-pro' ),
+					'error'          => __( 'فهرست بارگذاری نشد.', 'bahoosh-analytics-pro' ),
+					'empty'          => __( 'جست‌وجوی بی‌نتیجه‌ای که به حد نصاب برسد پیدا نشد.', 'bahoosh-analytics-pro' ),
+					'lostSearches'   => __( 'جست‌وجوی بی‌نتیجه', 'bahoosh-analytics-pro' ),
+					'synonyms'       => __( 'محصولش را دارید', 'bahoosh-analytics-pro' ),
+					'missing'        => __( 'محصولش را ندارید', 'bahoosh-analytics-pro' ),
+					'catalogue'      => __( 'محصول بررسی‌شده', 'bahoosh-analytics-pro' ),
+					'verdictSynonym' => __( 'کلمه را کم دارید', 'bahoosh-analytics-pro' ),
+					'verdictMissing' => __( 'محصول را کم دارید', 'bahoosh-analytics-pro' ),
+					/* translators: %s: number of searches. */
+					'searchedTimes'  => __( '%s بار جست‌وجو شد', 'bahoosh-analytics-pro' ),
+					/* translators: %s: number of visitors. */
+					'visitors'       => __( 'توسط %s نفر', 'bahoosh-analytics-pro' ),
+					'probablyMeant'  => __( 'احتمالاً این را می‌خواستند:', 'bahoosh-analytics-pro' ),
+					/* translators: %s: confidence percentage. */
+					'confidence'     => __( 'اطمینان %s٪', 'bahoosh-analytics-pro' ),
+					/* translators: %s: the search term. */
+					'adviceSynonym'  => __( '«%s» را به‌عنوان هم‌معنی این محصول در افزونه جست‌وجوی خود اضافه کنید، یا در عنوان محصول بیاوریدش.', 'bahoosh-analytics-pro' ),
+					'adviceMissing'  => __( 'محصول نزدیکی در فروشگاه پیدا نشد. این یعنی واقعاً آن را ندارید — اگر تقاضا دارد، اضافه کردنش ارزش دارد.', 'bahoosh-analytics-pro' ),
+					'editProduct'    => __( 'ویرایش محصول', 'bahoosh-analytics-pro' ),
+					'viewProduct'    => __( 'دیدن محصول', 'bahoosh-analytics-pro' ),
+					'byLocal'        => __( 'تطبیق با روش متنی داخلی انجام شد (بدون مدل). مدل زبانی معنا را می‌فهمد و این فقط شباهت نوشتاری را.', 'bahoosh-analytics-pro' ),
+					/* translators: %s: provider id. */
+					'byModel'        => __( 'تطبیق با مدل %s انجام شد.', 'bahoosh-analytics-pro' ),
+				),
+			)
+		);
+	}
+
 	private static function enqueue_tasks() {
 		wp_enqueue_script( 'bahoosh-tasks', BAP_PLUGIN_URL . 'assets/admin/tasks.js', array(), BAP_VERSION, true );
 

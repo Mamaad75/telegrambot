@@ -844,3 +844,49 @@ body.bap-density-compact .bap-wrap {
   color: var(--bap-accent-2);
   flex-shrink: 0;
 }
+
+/* ---------------------------------------------------------------- rescue
+   The search rescue rows. Two verdicts, told apart by the accent stripe:
+   a word the shop is missing (actionable today) versus a product it is
+   missing (a stocking decision). */
+
+.bap-rescue-list { display: flex; flex-direction: column; gap: var(--bap-sp-3); }
+
+.bap-rescue-row {
+  background: var(--bap-surface);
+  border: 1px solid var(--bap-border);
+  border-radius: var(--bap-radius);
+  padding: var(--bap-sp-4);
+  display: grid;
+  gap: var(--bap-sp-2);
+  min-width: 0;
+}
+.bap-rescue-row.is-synonym { border-inline-start: 3px solid var(--bap-accent); }
+.bap-rescue-row.is-missing { border-inline-start: 3px solid var(--bap-warning); }
+
+.bap-rescue-row__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--bap-sp-2); }
+.bap-rescue-row__head h3 { margin: 0; font-size: var(--bap-fs-lg); }
+
+.bap-rescue-row__meta {
+  display: flex; flex-wrap: wrap; gap: var(--bap-sp-3);
+  font-size: var(--bap-fs-sm); color: var(--bap-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.bap-rescue-row__match {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--bap-sp-2);
+  padding: var(--bap-sp-3);
+  background: var(--bap-surface-2);
+  border-radius: var(--bap-radius-sm);
+  font-size: var(--bap-fs-md);
+}
+.bap-rescue-row__match strong { font-size: var(--bap-fs-lg); }
+
+.bap-rescue-row__reason,
+.bap-rescue-row__advice { margin: 0; font-size: var(--bap-fs-sm); color: var(--bap-muted); }
+.bap-rescue-row__advice { color: var(--bap-text); }
+
+.bap-rescue-row__actions { display: flex; flex-wrap: wrap; gap: var(--bap-sp-2); }
+
+.bap-rescue-provider { margin: 0; font-size: var(--bap-fs-sm); color: var(--bap-muted); }
+.bap-rescue-error { margin: 0; font-size: var(--bap-fs-sm); color: var(--bap-warning); }

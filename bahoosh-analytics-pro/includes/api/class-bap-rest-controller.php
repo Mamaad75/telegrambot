@@ -149,6 +149,19 @@ class BAP_REST_Controller {
 
 		register_rest_route(
 			self::NAMESPACE_V2,
+			'/search-rescue',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( __CLASS__, 'handle_search_rescue' ),
+				// A fresh run spends a model call, so asking for one needs the
+				// capability that owns the model settings; reading the cached
+				// run only needs report access.
+				'permission_callback' => array( __CLASS__, 'can_view_reports' ),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE_V2,
 			'/journeys',
 			array(
 				'methods'             => 'GET',
@@ -1032,6 +1045,31 @@ class BAP_REST_Controller {
 					'elementor' => BAP_Page_Resolver::elementor_active(),
 				),
 				BAP_UX_Tasks::build( $range['from'], $range['to'] )
+			),
+			200
+		);
+	}
+
+	/**
+	 * The search rescue list: failed searches matched to products.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response
+	 */
+	public static function handle_search_rescue( WP_REST_Request $request ) {
+		$range = BAP_Reports::normalize_range( $request->get_param( 'range' ), $request->get_param( 'from' ), $request->get_param( 'to' ) );
+		$fresh = (bool) $request->get_param( 'fresh' );
+
+		// A fresh run calls the model and costs quota, so it is gated on the
+		// settings capability rather than read access.
+		if ( $fresh && ! self::can_manage_settings() ) {
+			$fresh = false;
+		}
+
+		return new WP_REST_Response(
+			array_merge(
+				array( 'success' => true, 'range' => $range ),
+				BAP_Search_Rescue::report( $range['from'], $range['to'], $fresh )
 			),
 			200
 		);

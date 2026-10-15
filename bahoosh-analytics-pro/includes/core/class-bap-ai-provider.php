@@ -254,6 +254,254 @@ class BAP_AI_Provider {
 	}
 
 	/**
+	 * Asks the configured model one question and returns its text.
+	 *
+	 * {@see analyze()} is built around the analysis packet: it attaches
+	 * executable actions, falls back to the rule engine and verifies evidence
+	 * ids. A second feature that needs a model for something else — matching a
+	 * failed search term to the catalogue, say — needs none of that, and
+	 * routing it through analyze() would mean pretending its question is an
+	 * analysis packet.
+	 *
+	 * So this is the plain call: one system prompt, one user payload, text back.
+	 * It speaks whichever provider is configured, and deliberately refuses the
+	 * `local` provider rather than inventing an answer — a caller that needs to
+	 * work without a model must bring its own deterministic path.
+	 *
+	 * @param string $system  System prompt.
+	 * @param mixed  $payload User payload; arrays are JSON-encoded.
+	 * @return array{ok:bool,text:string,error:string,provider:string}
+	 */
+	public static function complete( $system, $payload ) {
+		$provider = self::current();
+		$user     = is_string( $payload ) ? $payload : (string) wp_json_encode( $payload );
+
+		if ( self::PROVIDER_LOCAL === $provider ) {
+			return array(
+				'ok'       => false,
+				'text'     => '',
+				'provider' => $provider,
+				'error'    => __( 'موتور قانون‌محور داخلی مدل زبانی ندارد.', 'bahoosh-analytics-pro' ),
+			);
+		}
+
+		if ( self::PROVIDER_GEMINI === $provider ) {
+			return self::complete_gemini( $system, $user );
+		}
+
+		if ( self::PROVIDER_WEBHOOK === $provider ) {
+			return self::complete_webhook( $system, $user );
+		}
+
+		return self::complete_chat( $system, $user, $provider );
+	}
+
+	/**
+	 * `complete()` over an OpenAI-compatible endpoint.
+	 *
+	 * @param string $system   System prompt.
+	 * @param string $user     User payload.
+	 * @param string $provider Provider id.
+	 * @return array
+	 */
+	private static function complete_chat( $system, $user, $provider ) {
+		$base  = self::base_url();
+		$model = self::model();
+
+		if ( '' === $base || '' === $model ) {
+			return self::completion( false, '', $provider, __( 'آدرس سرویس مدل یا نام مدل تنظیم نشده است.', 'bahoosh-analytics-pro' ) );
+		}
+
+		$headers = array( 'Content-Type' => 'application/json' );
+		$key     = self::api_key();
+
+		if ( '' !== $key ) {
+			$headers['Authorization'] = 'Bearer ' . $key;
+		}
+
+		$response = wp_remote_post(
+			self::chat_endpoint( $base ),
+			array(
+				'timeout' => self::TIMEOUT,
+				'headers' => $headers,
+				'body'    => wp_json_encode(
+					array(
+						'model'           => $model,
+						'temperature'     => 0.1,
+						'messages'        => array(
+							array( 'role' => 'system', 'content' => $system ),
+							array( 'role' => 'user', 'content' => $user ),
+						),
+						'response_format' => array( 'type' => 'json_object' ),
+					)
+				),
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			return self::completion( false, '', $provider, self::connection_hint( $response->get_error_message() ) );
+		}
+
+		$status = (int) wp_remote_retrieve_response_code( $response );
+
+		if ( $status < 200 || $status >= 300 ) {
+			return self::completion(
+				false,
+				'',
+				$provider,
+				sprintf(
+					/* translators: %d: HTTP status code. */
+					__( 'سرویس مدل با کد %d پاسخ داد.', 'bahoosh-analytics-pro' ),
+					$status
+				)
+			);
+		}
+
+		$decoded = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+		$text    = is_array( $decoded ) ? (string) ( $decoded['choices'][0]['message']['content'] ?? '' ) : '';
+
+		return '' === trim( $text )
+			? self::completion( false, '', $provider, __( 'پاسخ مدل قابل خواندن نبود.', 'bahoosh-analytics-pro' ) )
+			: self::completion( true, $text, $provider, '' );
+	}
+
+	/**
+	 * `complete()` over Gemini.
+	 *
+	 * @param string $system System prompt.
+	 * @param string $user   User payload.
+	 * @return array
+	 */
+	private static function complete_gemini( $system, $user ) {
+		$key = self::api_key();
+
+		if ( '' === $key ) {
+			return self::completion( false, '', self::PROVIDER_GEMINI, __( 'کلید Google AI Studio وارد نشده است.', 'bahoosh-analytics-pro' ) );
+		}
+
+		$response = wp_remote_post(
+			self::gemini_endpoint( self::base_url(), self::model(), 'generateContent' ),
+			array(
+				'timeout' => self::TIMEOUT,
+				'headers' => array( 'Content-Type' => 'application/json', 'x-goog-api-key' => $key ),
+				'body'    => wp_json_encode(
+					array(
+						'system_instruction' => array( 'parts' => array( array( 'text' => $system ) ) ),
+						'contents'           => array( array( 'role' => 'user', 'parts' => array( array( 'text' => $user ) ) ) ),
+						'generationConfig'   => array( 'temperature' => 0.1, 'responseMimeType' => 'application/json' ),
+					)
+				),
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			return self::completion( false, '', self::PROVIDER_GEMINI, self::connection_hint( $response->get_error_message() ) );
+		}
+
+		$status  = (int) wp_remote_retrieve_response_code( $response );
+		$decoded = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+		$decoded = is_array( $decoded ) ? $decoded : array();
+
+		if ( $status < 200 || $status >= 300 ) {
+			return self::completion( false, '', self::PROVIDER_GEMINI, self::gemini_error( $status, $decoded ) );
+		}
+
+		$text = self::gemini_content( $decoded );
+
+		return '' === $text
+			? self::completion( false, '', self::PROVIDER_GEMINI, self::gemini_empty_reason( $decoded ) )
+			: self::completion( true, $text, self::PROVIDER_GEMINI, '' );
+	}
+
+	/**
+	 * `complete()` over an automation webhook.
+	 *
+	 * The workflow receives a `task` field so one webhook can serve more than
+	 * one feature and branch on it, instead of needing a second URL.
+	 *
+	 * @param string $system System prompt.
+	 * @param string $user   User payload.
+	 * @return array
+	 */
+	private static function complete_webhook( $system, $user ) {
+		$url = self::base_url();
+
+		if ( '' === $url ) {
+			return self::completion( false, '', self::PROVIDER_WEBHOOK, __( 'آدرس وبهوک تنظیم نشده است.', 'bahoosh-analytics-pro' ) );
+		}
+
+		$headers = array( 'Content-Type' => 'application/json' );
+		$key     = self::api_key();
+
+		if ( '' !== $key ) {
+			$headers['Authorization']   = 'Bearer ' . $key;
+			$headers['X-Bahoosh-Token'] = $key;
+		}
+
+		$response = wp_remote_post(
+			$url,
+			array(
+				'timeout' => self::TIMEOUT,
+				'headers' => $headers,
+				'body'    => wp_json_encode(
+					array(
+						'source'        => 'bahoosh-analytics-pro',
+						'version'       => BAP_VERSION,
+						'task'          => 'search_rescue',
+						'system_prompt' => $system,
+						'payload'       => json_decode( $user, true ),
+					)
+				),
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
+			return self::completion( false, '', self::PROVIDER_WEBHOOK, $response->get_error_message() );
+		}
+
+		$status = (int) wp_remote_retrieve_response_code( $response );
+
+		if ( $status < 200 || $status >= 300 ) {
+			return self::completion(
+				false,
+				'',
+				self::PROVIDER_WEBHOOK,
+				sprintf(
+					/* translators: %d: HTTP status code. */
+					__( 'وبهوک با کد %d پاسخ داد.', 'bahoosh-analytics-pro' ),
+					$status
+				)
+			);
+		}
+
+		// The same unwrapping the analysis path uses, so an n8n node that
+		// returns {output: "..."} works here too.
+		$text = self::webhook_content( (string) wp_remote_retrieve_body( $response ) );
+
+		return '' === trim( $text )
+			? self::completion( false, '', self::PROVIDER_WEBHOOK, __( 'پاسخ وبهوک قابل خواندن نبود.', 'bahoosh-analytics-pro' ) )
+			: self::completion( true, $text, self::PROVIDER_WEBHOOK, '' );
+	}
+
+	/**
+	 * Normalises a completion result.
+	 *
+	 * @param bool   $ok       Success.
+	 * @param string $text     Model text.
+	 * @param string $provider Provider id.
+	 * @param string $error    Error message.
+	 * @return array
+	 */
+	private static function completion( $ok, $text, $provider, $error ) {
+		return array(
+			'ok'       => (bool) $ok,
+			'text'     => (string) $text,
+			'provider' => (string) $provider,
+			'error'    => (string) $error,
+		);
+	}
+
+	/**
 	 * Calls Gemini's generateContent endpoint.
 	 *
 	 * Gemini does publish an OpenAI-compatible surface, and routing through

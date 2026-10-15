@@ -115,6 +115,7 @@ class BAP_Local_Store {
 			browser VARCHAR(60) NOT NULL DEFAULT '',
 			label VARCHAR(190) NOT NULL DEFAULT '',
 			value DECIMAL(18,4) NOT NULL DEFAULT 0,
+			result_count INT NOT NULL DEFAULT -1,
 			occurred_at DATETIME NOT NULL,
 			PRIMARY KEY  (id),
 			UNIQUE KEY event_id (event_id),
@@ -160,6 +161,7 @@ class BAP_Local_Store {
 		);
 
 		$row = array(
+			'result_count' => self::result_count( $type, $data ),
 			'event_id'      => substr( (string) ( $event['event_id'] ?? '' ), 0, 64 ),
 			'event_type'    => substr( $type, 0, 64 ),
 			'anonymous_id'  => substr( (string) ( $event['identity']['anonymous_id'] ?? '' ), 0, 64 ),
@@ -305,7 +307,7 @@ class BAP_Local_Store {
 		$rows = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$wpdb->prepare(
 				// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name is not user input.
-				"SELECT event_type, anonymous_id, page_view_id, page_path, referrer_host, device, browser, label, value, occurred_at
+				"SELECT event_type, anonymous_id, page_view_id, page_path, referrer_host, device, browser, label, value, result_count, occurred_at
 				 FROM {$table}
 				 WHERE occurred_at >= %s AND occurred_at <= %s
 				 ORDER BY occurred_at ASC
@@ -485,6 +487,34 @@ class BAP_Local_Store {
 	 * @param array  $data Event data.
 	 * @return string
 	 */
+	/**
+	 * How many results a search returned.
+	 *
+	 * The tracker has always sent this — WordPress reads it from
+	 * `$wp_query->found_posts` — and the store used to drop it, which left the
+	 * reports guessing from "searched and clicked nothing". That proxy conflates
+	 * two different problems: a term with no results at all means the catalogue
+	 * is missing something or named it differently, while a term with results
+	 * that nobody clicks means the products are there and unrecognisable. The
+	 * fixes are opposite, so the count is now kept.
+	 *
+	 * `-1` means "not applicable or not reported", which is distinct from a
+	 * genuine zero. A search tracked before this column existed, or sent by a
+	 * site whose search is not WordPress's own, stays -1 and is excluded from
+	 * the zero-result reports rather than counted as a failure.
+	 *
+	 * @param string $type Event type.
+	 * @param array  $data Event data.
+	 * @return int
+	 */
+	private static function result_count( $type, array $data ) {
+		if ( 'search' !== $type || ! isset( $data['results_count'] ) || ! is_numeric( $data['results_count'] ) ) {
+			return -1;
+		}
+
+		return max( 0, min( 1000000, (int) $data['results_count'] ) );
+	}
+
 	private static function label( $type, array $data ) {
 		$source = '';
 

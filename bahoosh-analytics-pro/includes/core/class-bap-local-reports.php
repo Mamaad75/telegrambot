@@ -966,10 +966,32 @@ class BAP_Local_Reports {
 				$term = (string) $row['label'];
 
 				if ( ! isset( $searches[ $term ] ) ) {
-					$searches[ $term ] = array( 'term' => $term, 'count' => 0, 'visitors' => array(), 'clicked' => array() );
+					$searches[ $term ] = array(
+						'term'     => $term,
+						'count'    => 0,
+						'visitors' => array(),
+						'clicked'  => array(),
+						// Counted separately so a term that returned nothing on
+						// Monday and something on Friday is not reported as a
+						// catalogue gap. -1 rows (search not reported by
+						// WordPress, or recorded before the column existed) fall
+						// into neither bucket.
+						'empty'    => 0,
+						'measured' => 0,
+					);
 				}
 
 				$searches[ $term ]['count']++;
+
+				$reported = isset( $row['result_count'] ) ? (int) $row['result_count'] : -1;
+
+				if ( $reported >= 0 ) {
+					$searches[ $term ]['measured']++;
+
+					if ( 0 === $reported ) {
+						$searches[ $term ]['empty']++;
+					}
+				}
 
 				if ( '' !== $row['anonymous_id'] ) {
 					$searches[ $term ]['visitors'][ $row['anonymous_id'] ] = true;
@@ -1044,10 +1066,17 @@ class BAP_Local_Reports {
 			}
 
 			$searches[ $term ]['clicked'] = $clicked;
-			// A term people search and then never click is the most actionable
-			// row on the screen: the shop either lacks the product or is not
-			// showing it in a way anyone recognises.
-			$searches[ $term ]['no_click'] = empty( $clicked );
+			// Two different failures, kept apart because they need opposite
+			// fixes. `no_results` means the search engine returned nothing: the
+			// catalogue is missing the product or spells it differently.
+			// `no_click` means results came back and nobody wanted them: the
+			// products exist and are not recognisable.
+			$searches[ $term ]['no_click']   = empty( $clicked );
+			$searches[ $term ]['no_results'] = $row['measured'] > 0 && $row['empty'] === $row['measured'];
+			// True when the site's search is not WordPress's own, or the rows
+			// predate the result_count column. The screens say so rather than
+			// implying the count is a real zero.
+			$searches[ $term ]['unmeasured'] = 0 === $row['measured'];
 		}
 
 		uasort( $pages, static fn( $a, $b ) => $b['events'] <=> $a['events'] );

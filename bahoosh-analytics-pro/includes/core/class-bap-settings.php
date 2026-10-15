@@ -65,6 +65,7 @@ class BAP_Settings {
 			// On by default because it cannot do harm, and switchable because
 			// a shop that does not want another screen should not have one.
 			'module_ux_tasks'         => true,
+			'module_search_rescue'    => true,
 			'ai_enabled'              => false,
 			'ai_autonomy'             => 'approval',
 			'ai_min_confidence'       => 80,
@@ -203,6 +204,7 @@ class BAP_Settings {
 			'module_journeys',
 			'module_ai',
 			'module_ux_tasks',
+			'module_search_rescue',
 			'ai_enabled',
 			'multi_tab_coordination',
 			'debug',
