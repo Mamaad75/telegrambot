@@ -71,6 +71,7 @@ class BAP_Admin {
 		add_filter( 'admin_body_class', array( __CLASS__, 'admin_body_class' ) );
 		add_filter( 'plugin_action_links_' . BAP_PLUGIN_BASENAME, array( __CLASS__, 'action_links' ) );
 
+		BAP_Admin_Theme::init();
 		BAP_Settings_Page::init();
 		BAP_Diagnostics_Page::init();
 		BAP_Inspector_Page::init();
@@ -118,7 +119,6 @@ class BAP_Admin {
 			__( 'رویدادها و صفحات', 'bahoosh-analytics-pro' ),
 			self::reports_capability(),
 			self::EXPLORER_SLUG,
-			self::TASKS_SLUG,
 			array( 'BAP_Explorer_Page', 'render' )
 		);
 
@@ -178,14 +178,20 @@ class BAP_Admin {
 			);
 		}
 
-		add_submenu_page(
-			self::MENU_SLUG,
-			__( 'اشتراک، لایسنس و انتشار', 'bahoosh-analytics-pro' ),
-			__( 'اشتراک و انتشار', 'bahoosh-analytics-pro' ),
-			self::settings_capability(),
-			self::ACCOUNT_SLUG,
-			array( 'BAP_Account_Page', 'render' )
-		);
+		// Hidden until the licensing service exists. Without it this screen can
+		// only ever report "inactive" on a plugin that is working, which is a
+		// fault report for something that is not a fault. One line in
+		// BAP_Roadmap::WAITING brings it back.
+		if ( BAP_Roadmap::available( 'licensing' ) ) {
+			add_submenu_page(
+				self::MENU_SLUG,
+				__( 'اشتراک، لایسنس و انتشار', 'bahoosh-analytics-pro' ),
+				__( 'اشتراک و انتشار', 'bahoosh-analytics-pro' ),
+				self::settings_capability(),
+				self::ACCOUNT_SLUG,
+				array( 'BAP_Account_Page', 'render' )
+			);
+		}
 
 		add_submenu_page(
 			self::MENU_SLUG,
@@ -199,7 +205,7 @@ class BAP_Admin {
 		// The queue inspector inspects the delivery queue to a collector. With
 		// no collector there is no queue, and the screen would only ever be
 		// empty, so it appears when it has something to show.
-		if ( BAP_Settings::is_configured() ) {
+		if ( BAP_Roadmap::available( 'collector' ) ) {
 			add_submenu_page(
 				self::MENU_SLUG,
 				__( 'صف ارسال به کالکتور', 'bahoosh-analytics-pro' ),
@@ -235,9 +241,9 @@ class BAP_Admin {
 			array( 'slug' => self::TASKS_SLUG,       'label' => __( 'کارها', 'bahoosh-analytics-pro' ),               'icon' => 'dashicons-yes-alt',           'capability' => self::reports_capability(),  'enabled' => (bool) BAP_Settings::get( 'module_ux_tasks' ) ),
 			array( 'slug' => self::RESCUE_SLUG,      'label' => __( 'نجات جست‌وجو', 'bahoosh-analytics-pro' ),        'icon' => 'dashicons-search',            'capability' => self::reports_capability(),  'enabled' => (bool) BAP_Settings::get( 'module_search_rescue' ) && BAP_Commerce_Facts::available() ),
 			array( 'slug' => self::AI_SLUG,          'label' => __( 'هوش فروش', 'bahoosh-analytics-pro' ),           'icon' => 'dashicons-superhero-alt',     'capability' => self::reports_capability(),  'enabled' => (bool) BAP_Settings::get( 'module_ai' ) && BAP_Entitlements::can( 'ai_center' ) ),
-			array( 'slug' => self::ACCOUNT_SLUG,     'label' => __( 'اشتراک و انتشار', 'bahoosh-analytics-pro' ),     'icon' => 'dashicons-shield-alt',        'capability' => self::settings_capability(), 'enabled' => true ),
+			array( 'slug' => self::ACCOUNT_SLUG,     'label' => __( 'اشتراک و انتشار', 'bahoosh-analytics-pro' ),     'icon' => 'dashicons-shield-alt',        'capability' => self::settings_capability(), 'enabled' => BAP_Roadmap::available( 'licensing' ) ),
 			array( 'slug' => self::SETTINGS_SLUG,    'label' => __( 'تنظیمات', 'bahoosh-analytics-pro' ),            'icon' => 'dashicons-admin-generic',     'capability' => self::settings_capability(), 'enabled' => true ),
-			array( 'slug' => self::INSPECTOR_SLUG,   'label' => __( 'صف ارسال', 'bahoosh-analytics-pro' ),           'icon' => 'dashicons-randomize',         'capability' => self::reports_capability(),  'enabled' => BAP_Settings::is_configured() ),
+			array( 'slug' => self::INSPECTOR_SLUG,   'label' => __( 'صف ارسال', 'bahoosh-analytics-pro' ),           'icon' => 'dashicons-randomize',         'capability' => self::reports_capability(),  'enabled' => BAP_Roadmap::available( 'collector' ) ),
 			array( 'slug' => self::DIAGNOSTICS_SLUG, 'label' => __( 'سلامت سیستم', 'bahoosh-analytics-pro' ),         'icon' => 'dashicons-heart',             'capability' => self::settings_capability(), 'enabled' => true ),
 		);
 	}
@@ -274,7 +280,10 @@ class BAP_Admin {
 			<?php endforeach; ?>
 			</div>
 			<div class="bap-nav-footer">
-				<div class="bap-nav-license <?php echo esc_attr( $status_class ); ?>"><span class="bap-nav-license__dot"></span><div><small><?php esc_html_e( 'وضعیت سرویس', 'bahoosh-analytics-pro' ); ?></small><strong><?php echo esc_html( $plan ?: ucfirst( $status ) ); ?></strong></div></div>
+				<?php self::render_theme_toggle(); ?>
+				<?php if ( ! BAP_Roadmap::pending( 'licensing' ) ) : ?>
+					<div class="bap-nav-license <?php echo esc_attr( $status_class ); ?>"><span class="bap-nav-license__dot"></span><div><small><?php esc_html_e( 'وضعیت سرویس', 'bahoosh-analytics-pro' ); ?></small><strong><?php echo esc_html( $plan ?: ucfirst( $status ) ); ?></strong></div></div>
+				<?php endif; ?>
 				<span class="bap-version-text">Bahoosh v<?php echo esc_html( BAP_VERSION ); ?></span>
 			</div>
 		</nav>
@@ -286,9 +295,36 @@ class BAP_Admin {
 			</div>
 			<div class="bap-page-hero__meta">
 				<a class="bap-command-link" href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::AI_SLUG ) ); ?>"><span class="dashicons dashicons-superhero-alt"></span><?php esc_html_e( 'پیشنهادهای هوشمند', 'bahoosh-analytics-pro' ); ?></a>
-				<span class="bap-status-chip <?php echo esc_attr( $status_class ); ?>"><span></span><?php echo esc_html( 'active' === $status ? __( 'سرویس فعال', 'bahoosh-analytics-pro' ) : ucfirst( str_replace( '_', ' ', $status ) ) ); ?></span>
+				<?php if ( ! BAP_Roadmap::pending( 'licensing' ) ) : ?>
+					<span class="bap-status-chip <?php echo esc_attr( $status_class ); ?>"><span></span><?php echo esc_html( 'active' === $status ? __( 'سرویس فعال', 'bahoosh-analytics-pro' ) : ucfirst( str_replace( '_', ' ', $status ) ) ); ?></span>
+				<?php endif; ?>
 			</div>
 		</header>
+		<?php
+	}
+
+	/**
+	 * The light/dark control, in the navigation rail.
+	 *
+	 * A three-way segmented control rather than a two-state switch, because
+	 * "follow the operating system" is a real third preference and a switch
+	 * forces the user to re-pick every time their machine changes mode.
+	 *
+	 * @return void
+	 */
+	public static function render_theme_toggle() {
+		$choice = BAP_Admin_Theme::preference();
+		?>
+		<div class="bap-theme-toggle" role="group" aria-label="<?php esc_attr_e( 'ظاهر پنل', 'bahoosh-analytics-pro' ); ?>" data-bap-theme-toggle>
+			<?php foreach ( BAP_Admin_Theme::labels() as $value => $label ) : ?>
+				<button
+					type="button"
+					class="bap-theme-toggle__option <?php echo $choice === $value ? 'is-active' : ''; ?>"
+					data-bap-theme-value="<?php echo esc_attr( $value ); ?>"
+					aria-pressed="<?php echo $choice === $value ? 'true' : 'false'; ?>"
+				><?php echo esc_html( $label ); ?></button>
+			<?php endforeach; ?>
+		</div>
 		<?php
 	}
 
@@ -399,6 +435,24 @@ class BAP_Admin {
 			array(),
 			BAP_VERSION,
 			true
+		);
+
+		wp_enqueue_script(
+			'bahoosh-theme-toggle',
+			BAP_PLUGIN_URL . 'assets/admin/theme-toggle.js',
+			array(),
+			BAP_VERSION,
+			true
+		);
+
+		wp_localize_script(
+			'bahoosh-theme-toggle',
+			'bapTheme',
+			array(
+				'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+				'nonce'   => wp_create_nonce( 'bap_set_theme' ),
+				'choice'  => BAP_Admin_Theme::preference(),
+			)
 		);
 
 

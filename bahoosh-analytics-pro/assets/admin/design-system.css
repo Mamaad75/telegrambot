@@ -29,31 +29,98 @@
 
 /* ---------------------------------------------------------------- Tokens */
 
-.bap-wrap {
+/*
+ * Two themes, one vocabulary.
+ *
+ * The dark values below are the exact colours the interface already used, so
+ * switching nothing changes nothing. What is new is that they are now *named*:
+ * before this, four generations of stylesheet each hardcoded its own near-black
+ * and its own near-white — 142 distinct colour literals across admin.css for
+ * what is really about fifteen ideas — which is why a light theme was not a
+ * setting anyone could add. You cannot re-theme a value that has no name.
+ *
+ * Tokens come in three families and the distinction matters when adding one:
+ *
+ *   --bap-bg / surface / text / muted / border / tint   flip between themes
+ *   --bap-accent / success / warning / danger           shift, but stay the
+ *                                                       same colour
+ *   --bap-on-accent                                     never flips: it is the
+ *                                                       text on a filled accent
+ *                                                       button, which is white
+ *                                                       on violet in both
+ *
+ * Getting that last one wrong is the classic light-theme bug — the page turns
+ * white, every `#fff` becomes dark, and the text inside the primary button
+ * disappears into the violet.
+ */
+
+.bap-wrap,
+body.bap-admin-page #wpbody-content {
   /* Surfaces, from deepest to highest. */
-  --bap-bg: #070912;
+  --bap-bg: #070a12;
   --bap-bg-2: #0a0d18;
   --bap-surface: #0f1320;
   --bap-surface-2: #141929;
   --bap-surface-3: #1a2033;
+  --bap-surface-4: #2a3350;
 
-  --bap-border: rgba(255, 255, 255, 0.08);
-  --bap-border-soft: rgba(255, 255, 255, 0.055);
-  --bap-border-strong: rgba(255, 255, 255, 0.14);
+  /* Hairlines. Blue-grey rather than pure white: a white border on a
+     near-black surface reads as a glow, not an edge. */
+  --bap-border: rgba(158, 181, 211, 0.14);
+  --bap-border-soft: rgba(158, 181, 211, 0.1);
+  --bap-border-strong: rgba(158, 181, 211, 0.24);
 
   --bap-text: #f4f6fb;
   --bap-text-2: #c7cddd;
   --bap-muted: #8b94ad;
   --bap-faint: #646d85;
 
+  /* Washes used for hover states and zebra striping. They flip polarity
+     between themes — lightening a dark surface, darkening a light one — which
+     is the single change that makes the component layer theme-agnostic. */
+  --bap-tint-1: rgba(255, 255, 255, 0.018);
+  --bap-tint-2: rgba(255, 255, 255, 0.03);
+  --bap-tint-3: rgba(255, 255, 255, 0.05);
+  --bap-tint-4: rgba(255, 255, 255, 0.08);
+
   --bap-accent: #7c5cff;
   --bap-accent-2: #9d86ff;
-  --bap-accent-soft: rgba(124, 92, 255, 0.14);
+  --bap-accent-deep: #6447ed;
+  --bap-accent-text: #b8adff;
+  --bap-accent-faint: #d8d1ff;
+  --bap-accent-soft: color-mix(in srgb, var(--bap-accent) 14%, transparent);
+
+  /* Text that sits on a filled accent. White in both themes, on purpose. */
+  --bap-on-accent: #ffffff;
 
   --bap-success: #34d399;
+  --bap-success-2: #7ee1b4;
+  --bap-success-text: #ccefe4;
   --bap-warning: #fbbf24;
+  --bap-warning-text: #ffd69d;
   --bap-danger: #fb7185;
+  --bap-danger-text: #ff9aaa;
   --bap-info: #38bdf8;
+  --bap-teal: #41d6c3;
+
+  /* The focus ring has to contrast with the page, so it is the one outline
+     colour that must flip. */
+  --bap-focus-ring: #ffffff;
+
+  /* Shadow colours, kept separate from the shadows themselves because most
+     of them sit inside composite box-shadow values with their own offsets. */
+  --bap-ink-1: rgba(0, 0, 0, 0.14);
+  --bap-ink-2: rgba(0, 0, 0, 0.24);
+  --bap-ink-3: rgba(0, 0, 0, 0.45);
+
+  --bap-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+  --bap-shadow-soft: 0 10px 28px rgba(0, 0, 0, 0.18);
+  --bap-shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.3), 0 24px 56px -20px rgba(0, 0, 0, 0.6);
+
+  /* The page wash behind every card. */
+  --bap-canvas:
+    radial-gradient(850px 360px at 96% -8%, color-mix(in srgb, var(--bap-accent) 16%, transparent), transparent 62%),
+    linear-gradient(160deg, var(--bap-bg) 0%, var(--bap-bg-2) 52%, var(--bap-bg) 100%);
 
   /* Type scale. */
   --bap-fs-display: 26px;
@@ -75,31 +142,111 @@
   --bap-radius-lg: 20px;
   --bap-radius-sm: 9px;
 
-  --bap-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
-  --bap-shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.3), 0 24px 56px -20px rgba(0, 0, 0, 0.6);
-
   --bap-font: "Peyda", "IRANSansX", "Yekan Bakh", "Vazirmatn", -apple-system,
     BlinkMacSystemFont, "Segoe UI", Tahoma, sans-serif;
 
+  /* Tells the browser to draw scrollbars, date pickers and select popups to
+     match. Without it a dark panel gets a white native dropdown. */
+  color-scheme: dark;
+}
+
+/*
+ * Light.
+ *
+ * Keyed on an attribute set on <html> by an inline script in the document head,
+ * so the resolved theme is in place before the first paint — a class added on
+ * DOMContentLoaded would show a full dark page and then flash white.
+ *
+ * The status colours are darkened rather than reused. #34d399 is a pleasant
+ * green on near-black and fails contrast on white, and a theme that is only
+ * readable in one of its two modes is not a theme.
+ */
+html[data-bap-theme="light"] .bap-wrap,
+html[data-bap-theme="light"] body.bap-admin-page #wpbody-content,
+body.bap-admin-page html[data-bap-theme="light"] #wpbody-content {
+  --bap-bg: #eef1f7;
+  --bap-bg-2: #f6f8fc;
+  --bap-surface: #ffffff;
+  --bap-surface-2: #f7f9fc;
+  --bap-surface-3: #eef2f8;
+  --bap-surface-4: #e3e9f3;
+
+  --bap-border: rgba(24, 36, 62, 0.14);
+  --bap-border-soft: rgba(24, 36, 62, 0.09);
+  --bap-border-strong: rgba(24, 36, 62, 0.22);
+
+  --bap-text: #111a2e;
+  --bap-text-2: #35425c;
+  --bap-muted: #5c6880;
+  --bap-faint: #7b8699;
+
+  --bap-tint-1: rgba(24, 36, 62, 0.022);
+  --bap-tint-2: rgba(24, 36, 62, 0.04);
+  --bap-tint-3: rgba(24, 36, 62, 0.06);
+  --bap-tint-4: rgba(24, 36, 62, 0.09);
+
+  --bap-accent-2: #6d4ae0;
+  --bap-accent-deep: #4e35c8;
+  --bap-accent-text: #5a3fd4;
+  --bap-accent-faint: #4a32b8;
+  --bap-accent-soft: color-mix(in srgb, var(--bap-accent) 10%, transparent);
+
+  --bap-success: #0f9d6b;
+  --bap-success-2: #0b7a53;
+  --bap-success-text: #0a6847;
+  --bap-warning: #a96b09;
+  --bap-warning-text: #8a5311;
+  --bap-danger: #d23651;
+  --bap-danger-text: #ab253c;
+  --bap-info: #0b7fb5;
+  --bap-teal: #0d8f82;
+
+  --bap-focus-ring: #111a2e;
+
+  --bap-ink-1: rgba(24, 36, 62, 0.05);
+  --bap-ink-2: rgba(24, 36, 62, 0.08);
+  --bap-ink-3: rgba(24, 36, 62, 0.14);
+
+  --bap-shadow: 0 1px 2px rgba(24, 36, 62, 0.06), 0 8px 24px -12px rgba(24, 36, 62, 0.14);
+  --bap-shadow-soft: 0 10px 28px rgba(24, 36, 62, 0.07);
+  --bap-shadow-lg: 0 2px 4px rgba(24, 36, 62, 0.05), 0 24px 56px -20px rgba(24, 36, 62, 0.16);
+
+  --bap-canvas:
+    radial-gradient(850px 360px at 96% -8%, color-mix(in srgb, var(--bap-accent) 9%, transparent), transparent 62%),
+    linear-gradient(160deg, var(--bap-bg-2) 0%, var(--bap-bg) 60%, var(--bap-bg-2) 100%);
+
+  color-scheme: light;
+}
+
+/*
+ * The shell.
+ *
+ * One rule. There used to be four — one here and three in admin.css, each with
+ * `!important`, each with a different margin — and the gap between the
+ * WordPress menu and this panel was whichever of them happened to win plus
+ * WordPress's own gutter on top.
+ */
+.bap-wrap {
+  box-sizing: border-box;
   direction: rtl;
   text-align: right;
   font-family: var(--bap-font);
   font-size: var(--bap-fs-md);
   line-height: 1.75;
   color: var(--bap-text);
-
-  /* A single, low-contrast wash. The previous background layered a 22%
-     radial gradient over a three-stop linear one, which fought every surface
-     placed on top of it. */
-  background: radial-gradient(120% 80% at 88% -20%, rgba(124, 92, 255, 0.1), transparent 55%),
-    linear-gradient(180deg, var(--bap-bg-2), var(--bap-bg));
-
+  background: var(--bap-canvas);
   border: 1px solid var(--bap-border-soft);
   border-radius: var(--bap-radius-lg);
   box-shadow: var(--bap-shadow-lg);
   padding: var(--bap-sp-6);
-  margin: 18px 12px 24px 20px;
-  min-height: calc(100vh - 120px);
+  /* Logical, so the side nearest the WordPress menu is the same side in an
+     LTR install. `#wpcontent` has its own gutter zeroed in admin.css; this is
+     the only gap left, which is the point. */
+  margin: 12px;
+  margin-inline-start: 0;
+  width: auto;
+  max-width: none;
+  min-height: calc(100vh - 92px);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -169,7 +316,7 @@
 
 /* ------------------------------------------------------------- Navigation */
 
-.bap-primary-nav {
+.bap-primary-nav{
   display: flex;
   gap: var(--bap-sp-1);
   flex-wrap: wrap;
@@ -180,7 +327,7 @@
   border-radius: var(--bap-radius);
 }
 
-.bap-primary-nav a {
+.bap-primary-nav a{
   display: inline-flex;
   align-items: center;
   gap: var(--bap-sp-2);
@@ -193,19 +340,19 @@
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.bap-primary-nav a:hover {
+.bap-primary-nav a:hover{
   color: var(--bap-text);
   background: var(--bap-surface-2);
 }
 
 /* The active tab is the one place the accent earns a solid fill. */
-.bap-primary-nav a.is-active {
-  color: #fff;
+.bap-primary-nav a.is-active{
+  color: var(--bap-on-accent);
   background: var(--bap-accent);
-  box-shadow: 0 2px 12px -2px rgba(124, 92, 255, 0.55);
+  box-shadow: 0 2px 12px -2px color-mix(in srgb,var(--bap-accent) 55%,transparent);
 }
 
-.bap-primary-nav .dashicons {
+.bap-primary-nav .dashicons{
   font-size: 16px;
   width: 16px;
   height: 16px;
@@ -312,19 +459,17 @@
   color: var(--bap-text);
 }
 
-.bap-wrap .button-primary,
-.bap-wrap .bap-primary {
+.bap-wrap .button-primary,.bap-wrap button.button-primary,.bap-wrap .bap-primary,.bap-wrap button.bap-primary{
   background: var(--bap-accent);
   border-color: var(--bap-accent);
-  color: #fff;
-  box-shadow: 0 2px 14px -3px rgba(124, 92, 255, 0.6);
+  color: var(--bap-on-accent);
+  box-shadow: 0 2px 14px -3px color-mix(in srgb,var(--bap-accent) 60%,transparent);
 }
 
-.bap-wrap .button-primary:hover,
-.bap-wrap .bap-primary:hover {
+.bap-wrap .button-primary:hover,.bap-wrap button.button-primary:hover,.bap-wrap .bap-primary:hover,.bap-wrap button.bap-primary:hover{
   background: var(--bap-accent-2);
   border-color: var(--bap-accent-2);
-  color: #fff;
+  color: var(--bap-on-accent);
 }
 
 .bap-wrap .button[disabled] {
@@ -505,12 +650,12 @@
 
 .bap-delta.is-up {
   color: var(--bap-success);
-  background: rgba(52, 211, 153, 0.12);
+  background: color-mix(in srgb,var(--bap-success) 12%,transparent);
 }
 
 .bap-delta.is-down {
   color: var(--bap-danger);
-  background: rgba(251, 113, 133, 0.12);
+  background: color-mix(in srgb,var(--bap-danger) 12%,transparent);
 }
 
 .bap-delta.is-flat {
@@ -612,30 +757,30 @@
 .bap-badge.is-active,
 .bap-badge.is-good,
 .bap-status-chip--active {
-  background: rgba(52, 211, 153, 0.14);
+  background: color-mix(in srgb,var(--bap-success) 14%,transparent);
   color: var(--bap-success);
 }
 
 .bap-badge.is-recommended,
 .bap-status-chip--warning {
-  background: rgba(251, 191, 36, 0.14);
+  background: color-mix(in srgb,var(--bap-warning) 14%,transparent);
   color: var(--bap-warning);
 }
 
 .bap-badge.is-inactive,
 .bap-badge.is-critical,
 .bap-status-chip--error {
-  background: rgba(251, 113, 133, 0.14);
+  background: color-mix(in srgb,var(--bap-danger) 14%,transparent);
   color: var(--bap-danger);
 }
 
 .bap-severity.is-critical {
-  background: rgba(251, 113, 133, 0.16);
+  background: color-mix(in srgb,var(--bap-danger) 16%,transparent);
   color: var(--bap-danger);
 }
 
 .bap-severity.is-high {
-  background: rgba(251, 191, 36, 0.16);
+  background: color-mix(in srgb,var(--bap-warning) 16%,transparent);
   color: var(--bap-warning);
 }
 
@@ -655,7 +800,7 @@
   padding: var(--bap-sp-6) var(--bap-sp-4);
   border: 1px dashed var(--bap-border);
   border-radius: var(--bap-radius);
-  background: rgba(255, 255, 255, 0.012);
+  background: var(--bap-tint-1);
   color: var(--bap-muted);
   font-size: var(--bap-fs-sm);
   text-align: center;
@@ -729,18 +874,18 @@ body.bap-density-compact .bap-wrap {
     font-size: 25px;
   }
 
-  .bap-primary-nav {
+.bap-primary-nav{
     /* One scrollable row beats a six-line wrap on a phone. */
     flex-wrap: nowrap;
     overflow-x: auto;
     scrollbar-width: none;
   }
 
-  .bap-primary-nav::-webkit-scrollbar {
+.bap-primary-nav::-webkit-scrollbar{
     display: none;
   }
 
-  .bap-primary-nav a {
+.bap-primary-nav a{
     white-space: nowrap;
   }
 }

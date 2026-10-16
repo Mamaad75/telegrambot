@@ -119,10 +119,10 @@
     }
 
     var metricsToPlot = [
-      { key: "events", label: config.i18n.events, color: "#664dff" },
-      { key: "users", label: config.i18n.users, color: "#22c55e" },
-      { key: "sessions", label: config.i18n.sessions, color: "#f59e0b" },
-      { key: "page_views", label: config.i18n.pageViews, color: "#38bdf8" },
+      { key: "events", label: config.i18n.events },
+      { key: "users", label: config.i18n.users },
+      { key: "sessions", label: config.i18n.sessions },
+      { key: "page_views", label: config.i18n.pageViews },
     ];
 
     var max = 0;
@@ -154,12 +154,12 @@
       svg.appendChild(
         svgEl("line", {
           x1: pad.left, y1: y, x2: pad.left + plotW, y2: y,
-          stroke: "rgba(255,255,255,0.12)", "stroke-width": 1,
+          class: "bap-chart-grid", "stroke-width": 1,
         })
       );
       var label = svgEl("text", {
         x: pad.left - 8, y: y + 4, "text-anchor": "end",
-        fill: "#9aa3bd", "font-size": 11,
+        class: "bap-chart-label", "font-size": 11,
       });
       label.textContent = Math.round(max * fraction).toLocaleString("fa-IR");
       svg.appendChild(label);
@@ -187,7 +187,7 @@
         svgEl("polyline", {
           points: points.join(" "),
           fill: "none",
-          stroke: m.color,
+          class: "bap-chart-line bap-chart-line--" + m.key,
           "stroke-width": 2,
           "stroke-linejoin": "round",
           "stroke-linecap": "round",
@@ -201,7 +201,7 @@
         x: pad.left + index * stepX,
         y: height - 8,
         "text-anchor": 0 === index ? "start" : "end",
-        fill: "#9aa3bd",
+        class: "bap-chart-label",
         "font-size": 11,
       });
       label.textContent = window.BAPJalali ? window.BAPJalali.formatISO(series[index].date, false) : series[index].date;
@@ -215,8 +215,7 @@
     metricsToPlot.forEach(function (m) {
       var item = document.createElement("li");
       var swatch = document.createElement("span");
-      swatch.className = "bap-legend-swatch";
-      swatch.style.background = m.color;
+      swatch.className = "bap-legend-swatch bap-chart-line--" + m.key;
       item.appendChild(swatch);
       item.appendChild(document.createTextNode(m.label));
       legend.appendChild(item);

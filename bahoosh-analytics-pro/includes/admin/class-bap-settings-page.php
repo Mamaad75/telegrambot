@@ -156,6 +156,23 @@ class BAP_Settings_Page {
 				<input type="hidden" name="action" value="bap_save_settings" />
 				<?php wp_nonce_field( self::NONCE_ACTION, self::NONCE_FIELD ); ?>
 
+				<?php $roadmap = BAP_Roadmap::notes(); ?>
+				<?php if ( $roadmap ) : ?>
+					<h2><?php esc_html_e( 'قابلیت‌هایی که فعلاً نمایش داده نمی‌شوند', 'bahoosh-analytics-pro' ); ?></h2>
+					<table class="form-table" role="presentation">
+						<tr>
+							<td colspan="2">
+								<p class="description"><?php esc_html_e( 'این بخش‌ها نوشته شده‌اند ولی به سرویسی وابسته‌اند که هنوز راه‌اندازی نشده. به‌جای اینکه صفحه‌ای باز شود و کاری نکند، فعلاً از منو برداشته شده‌اند — و به محض آماده شدن سرویس، دقیقاً همان‌طور که هستند برمی‌گردند.', 'bahoosh-analytics-pro' ); ?></p>
+								<ul class="bap-roadmap-list">
+									<?php foreach ( $roadmap as $note ) : ?>
+										<li><span class="dashicons dashicons-clock" aria-hidden="true"></span><span><?php echo esc_html( $note ); ?></span></li>
+									<?php endforeach; ?>
+								</ul>
+							</td>
+						</tr>
+					</table>
+				<?php endif; ?>
+
 				<h2><?php esc_html_e( 'اتصال', 'bahoosh-analytics-pro' ); ?></h2>
 				<table class="form-table" role="presentation">
 					<tr>

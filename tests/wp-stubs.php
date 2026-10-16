@@ -168,6 +168,7 @@ function wp_remote_retrieve_header( $r, $h ) { return is_array( $r ) && isset( $
 
 function get_userdata( $id ) { return $GLOBALS['bap_users'][ (int) $id ] ?? false; }
 function get_user_meta( $id, $key = '', $single = false ) { return $GLOBALS['bap_user_meta'][ (int) $id ][ $key ] ?? ''; }
+function update_user_meta( $id, $key, $value ) { $GLOBALS['bap_user_meta'][ (int) $id ][ $key ] = $value; return true; }
 function is_email( $v ) { return (bool) filter_var( (string) $v, FILTER_VALIDATE_EMAIL ); }
 /**
  * A cron table, rather than a pair of constants.

@@ -2445,13 +2445,257 @@ test( 'ui: there is one authority on the design tokens', function () {
 	$system = file_get_contents( BAP_PLUGIN_DIR . 'assets/admin/design-system.css' );
 	$screen = file_get_contents( BAP_PLUGIN_DIR . 'assets/admin/admin.css' );
 
+	ok( str_contains( $system, '--bap-accent:' ), 'the design system defines the tokens' );
+
 	// admin.css used to carry three separate `.bap-wrap` blocks, each
-	// redefining the same variables and each overriding the last.
-	is_same( 0, substr_count( $screen, ".bap-wrap {\n  --bap-" ), 'screen styles no longer define tokens' );
-	ok( str_contains( $system, '--bap-accent:' ), 'the design system does' );
+	// redefining the same variables and each overriding the last. The earlier
+	// version of this test looked for a formatting the minified file never
+	// used, so it passed while all three were still there.
+	is_same( 0, preg_match_all( '/\.bap-wrap\s*\{[^}]*--bap-(?:bg|surface|text|border|accent)\b[^}]*:/', $screen ), 'screen styles no longer define surface tokens' );
 
 	// The 2px accent outline on every card was the loudest "unfinished" signal.
 	ok( ! str_contains( $system, 'border: 2px solid var(--bap-accent)' ) );
+} );
+
+test( 'ui: the shell — margin, padding, background — is declared once', function () {
+	$system = file_get_contents( BAP_PLUGIN_DIR . 'assets/admin/design-system.css' );
+	$screen = file_get_contents( BAP_PLUGIN_DIR . 'assets/admin/admin.css' );
+
+	// Outside a media query, exactly one rule may set the panel's margin. Three
+	// did, each with !important and a different value, and the gap between the
+	// WordPress menu and the panel was whichever one won plus WordPress's own
+	// gutter on top of it.
+	$outside = preg_replace( '/@media[^{]*\{(?:[^{}]*\{[^}]*\})*[^{}]*\}/', '', $system . "\n" . $screen );
+
+	is_same( 1, preg_match_all( '/\.bap-wrap\s*\{[^}]*\bmargin\s*:/', $outside ), 'one shell rule owns the margin' );
+	ok( str_contains( $screen, 'padding-inline-start:0!important' ), 'and WordPress’s own gutter is removed' );
+} );
+
+test( 'ui: no colour literal is left outside the token block', function () {
+	// The precondition for a light theme: a value with no name cannot be
+	// re-themed. admin.css carried 142 distinct colour literals for about
+	// fifteen ideas.
+	$screen = file_get_contents( BAP_PLUGIN_DIR . 'assets/admin/admin.css' );
+	$screen = preg_replace( '#/\*.*?\*/#s', '', $screen );
+
+	preg_match_all( '/#[0-9a-fA-F]{3,8}\b|rgba?\([0-9][^)]*\)/', $screen, $found );
+
+	is_same( array(), $found[0], 'every colour in the screen styles is a token' );
+} );
+
+test( 'ui: no custom property is defined in terms of itself', function () {
+	// `--bap-border:var(--bap-border)` is a self-reference, which CSS treats as
+	// invalid — it does not fall back, it voids the token for everything
+	// downstream. Two such blocks were produced while tokenising.
+	foreach ( array( 'design-system.css', 'admin.css' ) as $file ) {
+		$css = preg_replace( '#/\*.*?\*/#s', '', file_get_contents( BAP_PLUGIN_DIR . 'assets/admin/' . $file ) );
+
+		preg_match_all( '/(--bap-[a-z0-9-]+)\s*:([^;]+);/', $css, $rules, PREG_SET_ORDER );
+
+		foreach ( $rules as $rule ) {
+			ok( ! str_contains( $rule[2], 'var(' . $rule[1] ), $file . ': ' . $rule[1] . ' refers to itself' );
+		}
+	}
+} );
+
+test( 'ui: every token used is defined', function () {
+	$defined = array();
+	$used    = array();
+
+	foreach ( array( 'design-system.css', 'admin.css' ) as $file ) {
+		$css = preg_replace( '#/\*.*?\*/#s', '', file_get_contents( BAP_PLUGIN_DIR . 'assets/admin/' . $file ) );
+
+		preg_match_all( '/(--bap-[a-z0-9-]+)\s*:/', $css, $d );
+		preg_match_all( '/var\((--bap-[a-z0-9-]+)/', $css, $u );
+
+		$defined = array_merge( $defined, $d[1] );
+		$used    = array_merge( $used, $u[1] );
+	}
+
+	is_same( array(), array_values( array_diff( array_unique( $used ), $defined ) ) );
+} );
+
+test( 'ui: the primary button outranks the generic button rule', function () {
+	// `.bap-wrap button.button` is (0,2,1) and `.bap-wrap .button-primary` is
+	// (0,2,0). Both carry !important, so the generic rule won and every
+	// call-to-action rendered as a plain grey button — identical to the
+	// secondary one beside it. Invisible in dark, obvious in light.
+	$css = file_get_contents( BAP_PLUGIN_DIR . 'assets/admin/admin.css' );
+
+	// The negative lookahead keeps `.bap-primary-nav` — a different thing
+	// entirely — out of the match.
+	preg_match_all( '/([^{}]*\.(?:button-primary|bap-primary)(?![\w-])[^{}]*)\{/', $css, $rules );
+
+	ok( $rules[1], 'the primary button is styled somewhere' );
+
+	foreach ( $rules[1] as $selector ) {
+		if ( ! str_contains( $selector, '.bap-wrap' ) ) {
+			continue;
+		}
+
+		ok(
+			str_contains( $selector, 'button.button-primary' ) || str_contains( $selector, 'button.bap-primary' ),
+			'names the element so it ties with .bap-wrap button.button: ' . trim( $selector )
+		);
+	}
+} );
+
+test( 'ui: nothing is set smaller than Persian can be read at', function () {
+	// 53 declarations sat at 10px or below, 20 of them at 9px or smaller.
+	// Persian has more per glyph than Latin — dots, descenders, and the
+	// zero-width non-joiner gaps inside a single word — and those stop
+	// resolving below about 10.5px.
+	foreach ( array( 'admin.css', 'design-system.css' ) as $file ) {
+		$css = file_get_contents( BAP_PLUGIN_DIR . 'assets/admin/' . $file );
+
+		preg_match_all( '/font-size:\s*(\d+(?:\.\d+)?)px/', $css, $sizes );
+
+		foreach ( $sizes[1] as $size ) {
+			ok( (float) $size >= 10.5, $file . ' sets ' . $size . 'px' );
+		}
+	}
+} );
+
+/* ============================================================ */
+/* Light and dark                                               */
+/* ============================================================ */
+
+test( 'theme: light redefines every token that describes a surface', function () {
+	$css = file_get_contents( BAP_PLUGIN_DIR . 'assets/admin/design-system.css' );
+
+	// A token with a dark value and no light counterpart is a near-black
+	// surface on a white page — the classic half-finished light theme.
+	$light = substr( $css, strpos( $css, 'html[data-bap-theme="light"]' ) );
+	$light = substr( $light, 0, strpos( $light, 'color-scheme: light' ) );
+
+	$surfaces = array(
+		'--bap-bg', '--bap-bg-2', '--bap-surface', '--bap-surface-2', '--bap-surface-3',
+		'--bap-surface-4', '--bap-text', '--bap-text-2', '--bap-muted', '--bap-faint',
+		'--bap-border', '--bap-border-soft', '--bap-border-strong',
+		'--bap-tint-1', '--bap-tint-2', '--bap-tint-3', '--bap-tint-4',
+		'--bap-ink-1', '--bap-ink-2', '--bap-ink-3',
+		'--bap-success', '--bap-warning', '--bap-danger', '--bap-focus-ring', '--bap-canvas',
+	);
+
+	foreach ( $surfaces as $token ) {
+		ok( str_contains( $light, $token . ':' ), $token . ' has no light value' );
+	}
+} );
+
+test( 'theme: the text on a filled accent does not flip', function () {
+	$css   = file_get_contents( BAP_PLUGIN_DIR . 'assets/admin/design-system.css' );
+	$light = substr( $css, strpos( $css, 'html[data-bap-theme="light"]' ) );
+
+	// White on violet in both themes. Flipping it is how the label inside the
+	// primary button disappears when the page turns white.
+	ok( ! str_contains( $light, '--bap-on-accent:' ), 'the on-accent colour is theme-independent' );
+	ok( str_contains( $css, '--bap-on-accent: #ffffff;' ) );
+} );
+
+test( 'theme: a preference round-trips, and junk falls back to auto', function () {
+	is_same( 'auto', BAP_Admin_Theme::preference(), 'auto until the user chooses' );
+
+	is_same( 'light', BAP_Admin_Theme::remember( 'light' ) );
+	is_same( 'light', BAP_Admin_Theme::preference() );
+
+	is_same( 'dark', BAP_Admin_Theme::remember( 'dark' ) );
+	is_same( 'auto', BAP_Admin_Theme::remember( 'sepia' ), 'an unknown value is not stored' );
+	is_same( 'auto', BAP_Admin_Theme::preference() );
+} );
+
+test( 'theme: the resolved theme is applied before the body is parsed', function () {
+	BAP_Admin_Theme::remember( 'light' );
+
+	ob_start();
+	BAP_Admin_Theme::head_script();
+	$head = ob_get_clean();
+
+	ok( str_contains( $head, '"light"' ), 'the stored preference reaches the page' );
+	ok( str_contains( $head, 'documentElement' ), 'and lands on <html>, not on the body class' );
+	ok( str_contains( $head, 'prefers-color-scheme' ), 'auto consults the operating system' );
+
+	// The attribute the stylesheet keys on. If these two ever disagree the
+	// tokens silently stop applying.
+	ok( str_contains( $head, 'data-bap-theme' ) );
+	ok( str_contains( file_get_contents( BAP_PLUGIN_DIR . 'assets/admin/design-system.css' ), 'html[data-bap-theme="light"]' ) );
+} );
+
+/* ============================================================ */
+/* Features waiting on a backend that does not exist yet        */
+/* ============================================================ */
+
+test( 'roadmap: the two backend-dependent features are hidden', function () {
+	is_same( true, BAP_Roadmap::pending( 'licensing' ) );
+	is_same( true, BAP_Roadmap::pending( 'collector' ) );
+	is_same( false, BAP_Roadmap::available( 'licensing' ) );
+} );
+
+test( 'roadmap: everything that runs on this site’s own data stays', function () {
+	foreach ( array( 'ai', 'search_rescue', 'ux_tasks', 'segments', 'reports' ) as $feature ) {
+		is_same( false, BAP_Roadmap::pending( $feature ), $feature . ' needs no backend' );
+	}
+} );
+
+test( 'roadmap: configuring a collector un-hides the queue screen', function () {
+	set_settings( array( 'api_url' => 'https://collector.example', 'site_id' => 'shop-1' ) );
+
+	is_same( false, BAP_Roadmap::pending( 'collector' ), 'a real collector answers the flag itself' );
+	is_same( true, BAP_Roadmap::pending( 'licensing' ), 'the other feature is unaffected' );
+} );
+
+test( 'roadmap: nothing hidden is still advertised in the navigation', function () {
+	$hidden = array(
+		BAP_Admin::ACCOUNT_SLUG   => 'licensing',
+		BAP_Admin::INSPECTOR_SLUG => 'collector',
+	);
+
+	foreach ( BAP_Admin::navigation_items() as $item ) {
+		if ( isset( $hidden[ $item['slug'] ] ) && BAP_Roadmap::pending( $hidden[ $item['slug'] ] ) ) {
+			is_same( false, (bool) $item['enabled'], $item['slug'] . ' is still in the sidebar' );
+		}
+	}
+} );
+
+test( 'roadmap: the settings screen explains where the screens went', function () {
+	$notes = BAP_Roadmap::notes();
+
+	is_same( array( 'licensing', 'collector' ), array_keys( $notes ) );
+
+	foreach ( $notes as $note ) {
+		ok( mb_strlen( $note ) > 40, 'a sentence, not a status code' );
+	}
+
+	set_settings( array( 'api_url' => 'https://collector.example', 'site_id' => 'shop-1' ) );
+	is_same( array( 'licensing' ), array_keys( BAP_Roadmap::notes() ), 'a feature that works is not explained away' );
+} );
+
+test( 'menu: every submenu page is registered with a callable callback', function () {
+	// `add_submenu_page( $parent, $title, $menu_title, $cap, $slug, $callback )`
+	// — one call passed a slug string in the callback position and pushed the
+	// real callback into $position, leaving the Events and Pages screen with
+	// nothing to render.
+	$source = file_get_contents( BAP_PLUGIN_DIR . 'includes/admin/class-bap-admin.php' );
+
+	preg_match_all( '/add_submenu_page\(\s*(.*?)\s*\);/s', $source, $calls );
+
+	ok( count( $calls[1] ) >= 8, 'the calls were found at all' );
+
+	foreach ( $calls[1] as $args ) {
+		// Split on the commas that separate top-level arguments.
+		$depth = 0;
+		$parts = array( '' );
+		foreach ( str_split( $args ) as $char ) {
+			if ( '(' === $char ) { $depth++; }
+			if ( ')' === $char ) { $depth--; }
+			if ( ',' === $char && 0 === $depth ) { $parts[] = ''; continue; }
+			$parts[ count( $parts ) - 1 ] .= $char;
+		}
+
+		$parts = array_values( array_filter( array_map( 'trim', $parts ), 'strlen' ) );
+
+		is_same( 6, count( $parts ), 'six arguments: ' . substr( preg_replace( '/\s+/', ' ', $args ), 0, 70 ) );
+		ok( str_starts_with( $parts[5], 'array(' ), 'the sixth is the callback, not a slug: ' . $parts[5] );
+	}
 } );
 
 /* ============================================================ */

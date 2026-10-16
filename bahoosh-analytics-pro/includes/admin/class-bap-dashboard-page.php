@@ -142,7 +142,11 @@ class BAP_Dashboard_Page {
 				<div class="bap-command-center__links">
 					<a href="<?php echo esc_url( admin_url( 'admin.php?page=' . BAP_Admin::SEGMENTS_SLUG ) ); ?>"><span class="dashicons dashicons-groups"></span><b><?php esc_html_e( 'هوش مشتری', 'bahoosh-analytics-pro' ); ?></b><small><?php esc_html_e( 'دسته‌بندی و اقدام', 'bahoosh-analytics-pro' ); ?></small></a>
 					<a href="<?php echo esc_url( admin_url( 'admin.php?page=' . BAP_Admin::AI_SLUG ) ); ?>"><span class="dashicons dashicons-superhero-alt"></span><b><?php esc_html_e( 'پیشنهادهای AI', 'bahoosh-analytics-pro' ); ?></b><small><?php esc_html_e( 'فرصت‌های فروش', 'bahoosh-analytics-pro' ); ?></small></a>
-					<a href="<?php echo esc_url( admin_url( 'admin.php?page=' . BAP_Admin::ACCOUNT_SLUG ) ); ?>"><span class="dashicons dashicons-shield-alt"></span><b><?php esc_html_e( 'سرویس و انتشار', 'bahoosh-analytics-pro' ); ?></b><small><?php esc_html_e( 'لایسنس و به‌روزرسانی', 'bahoosh-analytics-pro' ); ?></small></a>
+					<?php if ( BAP_Roadmap::available( 'licensing' ) ) : ?>
+						<a href="<?php echo esc_url( admin_url( 'admin.php?page=' . BAP_Admin::ACCOUNT_SLUG ) ); ?>"><span class="dashicons dashicons-shield-alt"></span><b><?php esc_html_e( 'سرویس و انتشار', 'bahoosh-analytics-pro' ); ?></b><small><?php esc_html_e( 'لایسنس و به‌روزرسانی', 'bahoosh-analytics-pro' ); ?></small></a>
+					<?php else : ?>
+						<a href="<?php echo esc_url( admin_url( 'admin.php?page=' . BAP_Admin::RESCUE_SLUG ) ); ?>"><span class="dashicons dashicons-search"></span><b><?php esc_html_e( 'نجات جست‌وجو', 'bahoosh-analytics-pro' ); ?></b><small><?php esc_html_e( 'کلمه‌ای که کم دارید', 'bahoosh-analytics-pro' ); ?></small></a>
+					<?php endif; ?>
 				</div>
 			</section>
 

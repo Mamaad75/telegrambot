@@ -46,6 +46,16 @@ class BAP_Inspector_Page {
 			wp_die( esc_html__( 'اجازه مشاهده این صفحه را ندارید.', 'bahoosh-analytics-pro' ) );
 		}
 
+		// There is no collector, so there is no queue to inspect. The screen is
+		// unlinked; this covers a bookmark.
+		if ( BAP_Roadmap::pending( 'collector' ) ) {
+			wp_die(
+				esc_html( BAP_Roadmap::notes()['collector'] ),
+				esc_html__( 'صف ارسال', 'bahoosh-analytics-pro' ),
+				array( 'response' => 200, 'back_link' => true )
+			);
+		}
+
 		$tab = self::current_tab();
 		?>
 		<div class="wrap bap-wrap bap-settings bap-unified-screen">

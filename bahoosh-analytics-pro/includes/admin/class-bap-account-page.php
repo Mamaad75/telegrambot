@@ -19,6 +19,18 @@ class BAP_Account_Page {
 		if ( ! current_user_can( BAP_Admin::settings_capability() ) ) {
 			wp_die( esc_html__( 'اجازه مشاهده این صفحه را ندارید.', 'bahoosh-analytics-pro' ) );
 		}
+
+		// The menu entry is gone while the licensing service does not exist,
+		// but a bookmark or a typed URL still reaches the callback. Saying why
+		// beats rendering a screen whose every field reads "inactive".
+		if ( BAP_Roadmap::pending( 'licensing' ) ) {
+			wp_die(
+				esc_html( BAP_Roadmap::notes()['licensing'] ),
+				esc_html__( 'اشتراک و انتشار', 'bahoosh-analytics-pro' ),
+				array( 'response' => 200, 'back_link' => true )
+			);
+		}
+
 		$snapshot = BAP_License_Manager::snapshot();
 		$update   = BAP_License_Manager::update_info();
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display-only notice.

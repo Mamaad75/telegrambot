@@ -4,7 +4,7 @@ Tags: analytics, woocommerce, tracking, gdpr, ecommerce, funnels, ai, heatmap
 Requires at least: 5.8
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 4.15.0
+Stable tag: 4.16.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -139,6 +139,17 @@ Yes. Set `window.bapConsent` before the tracker loads, or dispatch a
 consent" enabled, nothing is collected until analytics consent is granted.
 
 == Changelog ==
+
+= 4.16.0 =
+* New: Light and dark appearance, with a third "follow the system" setting, chosen per user rather than per site and stored in user meta so it follows them to another browser. The resolved theme is applied on `<html>` from the document head, before the first paint, because a class added on DOMContentLoaded means anyone who prefers light sees a full dark page flash white on every single load.
+* Fixed: The gap between the WordPress admin menu and the panel. Three separate `.bap-wrap` rules each set a different margin with `!important`, and WordPress's own `#wpcontent` gutter was added on top of whichever one won. There is now one shell rule and no second gutter.
+* Fixed: Roughly 24,000px of empty page below the content on every screen. The navigation rail spans `grid-row: 1 / span 999` so it can stay sticky, and a 24px row-gap applies between every pair of rows in the implicit grid — including the 990-odd empty ones that span creates.
+* Fixed: The primary button has never been violet. `.bap-wrap button.button` is specificity (0,2,1) and `.bap-wrap .button-primary` is (0,2,0); both carry `!important`, so the generic rule won and every call-to-action rendered identically to the secondary button beside it.
+* Fixed: The Events and Pages screen was registered with a slug string in `add_submenu_page()`'s callback position, which pushed the real callback into `$position` and left the screen without anything to render.
+* Improved: 142 distinct colour literals across the screen styles are now about fifteen named tokens. This was the precondition for a light theme rather than a tidy-up: a value with no name cannot be re-themed. Tests now fail the build if a colour literal, an undefined token or a self-referential token reappears.
+* Improved: Nothing is set below 10.5px any more. 53 declarations were at 10px or smaller and 20 of them at 9px or smaller, where Persian dots, descenders and zero-width non-joiners stop resolving.
+* Improved: The dashboard chart takes its colours from CSS instead of hardcoded hex, so its grid lines and series stay visible when the page is light.
+* New: Features that depend on a backend which does not exist yet — the subscription/licence screen and the collector queue inspector — are hidden behind one flag instead of loading and doing nothing. The sidebar no longer reports "no licence" and the header no longer reads "Inactive" on a plugin that is working. Settings lists what is hidden and why; `BAP_Roadmap::WAITING` is the one line to change when the services arrive.
 
 = 4.15.0 =
 * New: The analysis packet carries facts about price for the first time. `commerce.price_blocked` is a product with page views and no purchases; `commerce.price_position` is a product priced above the median of its own category and selling less than its neighbours; `commerce.coupon_reliance` is how much of the shop's revenue only closes with a discount. Every product fact also carries its list price now.
