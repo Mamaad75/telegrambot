@@ -2798,4 +2798,495 @@ test( 'pages: a rebuild sees a page that did not exist during the last one', fun
 	is_same( 44, $second['tasks'][0]['page']['post_id'], 'the second run still had the first run’s answer cached' );
 } );
 
+/* ============================================================ */
+/* Price facts, and the price changes they make possible        */
+/* ============================================================ */
+
+test( 'price: a coupon-heavy shop is told its list price is fiction', function () {
+	// Ten orders where the line was discounted, four at full price. The fifth
+	// element of a line is its subtotal — what it would have cost without the
+	// coupon — so the discount given is measurable per product.
+	for ( $i = 1; $i <= 10; $i++ ) {
+		bap_add_order( $i, array( array( 10, 'رژ لب', 1, 160000, 200000 ) ), 'mobile' );
+	}
+	for ( $i = 11; $i <= 14; $i++ ) {
+		bap_add_order( $i, array( array( 10, 'رژ لب', 1, 200000 ) ), 'mobile' );
+	}
+
+	$fact = BAP_Price_Facts::coupon_reliance( BAP_Commerce_Facts::orders( '2020-01-01', gmdate( 'Y-m-d' ) ) );
+
+	is_same( 10, $fact['value']['orders_with_discount'] );
+	is_same( 14, $fact['value']['orders_total'] );
+	is_same( 71.4, $fact['value']['share_pc'] );
+	is_same( 400000.0, $fact['value']['discount_given'], '10 × 40,000 given away' );
+	ok( $fact['value']['aov_with'] < $fact['value']['aov_without'], 'the coupons bought cheaper baskets, not bigger ones' );
+} );
+
+test( 'price: below the coupon threshold nothing is claimed', function () {
+	for ( $i = 1; $i <= 12; $i++ ) {
+		bap_add_order( $i, array( array( 10, 'رژ لب', 1, 200000 ) ), 'mobile' );
+	}
+
+	$orders = BAP_Commerce_Facts::orders( '2020-01-01', gmdate( 'Y-m-d' ) );
+
+	is_same( null, BAP_Price_Facts::coupon_reliance( $orders ), 'no discounted order, no fact' );
+} );
+
+test( 'price: a thin order count produces no coupon fact at all', function () {
+	bap_add_order( 1, array( array( 10, 'رژ لب', 1, 100000, 200000 ) ), 'mobile' );
+
+	is_same(
+		null,
+		BAP_Price_Facts::coupon_reliance( BAP_Commerce_Facts::orders( '2020-01-01', gmdate( 'Y-m-d' ) ) ),
+		'one order cannot establish a pattern'
+	);
+} );
+
+test( 'price: views without purchases become a price-test candidate', function () {
+	$today = gmdate( 'Y-m-d' );
+	bap_add_product( 90, 'ماسک مو', 250000.0 );
+
+	for ( $i = 0; $i < BAP_Price_Facts::MIN_VIEWS + 5; $i++ ) {
+		BAP_Local_Store::record( bap_event( array(
+			'event_type' => 'view_item',
+			'data'       => array( 'item_name' => 'ماسک مو' ),
+		) ) );
+	}
+
+	$facts = BAP_Price_Facts::price_blocked( $today, $today );
+
+	is_same( 1, count( $facts ) );
+	is_same( 'commerce.price_blocked', $facts[0]['kind'] );
+	is_same( 90, $facts[0]['value']['product_id'], 'the browser event’s name was mapped to a real catalogue id' );
+	is_same( 25, $facts[0]['value']['views'] );
+	is_same( 250000.0, $facts[0]['value']['price'] );
+} );
+
+test( 'price: a product that did sell is not a price-test candidate', function () {
+	$today = gmdate( 'Y-m-d' );
+	bap_add_product( 10, 'رژ لب', 200000.0 );
+	bap_add_order( 1, array( array( 10, 'رژ لب', 1, 200000 ) ), 'mobile', null, $today );
+
+	for ( $i = 0; $i < 40; $i++ ) {
+		BAP_Local_Store::record( bap_event( array(
+			'event_type' => 'view_item',
+			'data'       => array( 'item_name' => 'رژ لب' ),
+		) ) );
+	}
+
+	is_same( array(), BAP_Price_Facts::price_blocked( $today, $today ), 'demand is converting; price is not the question' );
+} );
+
+test( 'price: a handful of views is not evidence of anything', function () {
+	$today = gmdate( 'Y-m-d' );
+	bap_add_product( 90, 'ماسک مو', 250000.0 );
+
+	for ( $i = 0; $i < BAP_Price_Facts::MIN_VIEWS - 1; $i++ ) {
+		BAP_Local_Store::record( bap_event( array(
+			'event_type' => 'view_item',
+			'data'       => array( 'item_name' => 'ماسک مو' ),
+		) ) );
+	}
+
+	is_same( array(), BAP_Price_Facts::price_blocked( $today, $today ) );
+} );
+
+test( 'price: a product named the same as another is dropped, not guessed at', function () {
+	$today = gmdate( 'Y-m-d' );
+	bap_add_product( 90, 'ماسک مو', 250000.0 );
+	bap_add_product( 91, 'ماسک مو', 300000.0 );
+
+	for ( $i = 0; $i < 30; $i++ ) {
+		BAP_Local_Store::record( bap_event( array(
+			'event_type' => 'view_item',
+			'data'       => array( 'item_name' => 'ماسک مو' ),
+		) ) );
+	}
+
+	is_same( array(), BAP_Price_Facts::price_blocked( $today, $today ), 'an ambiguous name must never produce an action' );
+} );
+
+test( 'price: a product above its own shelf median and selling less is flagged', function () {
+	// One shelf: four ordinary products around 100,000 and one at 300,000.
+	bap_add_product( 10, 'رژ لب', 100000.0, array( 7 ) );
+	bap_add_product( 11, 'تینت لب', 110000.0, array( 7 ) );
+	bap_add_product( 12, 'برق لب', 90000.0, array( 7 ) );
+	bap_add_product( 13, 'خط لب', 100000.0, array( 7 ) );
+	bap_add_product( 14, 'رژ لب مخملی', 300000.0, array( 7 ) );
+
+	for ( $i = 1; $i <= 6; $i++ ) {
+		bap_add_order( $i, array( array( 10, 'رژ لب', 2, 200000 ) ), 'mobile' );
+	}
+	for ( $i = 7; $i <= 10; $i++ ) {
+		bap_add_order( $i, array( array( 11, 'تینت لب', 2, 220000 ) ), 'mobile' );
+	}
+
+	$facts = BAP_Price_Facts::price_position( BAP_Commerce_Facts::orders( '2020-01-01', gmdate( 'Y-m-d' ) ) );
+
+	is_same( 1, count( $facts ) );
+	is_same( 14, $facts[0]['value']['product_id'] );
+	is_same( 100000.0, $facts[0]['value']['peer_median'] );
+	is_same( 3.0, $facts[0]['value']['ratio'] );
+	is_same( 67, $facts[0]['value']['gap_pc'], 'reaching the shelf median is a 67% cut, not a 300% one' );
+} );
+
+test( 'price: an expensive product that outsells its shelf is left alone', function () {
+	bap_add_product( 10, 'رژ لب', 100000.0, array( 7 ) );
+	bap_add_product( 11, 'تینت لب', 100000.0, array( 7 ) );
+	bap_add_product( 12, 'برق لب', 100000.0, array( 7 ) );
+	bap_add_product( 13, 'خط لب', 100000.0, array( 7 ) );
+	bap_add_product( 14, 'رژ لب مخملی', 300000.0, array( 7 ) );
+
+	// The premium product sells more units than any of its neighbours.
+	for ( $i = 1; $i <= 8; $i++ ) {
+		bap_add_order( $i, array( array( 14, 'رژ لب مخملی', 3, 900000 ) ), 'desktop' );
+	}
+
+	is_same(
+		array(),
+		BAP_Price_Facts::price_position( BAP_Commerce_Facts::orders( '2020-01-01', gmdate( 'Y-m-d' ) ) ),
+		'expensive and selling well is a premium product doing its job'
+	);
+} );
+
+test( 'price: a shelf too small to have a median is not judged', function () {
+	bap_add_product( 10, 'رژ لب', 100000.0, array( 7 ) );
+	bap_add_product( 14, 'رژ لب مخملی', 400000.0, array( 7 ) );
+
+	is_same(
+		array(),
+		BAP_Price_Facts::price_position( BAP_Commerce_Facts::orders( '2020-01-01', gmdate( 'Y-m-d' ) ) ),
+		'two products are not a category'
+	);
+} );
+
+test( 'price: the packet carries price facts and a price for every product', function () {
+	seed_shop();
+
+	$packet = BAP_Analysis_Packet::build( '2020-01-01', gmdate( 'Y-m-d' ) );
+	$kinds  = array_column( $packet['facts'], 'kind' );
+	$top    = array_values( array_filter( $packet['facts'], fn( $f ) => 'commerce.top_product' === $f['kind'] ) );
+
+	ok( in_array( 'commerce.top_product', $kinds, true ), 'the old facts are still there' );
+	ok( isset( $top[0]['value']['price'] ), 'and now carry a list price' );
+	is_same( 100000.0, $top[0]['value']['price'] );
+} );
+
+test( 'agent: the best candidate wins, not the first one listed', function () {
+	seed_shop();
+	set_settings( array( 'ai_enabled' => true, 'ai_agent_mode' => 'approval', 'ai_agent_max_discount' => 25 ) );
+
+	// A slow product first in the array, a strong price-test candidate second.
+	// Before ranking existed, array order decided what the shop did.
+	$action = BAP_Commerce_Agent::propose( array(
+		array( 'kind' => 'commerce.slow_product', 'sample_size' => 0, 'value' => array( 'product_id' => 90 ) ),
+		array( 'kind' => 'commerce.price_blocked', 'sample_size' => 120, 'value' => array( 'product_id' => 91 ) ),
+	) );
+
+	is_same( 91, $action['payload']['product_id'], 'the product 120 people looked at' );
+	is_same( 'price_test', $action['payload']['intent'] );
+	is_same( 10, $action['payload']['percent'], 'a measurement, not the maximum the cap allows' );
+} );
+
+test( 'agent: reversing the order changes nothing', function () {
+	seed_shop();
+	set_settings( array( 'ai_enabled' => true, 'ai_agent_mode' => 'approval' ) );
+
+	$facts = array(
+		array( 'kind' => 'commerce.price_blocked', 'sample_size' => 120, 'value' => array( 'product_id' => 91 ) ),
+		array( 'kind' => 'commerce.slow_product', 'sample_size' => 0, 'value' => array( 'product_id' => 90 ) ),
+	);
+
+	is_same( 91, BAP_Commerce_Agent::propose( $facts )['payload']['product_id'] );
+	is_same( 91, BAP_Commerce_Agent::propose( array_reverse( $facts ) )['payload']['product_id'] );
+} );
+
+test( 'agent: a price-position proposal aims at the category median, within the cap', function () {
+	seed_shop();
+	set_settings( array( 'ai_enabled' => true, 'ai_agent_mode' => 'approval', 'ai_agent_max_discount' => 25 ) );
+
+	$modest = BAP_Commerce_Agent::propose( array(
+		array( 'kind' => 'commerce.price_position', 'sample_size' => 8, 'value' => array( 'product_id' => 90, 'gap_pc' => 18 ) ),
+	) );
+	is_same( 18, $modest['payload']['percent'], 'the gap down to the median' );
+	is_same( 'price_align', $modest['payload']['intent'] );
+
+	$extreme = BAP_Commerce_Agent::propose( array(
+		array( 'kind' => 'commerce.price_position', 'sample_size' => 8, 'value' => array( 'product_id' => 90, 'gap_pc' => 67 ) ),
+	) );
+	is_same( 25, $extreme['payload']['percent'], 'the cap still wins over the gap' );
+} );
+
+test( 'agent: a discount that would sell below a recorded cost is refused', function () {
+	seed_shop();
+	set_settings( array( 'ai_enabled' => true, 'ai_agent_mode' => 'approval', 'ai_agent_max_discount' => 40 ) );
+	bap_add_product( 90, 'ماسک مو', 100000.0 );
+	$GLOBALS['bap_products'][90]->update_meta_data( '_wc_cog_cost', '80000' );
+
+	$result = BAP_Commerce_Agent::discount_product( array( 'product_id' => 90, 'percent' => 40 ) );
+
+	ok( $result instanceof WP_Error, 'refused' );
+	is_same( 'bap_agent_below_cost', $result->get_error_code() );
+	is_same( '', $GLOBALS['bap_products'][90]->get_sale_price(), 'and nothing was written' );
+
+	// The same product at a depth that clears the cost goes through.
+	ok( ! ( BAP_Commerce_Agent::discount_product( array( 'product_id' => 90, 'percent' => 15 ) ) instanceof WP_Error ) );
+} );
+
+test( 'agent: without a recorded cost nothing is assumed about margin', function () {
+	seed_shop();
+	set_settings( array( 'ai_enabled' => true, 'ai_agent_mode' => 'approval', 'ai_agent_max_discount' => 40 ) );
+	bap_add_product( 90, 'ماسک مو', 100000.0 );
+
+	ok( ! ( BAP_Commerce_Agent::discount_product( array( 'product_id' => 90, 'percent' => 40 ) ) instanceof WP_Error ) );
+	is_same( 0.0, BAP_Price_Facts::cost( 90 ), 'an unknown cost is zero, never a guessed markup' );
+} );
+
+/* ============================================================ */
+/* Effect measurement                                           */
+/* ============================================================ */
+
+/**
+ * Applies a discount whose log entry is backdated, so the elapsed window is
+ * long enough to measure without waiting a week for the test to pass.
+ */
+function bap_backdate_entry( string $log_id, int $days_ago ): void {
+	$rows = get_option( BAP_Commerce_Agent::OPTION_LOG, array() );
+	$rows[ $log_id ]['at'] = gmdate( 'c', time() - ( $days_ago * DAY_IN_SECONDS ) );
+	update_option( BAP_Commerce_Agent::OPTION_LOG, $rows, false );
+}
+
+test( 'effect: applying a discount records what the product was doing before', function () {
+	set_settings( array( 'ai_enabled' => true, 'ai_agent_mode' => 'approval' ) );
+	bap_add_product( 90, 'ماسک مو', 100000.0 );
+
+	// Four units in the baseline window, and a control product selling too.
+	bap_add_order( 1, array( array( 90, 'ماسک مو', 4, 400000 ) ), 'mobile', null, gmdate( 'Y-m-d', time() - ( 10 * DAY_IN_SECONDS ) ) );
+	bap_add_order( 2, array( array( 10, 'رژ لب', 20, 4000000 ) ), 'mobile', null, gmdate( 'Y-m-d', time() - ( 10 * DAY_IN_SECONDS ) ) );
+
+	$result = BAP_Commerce_Agent::discount_product( array( 'product_id' => 90, 'percent' => 10 ) );
+	$entry  = BAP_Commerce_Agent::history( 5 )[0];
+
+	is_same( array( 90 ), $entry['baseline']['products'] );
+	is_same( 4, $entry['baseline']['units'] );
+	is_same( 20, $entry['baseline']['control_units'], 'the control excludes the product being changed' );
+	is_same( array(), $entry['effect'], 'no verdict on day zero' );
+	is_same( 'manual', $entry['data']['intent'] );
+	ok( $result['log_id'] === $entry['id'] );
+} );
+
+test( 'effect: nothing is judged before the observation window closes', function () {
+	set_settings( array( 'ai_enabled' => true, 'ai_agent_mode' => 'approval' ) );
+	bap_add_product( 90, 'ماسک مو', 100000.0 );
+	bap_add_order( 1, array( array( 90, 'ماسک مو', 4, 400000 ) ), 'mobile', null, gmdate( 'Y-m-d', time() - ( 10 * DAY_IN_SECONDS ) ) );
+
+	BAP_Commerce_Agent::discount_product( array( 'product_id' => 90, 'percent' => 10 ) );
+
+	is_same( array(), BAP_Agent_Effect::measure_all(), 'a change applied today has no result yet' );
+
+	bap_backdate_entry( BAP_Commerce_Agent::history( 1 )[0]['id'], BAP_Agent_Effect::MIN_OBSERVE_DAYS - 1 );
+	is_same( array(), BAP_Agent_Effect::measure_all(), 'nor does one applied six days ago' );
+} );
+
+test( 'effect: a shop-wide slump is not read as the discount failing', function () {
+	set_settings( array( 'ai_enabled' => true, 'ai_agent_mode' => 'approval' ) );
+	bap_add_product( 90, 'ماسک مو', 100000.0 );
+
+	$before = gmdate( 'Y-m-d', time() - ( 20 * DAY_IN_SECONDS ) );
+
+	// Baseline: 28 units of the product, 280 of everything else, over 28 days.
+	bap_add_order( 1, array( array( 90, 'ماسک مو', 28, 2800000 ) ), 'mobile', null, $before );
+	bap_add_order( 2, array( array( 10, 'رژ لب', 280, 56000000 ) ), 'mobile', null, $before );
+
+	BAP_Commerce_Agent::discount_product( array( 'product_id' => 90, 'percent' => 10 ) );
+	$id = BAP_Commerce_Agent::history( 1 )[0]['id'];
+	bap_backdate_entry( $id, 14 );
+
+	// After: the product held its per-day rate while the rest of the shop
+	// halved. Flat in isolation, a win against the control.
+	$after = gmdate( 'Y-m-d', time() - ( 7 * DAY_IN_SECONDS ) );
+	bap_add_order( 3, array( array( 90, 'ماسک مو', 14, 1400000 ) ), 'mobile', null, $after );
+	bap_add_order( 4, array( array( 10, 'رژ لب', 70, 14000000 ) ), 'mobile', null, $after );
+
+	$verdicts = BAP_Agent_Effect::measure_all();
+	$effect   = BAP_Commerce_Agent::history( 1 )[0]['effect'];
+
+	is_same( 'worked', $verdicts[ $id ] );
+	is_same( 0.0, $effect['product_pc'], 'the product itself did not move' );
+	is_same( -50.0, $effect['shop_pc'], 'but the shop fell by half' );
+	is_same( 50.0, $effect['net_pc'] );
+	ok( str_contains( BAP_Agent_Effect::explain( $effect ), 'تفاضلی' ), 'and the sentence says the comparison is differential' );
+} );
+
+test( 'effect: a shop-wide boom is not read as the discount working', function () {
+	set_settings( array( 'ai_enabled' => true, 'ai_agent_mode' => 'approval' ) );
+	bap_add_product( 90, 'ماسک مو', 100000.0 );
+
+	$before = gmdate( 'Y-m-d', time() - ( 20 * DAY_IN_SECONDS ) );
+	bap_add_order( 1, array( array( 90, 'ماسک مو', 28, 2800000 ) ), 'mobile', null, $before );
+	bap_add_order( 2, array( array( 10, 'رژ لب', 280, 56000000 ) ), 'mobile', null, $before );
+
+	BAP_Commerce_Agent::discount_product( array( 'product_id' => 90, 'percent' => 10 ) );
+	$id = BAP_Commerce_Agent::history( 1 )[0]['id'];
+	bap_backdate_entry( $id, 14 );
+
+	// Both doubled. In isolation the discount looks like a triumph.
+	$after = gmdate( 'Y-m-d', time() - ( 7 * DAY_IN_SECONDS ) );
+	bap_add_order( 3, array( array( 90, 'ماسک مو', 28, 2800000 ) ), 'mobile', null, $after );
+	bap_add_order( 4, array( array( 10, 'رژ لب', 280, 56000000 ) ), 'mobile', null, $after );
+
+	$verdicts = BAP_Agent_Effect::measure_all();
+	$effect   = BAP_Commerce_Agent::history( 1 )[0]['effect'];
+
+	is_same( 'flat', $verdicts[ $id ], 'the product rose exactly as much as everything else' );
+	is_same( 100.0, $effect['product_pc'] );
+	is_same( 0.0, $effect['net_pc'] );
+} );
+
+test( 'effect: a discount that cost sales is called a failure', function () {
+	set_settings( array( 'ai_enabled' => true, 'ai_agent_mode' => 'approval' ) );
+	bap_add_product( 90, 'ماسک مو', 100000.0 );
+
+	$before = gmdate( 'Y-m-d', time() - ( 20 * DAY_IN_SECONDS ) );
+	bap_add_order( 1, array( array( 90, 'ماسک مو', 28, 2800000 ) ), 'mobile', null, $before );
+	bap_add_order( 2, array( array( 10, 'رژ لب', 280, 56000000 ) ), 'mobile', null, $before );
+
+	BAP_Commerce_Agent::discount_product( array( 'product_id' => 90, 'percent' => 10 ) );
+	$id = BAP_Commerce_Agent::history( 1 )[0]['id'];
+	bap_backdate_entry( $id, 14 );
+
+	$after = gmdate( 'Y-m-d', time() - ( 7 * DAY_IN_SECONDS ) );
+	bap_add_order( 3, array( array( 90, 'ماسک مو', 3, 270000 ) ), 'mobile', null, $after );
+	bap_add_order( 4, array( array( 10, 'رژ لب', 140, 28000000 ) ), 'mobile', null, $after );
+
+	is_same( 'backfired', BAP_Agent_Effect::measure_all()[ $id ] );
+	ok( str_contains( BAP_Agent_Effect::explain( BAP_Commerce_Agent::history( 1 )[0]['effect'] ), 'بازگردانی' ), 'and it says to undo it' );
+} );
+
+test( 'effect: two sales are never called a result', function () {
+	set_settings( array( 'ai_enabled' => true, 'ai_agent_mode' => 'approval' ) );
+	bap_add_product( 90, 'ماسک مو', 100000.0 );
+
+	$before = gmdate( 'Y-m-d', time() - ( 20 * DAY_IN_SECONDS ) );
+	bap_add_order( 1, array( array( 90, 'ماسک مو', 1, 100000 ) ), 'mobile', null, $before );
+	bap_add_order( 2, array( array( 10, 'رژ لب', 50, 10000000 ) ), 'mobile', null, $before );
+
+	BAP_Commerce_Agent::discount_product( array( 'product_id' => 90, 'percent' => 10 ) );
+	$id = BAP_Commerce_Agent::history( 1 )[0]['id'];
+	bap_backdate_entry( $id, 14 );
+
+	$after = gmdate( 'Y-m-d', time() - ( 7 * DAY_IN_SECONDS ) );
+	bap_add_order( 3, array( array( 90, 'ماسک مو', 2, 200000 ) ), 'mobile', null, $after );
+	bap_add_order( 4, array( array( 10, 'رژ لب', 50, 10000000 ) ), 'mobile', null, $after );
+
+	is_same( 'thin', BAP_Agent_Effect::measure_all()[ $id ], '1 unit then 2 is a 300% rise and means nothing' );
+	ok( str_contains( BAP_Agent_Effect::explain( BAP_Commerce_Agent::history( 1 )[0]['effect'] ), 'نمی‌دانیم' ) );
+} );
+
+test( 'effect: a product that sold nothing before is judged on units, not percent', function () {
+	// The commonest case the agent creates, and the one a percentage cannot
+	// describe: every move away from zero is an infinite improvement.
+	is_same( 'worked', BAP_Agent_Effect::verdict( null, 0, 9 ) );
+	is_same( 'thin', BAP_Agent_Effect::verdict( null, 0, 2 ) );
+	is_same( 'thin', BAP_Agent_Effect::verdict( null, 40, 40 ), 'an undefined net on a real baseline stays unjudged' );
+} );
+
+test( 'effect: an entry applied before the feature existed stays unmeasured', function () {
+	set_settings( array( 'ai_enabled' => true, 'ai_agent_mode' => 'approval' ) );
+
+	update_option(
+		BAP_Commerce_Agent::OPTION_LOG,
+		array(
+			'agt_old' => array(
+				'id'      => 'agt_old',
+				'at'      => gmdate( 'c', time() - ( 40 * DAY_IN_SECONDS ) ),
+				'type'    => BAP_Commerce_Agent::ACTION_DISCOUNT,
+				'label'   => 'قدیمی',
+				'data'    => array( 'product_id' => 90 ),
+				'restore' => array(),
+				'reverted_at' => '',
+			),
+		),
+		false
+	);
+
+	is_same( array(), BAP_Agent_Effect::measure_all(), 'a baseline cannot be invented after the change' );
+	is_same( '', BAP_Commerce_Agent::history( 1 )[0]['effect_text'] );
+} );
+
+test( 'effect: only the days a reverted change was live are counted', function () {
+	set_settings( array( 'ai_enabled' => true, 'ai_agent_mode' => 'approval' ) );
+	bap_add_product( 90, 'ماسک مو', 100000.0 );
+	bap_add_order( 1, array( array( 90, 'ماسک مو', 28, 2800000 ) ), 'mobile', null, gmdate( 'Y-m-d', time() - ( 20 * DAY_IN_SECONDS ) ) );
+
+	BAP_Commerce_Agent::discount_product( array( 'product_id' => 90, 'percent' => 10 ) );
+	$id = BAP_Commerce_Agent::history( 1 )[0]['id'];
+	bap_backdate_entry( $id, 30 );
+
+	// Reverted two days in: a 30-day window would be 28 days of measuring a
+	// price that was no longer there.
+	$rows = get_option( BAP_Commerce_Agent::OPTION_LOG, array() );
+	$rows[ $id ]['reverted_at'] = gmdate( 'c', time() - ( 28 * DAY_IN_SECONDS ) );
+	update_option( BAP_Commerce_Agent::OPTION_LOG, $rows, false );
+
+	is_same( array(), BAP_Agent_Effect::measure_all(), 'two live days is below the floor, so no verdict' );
+} );
+
+test( 'effect: the measurement cron is only scheduled once something is applied', function () {
+	$GLOBALS['bap_cron'] = array();
+	set_settings( array( 'ai_enabled' => true, 'ai_agent_mode' => 'approval' ) );
+	bap_add_product( 90, 'ماسک مو', 100000.0 );
+
+	is_same( false, wp_next_scheduled( BAP_Agent_Effect::CRON ), 'nothing scheduled yet' );
+
+	BAP_Commerce_Agent::discount_product( array( 'product_id' => 90, 'percent' => 10 ) );
+
+	ok( wp_next_scheduled( BAP_Agent_Effect::CRON ) > 0, 'applying a change schedules the measurement' );
+} );
+
+test( 'effect: deactivation clears the measurement cron', function () {
+	$installer = file_get_contents( BAP_PLUGIN_DIR . 'includes/core/class-bap-installer.php' );
+
+	ok( str_contains( $installer, 'wp_clear_scheduled_hook( BAP_Agent_Effect::CRON )' ) );
+} );
+
+test( 'insights: the rule engine asks for a price test when views prove demand', function () {
+	$today = gmdate( 'Y-m-d' );
+	seed_shop();
+	bap_add_product( 90, 'ماسک مو', 250000.0 );
+
+	for ( $i = 0; $i < 30; $i++ ) {
+		BAP_Local_Store::record( bap_event( array(
+			'event_type' => 'view_item',
+			'data'       => array( 'item_name' => 'ماسک مو' ),
+		) ) );
+	}
+
+	$packet = BAP_Analysis_Packet::build( '2020-01-01', $today );
+	$items  = BAP_Local_Insights::derive( $packet );
+	$titles = array_column( $items, 'title' );
+
+	$price = array_values( array_filter( $items, fn( $i ) => str_contains( $i['title'], 'قیمت «ماسک مو» را آزمایش کنید' ) ) );
+
+	is_same( 1, count( $price ), 'a price recommendation, with no model involved' );
+	ok( str_contains( $price[0]['summary'], '۳۰' ) || str_contains( $price[0]['summary'], '30' ), 'it quotes the real view count' );
+	is_same( 'high', $price[0]['priority'] );
+} );
+
+test( 'insights: a coupon-heavy shop is told so, with no action attached', function () {
+	for ( $i = 1; $i <= 10; $i++ ) {
+		bap_add_order( $i, array( array( 10, 'رژ لب', 1, 160000, 200000 ) ), 'mobile' );
+	}
+	for ( $i = 11; $i <= 14; $i++ ) {
+		bap_add_order( $i, array( array( 10, 'رژ لب', 1, 200000 ) ), 'mobile' );
+	}
+
+	$packet = BAP_Analysis_Packet::build( '2020-01-01', gmdate( 'Y-m-d' ) );
+	$items  = BAP_Local_Insights::derive( $packet );
+	$found  = array_values( array_filter( $items, fn( $i ) => str_contains( $i['title'], 'قیمت فهرست شما واقعی نیست' ) ) );
+
+	is_same( 1, count( $found ) );
+	is_same( null, $found[0]['action'], 'changing every price in the shop is not an automatic action' );
+} );
+
 run_tests();

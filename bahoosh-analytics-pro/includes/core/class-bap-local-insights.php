@@ -54,6 +54,9 @@ class BAP_Local_Insights {
 			self::top_product_rule( $facts, $run ),
 			self::affinity_rule( $facts, $run ),
 			self::slow_product_rule( $facts, $run ),
+			self::price_blocked_rule( $facts, $run ),
+			self::price_position_rule( $facts, $run ),
+			self::coupon_reliance_rule( $facts, $run ),
 			self::friction_rule( $facts, $run )
 		);
 
@@ -435,6 +438,167 @@ class BAP_Local_Insights {
 				'medium',
 				70,
 				array_slice( $evidence, 0, 12 )
+			),
+		);
+	}
+
+	/**
+	 * Products people look at and nobody buys.
+	 *
+	 * The only recommendation in this engine that asks for a price change as the
+	 * *first* step rather than the last, and the reason is in the numbers: for
+	 * every other slow product the honest advice is to fix the photograph, the
+	 * description or the visibility first, because a discount on something
+	 * nobody has seen cannot work. Here people have already seen it — in
+	 * numbers — and still did not buy. Price is one of the few remaining
+	 * explanations, and it is the only one that can be tested in a fortnight and
+	 * undone with one click.
+	 *
+	 * @param array  $facts Facts by kind.
+	 * @param string $run   Run id.
+	 * @return array Recommendations.
+	 */
+	private static function price_blocked_rule( array $facts, $run ) {
+		$blocked = $facts['commerce.price_blocked'] ?? array();
+
+		if ( ! $blocked ) {
+			return array();
+		}
+
+		$items = array();
+
+		foreach ( array_slice( $blocked, 0, 2 ) as $fact ) {
+			$value = $fact['value'];
+
+			$items[] = self::item(
+				$run,
+				'price_test_' . $value['product_id'],
+				sprintf(
+					/* translators: %s: product name. */
+					__( 'قیمت «%s» را آزمایش کنید — بازدید دارد، خرید ندارد', 'bahoosh-analytics-pro' ),
+					$value['name']
+				),
+				sprintf(
+					/* translators: 1: views, 2: add-to-cart count, 3: product name, 4: current price. */
+					__( '%1$d نفر صفحه این محصول را دیده‌اند، %2$d نفر آن را در سبد گذاشته‌اند، و هیچ‌کس آن را نخریده است. یعنی مشکل دیده‌شدن نیست — محصول دیده شده و رد شده. قیمت فعلی %4$s است. یک آزمایش بگذارید: ۱۰ درصد تخفیف زمان‌دار برای دو هفته، بعد همین صفحه به شما می‌گوید فروش این محصول نسبت به بقیه فروشگاه چه تغییری کرده. اگر تغییری نکرد، قیمت گلوگاه نبوده و تخفیف را بردارید؛ اگر فروش رفت، حالا می‌دانید قیمت درست کجاست. این تنها پیشنهادی است که با یک کلیک قابل اجرا و با یک کلیک قابل بازگردانی است.', 'bahoosh-analytics-pro' ),
+					(int) $value['views'],
+					(int) $value['add_to_cart'],
+					$value['name'],
+					self::money( $value['price'], $value['currency'] ?? '' )
+				),
+				'high',
+				self::confidence( (int) $fact['sample_size'], 60 ),
+				array( $fact['id'] )
+			);
+		}
+
+		return $items;
+	}
+
+	/**
+	 * Products priced above their own shelf and not moving.
+	 *
+	 * @param array  $facts Facts by kind.
+	 * @param string $run   Run id.
+	 * @return array Recommendations.
+	 */
+	private static function price_position_rule( array $facts, $run ) {
+		$rows = $facts['commerce.price_position'] ?? array();
+
+		if ( ! $rows ) {
+			return array();
+		}
+
+		$items = array();
+
+		foreach ( array_slice( $rows, 0, 2 ) as $fact ) {
+			$value = $fact['value'];
+
+			$items[] = self::item(
+				$run,
+				'price_align_' . $value['product_id'],
+				sprintf(
+					/* translators: 1: product name, 2: category. */
+					__( '«%1$s» گران‌تر از هم‌قفسه‌هایش در «%2$s» است', 'bahoosh-analytics-pro' ),
+					$value['name'],
+					$value['category']
+				),
+				sprintf(
+					/* translators: 1: price, 2: peer median, 3: peer count, 4: category, 5: gap percent, 6: units sold, 7: peer median units. */
+					__( 'قیمت این محصول %1$s است، در حالی که میانه قیمت %3$d محصول دیگر دسته «%4$s» برابر %2$s است. در همین بازه %6$d عدد از این محصول فروش رفته و میانه فروش هم‌قفسه‌هایش %7$d عدد بوده — یعنی هم گران‌تر است و هم کمتر می‌فروشد. رسیدن به میانه دسته یعنی %5$d درصد کاهش. اگر محصول واقعاً بهتر است، این گرانی را روی صفحه توضیح دهید (ضمانت، کیفیت، خدمات پس از فروش)؛ اگر نه، %5$d درصد تخفیف زمان‌دار بگذارید و نتیجه را در همین گزارش ببینید. دقت کنید: گران بودن به‌خودی‌خود اشکال نیست، گران بودن بدون دلیلِ قابل دیدن اشکال است.', 'bahoosh-analytics-pro' ),
+					self::money( $value['price'], $value['currency'] ?? '' ),
+					self::money( $value['peer_median'], $value['currency'] ?? '' ),
+					(int) $value['peers'],
+					$value['category'],
+					(int) $value['gap_pc'],
+					(int) $value['units'],
+					(int) $value['peer_units']
+				),
+				'medium',
+				self::confidence( (int) $fact['sample_size'], 10 ),
+				array( $fact['id'] )
+			);
+		}
+
+		return $items;
+	}
+
+	/**
+	 * When the list price is fiction.
+	 *
+	 * Carries no executable action on purpose. Every other price
+	 * recommendation here can be applied and reverted in one click; "your list
+	 * prices are too high across the board" is a decision about the whole shop,
+	 * and no automatic mechanism should make it.
+	 *
+	 * @param array  $facts Facts by kind.
+	 * @param string $run   Run id.
+	 * @return array Recommendations.
+	 */
+	private static function coupon_reliance_rule( array $facts, $run ) {
+		$fact = ( $facts['commerce.coupon_reliance'] ?? array() )[0] ?? null;
+
+		if ( ! $fact ) {
+			return array();
+		}
+
+		$value = $fact['value'];
+		$share = (float) $value['share_pc'];
+
+		if ( $share < BAP_Price_Facts::COUPON_HEAVY ) {
+			return array();
+		}
+
+		$currency = $value['currency'] ?? '';
+
+		// Whether the coupons are buying bigger baskets or just cheaper ones is
+		// the entire question, and the two answers point in opposite directions.
+		$verdict = (float) $value['aov_with'] >= (float) $value['aov_without']
+			? __( 'نکته مهم: میانگین سبد سفارش‌های تخفیف‌دار از سفارش‌های بدون تخفیف بیشتر است، یعنی کد تخفیف دارد سبد را بزرگ‌تر می‌کند نه فقط ارزان‌تر. این کد تخفیف‌ها را حذف نکنید؛ به‌جایش شرط حداقل مبلغ سبد را روی آن‌ها بگذارید تا همین اثر را با هزینه کمتر بگیرید.', 'bahoosh-analytics-pro' )
+			: __( 'نکته مهم: میانگین سبد سفارش‌های تخفیف‌دار از سفارش‌های بدون تخفیف کمتر است، یعنی کد تخفیف سبد را بزرگ نمی‌کند و فقط همان خرید را ارزان‌تر می‌کند. این بدترین حالت است: دارید به مشتری‌ای تخفیف می‌دهید که بدون آن هم خرید می‌کرد.', 'bahoosh-analytics-pro' );
+
+		return array(
+			self::item(
+				$run,
+				'coupon_reliance',
+				sprintf(
+					/* translators: %s: percentage of orders. */
+					__( '%s درصد سفارش‌ها فقط با تخفیف بسته می‌شود — قیمت فهرست شما واقعی نیست', 'bahoosh-analytics-pro' ),
+					number_format_i18n( $share, 1 )
+				),
+				sprintf(
+					/* translators: 1: orders with a discount, 2: total orders, 3: discount given, 4: AOV with, 5: AOV without, 6: verdict sentence. */
+					__( 'از %2$d سفارش این بازه، %1$d سفارش با تخفیف بسته شده و در کل %3$s تخفیف داده‌اید. میانگین سبد با تخفیف %4$s و بدون تخفیف %5$s بوده است. %6$s وقتی بیشتر از نیمی از فروش با کد تخفیف انجام می‌شود، قیمت روی برچسب دیگر قیمت فروش شما نیست؛ عدد واقعی همان قیمت بعد از تخفیف است و شما فقط هزینه اداره‌کردن دو قیمت را می‌پردازید. دو گزینه دارید: قیمت فهرست را به عدد واقعی نزدیک کنید و تخفیف عمومی را بردارید، یا تخفیف را شرطی کنید (اولین خرید، حداقل مبلغ سبد، بازگشت مشتری خاموش) تا به کسی که بدون آن هم می‌خرید تخفیف نرسد.', 'bahoosh-analytics-pro' ),
+					(int) $value['orders_with_discount'],
+					(int) $value['orders_total'],
+					self::money( $value['discount_given'], $currency ),
+					self::money( $value['aov_with'], $currency ),
+					self::money( $value['aov_without'], $currency ),
+					$verdict
+				),
+				'high',
+				self::confidence( (int) $fact['sample_size'], 60 ),
+				array( $fact['id'] )
 			),
 		);
 	}

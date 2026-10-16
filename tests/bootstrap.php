@@ -71,6 +71,7 @@ function reset_state(): void {
 	$GLOBALS['bap_posts']     = array();
 	$GLOBALS['bap_post_meta'] = array();
 	$GLOBALS['bap_url_posts'] = array();
+	$GLOBALS['bap_cron']      = array();
 	BAP_Settings::flush_cache();
 	BAP_Page_Resolver::flush_cache();
 }

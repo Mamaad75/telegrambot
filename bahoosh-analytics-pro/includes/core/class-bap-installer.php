@@ -42,6 +42,7 @@ class BAP_Installer {
 		wp_clear_scheduled_hook( BAP_Outbox::CRON_HOOK );
 		wp_clear_scheduled_hook( BAP_ML_Actions::CRON_EXECUTE );
 		wp_clear_scheduled_hook( BAP_License_Manager::VALIDATE_HOOK );
+		wp_clear_scheduled_hook( BAP_Agent_Effect::CRON );
 	}
 
 	/**

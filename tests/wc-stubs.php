@@ -16,21 +16,25 @@ $GLOBALS['bap_coupons']   = array();
 $GLOBALS['bap_wc_active'] = true;
 
 class Fake_WC_Item {
-	public function __construct( private int $id, private string $name, private int $qty, private float $total ) {}
+	public function __construct( private int $id, private string $name, private int $qty, private float $total, private ?float $subtotal = null ) {}
 	public function get_product_id() { return $this->id; }
 	public function get_name() { return $this->name; }
 	public function get_quantity() { return $this->qty; }
 	public function get_total() { return $this->total; }
+	public function get_subtotal() { return $this->subtotal ?? $this->total; }
 }
 
 class Fake_WC_Order {
 	public array $meta = array();
-	public function __construct( private int $id, private float $total, private array $items, string $device = '' ) {
+	public string $date = '';
+	public function __construct( private int $id, private float $total, private array $items, string $device = '', string $date = '' ) {
 		if ( '' !== $device ) { $this->meta['_bap_device_type'] = $device; }
+		$this->date = '' !== $date ? $date : gmdate( 'Y-m-d' );
 	}
 	public function get_id() { return $this->id; }
 	public function get_total() { return $this->total; }
 	public function get_items() { return $this->items; }
+	public function get_date_created() { return $this->date; }
 	public function get_meta( $key, $single = true ) { return $this->meta[ $key ] ?? ''; }
 	public function update_meta_data( $key, $value ) { $this->meta[ $key ] = $value; }
 	public function save() { return $this->id; }
@@ -43,12 +47,14 @@ class Fake_WC_Product {
 	public $sale_from = null;
 	public $sale_to = null;
 	public bool $saved = false;
+	public array $categories = array();
 
 	public function __construct( private int $id, private string $name, private float $regular = 100000.0 ) {}
 
 	public function get_id() { return $this->id; }
 	public function get_name() { return $this->name; }
 	public function get_regular_price() { return (string) $this->regular; }
+	public function get_category_ids() { return $this->categories; }
 	public function get_sale_price() { return $this->sale_price; }
 	public function set_sale_price( $price ) { $this->sale_price = (string) $price; }
 	public function get_date_on_sale_from() { return $this->sale_from ? new Fake_WC_DateTime( $this->sale_from ) : null; }
@@ -113,24 +119,52 @@ function wc_get_price_decimals() { return 0; }
 
 /**
  * Builds an order from a compact spec: [ [product_id, name, qty, total], ... ].
+ *
+ * A fifth element on a line is the line's subtotal — what it would have cost
+ * without a coupon — so the discount facts have something to measure.
  */
-function bap_add_order( int $id, array $lines, string $device = '', float $total = null ): void {
+function bap_add_order( int $id, array $lines, string $device = '', float $total = null, string $date = '' ): void {
 	$items = array();
 	$sum   = 0.0;
-	foreach ( $lines as [$pid, $name, $qty, $line_total] ) {
-		$items[] = new Fake_WC_Item( $pid, $name, $qty, $line_total );
+	foreach ( $lines as $line ) {
+		[$pid, $name, $qty, $line_total] = $line;
+		$subtotal = $line[4] ?? null;
+		$items[] = new Fake_WC_Item( $pid, $name, $qty, $line_total, $subtotal );
 		$sum    += $line_total;
 		$GLOBALS['bap_products'][ $pid ] = $GLOBALS['bap_products'][ $pid ] ?? new Fake_WC_Product( $pid, $name );
 	}
-	$GLOBALS['bap_orders'][] = new Fake_WC_Order( $id, $total ?? $sum, $items, $device );
+	$GLOBALS['bap_orders'][] = new Fake_WC_Order( $id, $total ?? $sum, $items, $device, $date );
 }
 
-function bap_add_product( int $id, string $name ): void {
-	$GLOBALS['bap_products'][ $id ] = new Fake_WC_Product( $id, $name );
+function bap_add_product( int $id, string $name, float $price = 100000.0, array $categories = array() ): void {
+	$product = new Fake_WC_Product( $id, $name, $price );
+	$product->categories = $categories;
+	$GLOBALS['bap_products'][ $id ] = $product;
 }
 
 function wc_get_product( $id ) { return $GLOBALS['bap_products'][ (int) $id ] ?? false; }
-function wc_get_orders( $args = array() ) { return $GLOBALS['bap_orders']; }
+
+/**
+ * Honours the `date_created` filter, because the agent's effect measurement is
+ * entirely about comparing two date windows. A stub that ignored the dates
+ * would let a broken before/after split pass its own test.
+ */
+function wc_get_orders( $args = array() ) {
+	$range = (string) ( $args['date_created'] ?? '' );
+
+	if ( ! str_contains( $range, '...' ) ) {
+		return $GLOBALS['bap_orders'];
+	}
+
+	[$from, $to] = explode( '...', $range, 2 );
+
+	return array_values(
+		array_filter(
+			$GLOBALS['bap_orders'],
+			static fn( $order ) => $order->date >= $from && $order->date <= $to
+		)
+	);
+}
 function wc_get_products( $args = array() ) { return array_values( $GLOBALS['bap_products'] ); }
 function wc_get_order( $id ) {
 	foreach ( $GLOBALS['bap_orders'] as $order ) { if ( $order->get_id() === (int) $id ) { return $order; } }

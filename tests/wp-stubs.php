@@ -90,6 +90,7 @@ if ( ! class_exists( 'WP_Error' ) ) {
 		public array $errors = array();
 		public function __construct( $code = '', $message = '' ) { if ( '' !== $code ) { $this->errors[ $code ] = array( $message ); } }
 		public function get_error_message() { foreach ( $this->errors as $m ) { return $m[0]; } return ''; }
+		public function get_error_code() { foreach ( array_keys( $this->errors ) as $c ) { return $c; } return ''; }
 	}
 }
 
@@ -155,7 +156,6 @@ function rest_authorization_required_code() { return 401; }
 function is_user_logged_in() { return false; }
 function wp_create_nonce( $a = '' ) { return 'nonce'; }
 function human_time_diff( $from, $to = 0 ) { return '1 دقیقه'; }
-function wp_clear_scheduled_hook( $hook ) { return true; }
 
 function wp_using_ext_object_cache() { return false; }
 function untrailingslashit( $s ) { return rtrim( (string) $s, '/\\' ); }
@@ -169,8 +169,16 @@ function wp_remote_retrieve_header( $r, $h ) { return is_array( $r ) && isset( $
 function get_userdata( $id ) { return $GLOBALS['bap_users'][ (int) $id ] ?? false; }
 function get_user_meta( $id, $key = '', $single = false ) { return $GLOBALS['bap_user_meta'][ (int) $id ][ $key ] ?? ''; }
 function is_email( $v ) { return (bool) filter_var( (string) $v, FILTER_VALIDATE_EMAIL ); }
-function wp_next_scheduled( $h, $a = array() ) { return false; }
-function wp_schedule_event( $t, $r, $h, $a = array() ) { return true; }
+/**
+ * A cron table, rather than a pair of constants.
+ *
+ * `wp_next_scheduled()` returning a flat false made every "is this job
+ * scheduled?" branch untestable, and the one in the agent's measurement decides
+ * whether a result is ever computed.
+ */
+function wp_next_scheduled( $h, $a = array() ) { return $GLOBALS['bap_cron'][ $h ] ?? false; }
+function wp_schedule_event( $t, $r, $h, $a = array() ) { $GLOBALS['bap_cron'][ $h ] = (int) $t; return true; }
+function wp_clear_scheduled_hook( $h, $a = array() ) { unset( $GLOBALS['bap_cron'][ $h ] ); }
 function wp_unschedule_hook( $h ) { return 0; }
 function human_time_diff_stub() {}
 

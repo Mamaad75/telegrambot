@@ -86,7 +86,7 @@ class BAP_Commerce_Facts {
 	 *
 	 * @param string $from Y-m-d.
 	 * @param string $to   Y-m-d.
-	 * @return array<int,array{id:int,total:float,device:string,items:array<int,array{id:int,name:string,qty:int,total:float}>}>
+	 * @return array<int,array{id:int,total:float,device:string,items:array<int,array{id:int,name:string,qty:int,total:float,subtotal:float}>}>
 	 */
 	public static function orders( $from, $to ) {
 		if ( ! self::available() ) {
@@ -123,11 +123,20 @@ class BAP_Commerce_Facts {
 					continue;
 				}
 
+				$total = (float) $item->get_total();
+
+				// `subtotal` is the line at its listed price, `total` is after
+				// coupons. Keeping both is what makes a coupon measurable: the
+				// gap between them is money the shop chose to give away, and
+				// nothing else in the order records it per product.
+				$subtotal = method_exists( $item, 'get_subtotal' ) ? (float) $item->get_subtotal() : $total;
+
 				$items[] = array(
-					'id'    => $product_id,
-					'name'  => (string) $item->get_name(),
-					'qty'   => (int) $item->get_quantity(),
-					'total' => (float) $item->get_total(),
+					'id'       => $product_id,
+					'name'     => (string) $item->get_name(),
+					'qty'      => (int) $item->get_quantity(),
+					'total'    => $total,
+					'subtotal' => $subtotal > 0 ? $subtotal : $total,
 				);
 			}
 

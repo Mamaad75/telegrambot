@@ -93,6 +93,12 @@ class BAP_Plugin {
 		BAP_ML_REST::init();
 		BAP_ML_Actions::init();
 
+		// The agent's measurement cron. Registered unconditionally so an
+		// already-scheduled job still has a handler after the agent is switched
+		// back off — otherwise the changes applied while it was on would never
+		// get their result.
+		BAP_Agent_Effect::init();
+
 		if ( is_admin() ) {
 			BAP_Admin::init();
 		}

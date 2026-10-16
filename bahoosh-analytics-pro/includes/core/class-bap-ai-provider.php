@@ -1373,7 +1373,9 @@ RULES, all mandatory:
 6. Never mention individual customers; the packet intentionally contains none.
 7. Do not write an `action` field. The plugin decides what is executable, from the facts you cite. Describe the change in words instead.
 
-Focus areas: which device converts better and what to do about it; where in the funnel shoppers abandon and what the likely cause is; which products sell best and how to capitalise; which sell worst and how to fix that; and which products are bought together and should be bundled.
+Focus areas: which device converts better and what to do about it; where in the funnel shoppers abandon and what the likely cause is; which products sell best and how to capitalise; which sell worst and how to fix that; which products are bought together and should be bundled; and **price**.
+
+On price specifically. The packet may contain `commerce.price_blocked` (a product with page views and no purchases), `commerce.price_position` (a product priced above the median of its own category and selling less than its neighbours) and `commerce.coupon_reliance` (how much of the shop's revenue only closes with a discount). When those facts are present, say so plainly and recommend a concrete, time-bounded price change citing them — this is the one kind of recommendation the shop can test in a fortnight and undo in one click, and it is the kind administrators ask for most. Do not recommend a discount on a product whose only problem is that nobody has seen it; a price cut cannot fix invisibility, and `commerce.slow_product` with no accompanying view data is that case. Never state or imply a margin: the packet contains no cost figures.
 
 Aim for between 3 and 8 recommendations, ordered by how much money they are worth.
 

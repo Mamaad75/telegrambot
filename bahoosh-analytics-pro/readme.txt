@@ -4,7 +4,7 @@ Tags: analytics, woocommerce, tracking, gdpr, ecommerce, funnels, ai, heatmap
 Requires at least: 5.8
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 4.14.0
+Stable tag: 4.15.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -139,6 +139,16 @@ Yes. Set `window.bapConsent` before the tracker loads, or dispatch a
 consent" enabled, nothing is collected until analytics consent is granted.
 
 == Changelog ==
+
+= 4.15.0 =
+* New: The analysis packet carries facts about price for the first time. `commerce.price_blocked` is a product with page views and no purchases; `commerce.price_position` is a product priced above the median of its own category and selling less than its neighbours; `commerce.coupon_reliance` is how much of the shop's revenue only closes with a discount. Every product fact also carries its list price now.
+* Fixed: No recommendation was ever directly about price, and the cause was structural rather than a wording choice — the packet contained no prices, and a recommendation citing a fact that does not exist is discarded before it is shown. The rule engine now produces three price recommendations of its own, so they appear with no model configured at all.
+* Fixed: The agent built its action from the first fact it recognised, which meant the order facts happened to arrive in decided what the shop did. Candidates are now scored by evidence strength and the best one wins; reversing the order of the same facts produces the same action.
+* New: The proposed discount comes from the fact rather than always from the cap — 10% for a price test, the measured gap down to the category median for a mispriced product, the cap only for clearing a product that never sold. The screen states the exact percentage and duration before anything is clicked.
+* New: Every applied change records how the affected products were selling over the previous 28 days, and a daily job compares that against what happened afterwards once a week of data exists. The comparison is difference-in-differences against the rest of the catalogue, so a quiet week is not read as the discount failing and a seasonal rise is not read as it working.
+* New: A verdict of "not enough data" is reported as "we do not know" rather than "it did not work". Fewer than five units across both windows gets no verdict at all: one sale before and two after is a 100% rise and means nothing.
+* Security: A discount that would take a product below a recorded cost of goods is refused. The cost is read from the meta a cost-of-goods plugin writes, and when none exists no margin is assumed or displayed.
+* Improved: The "your list prices are not real" recommendation deliberately carries no executable action. Every other price recommendation is one click to apply and one to revert; repricing the whole shop is not a decision an automatic mechanism should make.
 
 = 4.14.0 =
 * New: A "Search Rescue" screen. Searches that returned zero results are matched against the catalogue, so each one becomes an answer the shop can act on: there is a product that is probably what the shopper meant and the shop is missing the word, or there is not and the shop is missing the product. Those two need opposite fixes and were previously indistinguishable.

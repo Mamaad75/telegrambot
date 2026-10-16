@@ -105,6 +105,7 @@ class BAP_Analysis_Packet {
 			self::device_facts( $orders, $warnings ),
 			self::product_facts( $orders, $warnings ),
 			self::affinity_facts( $orders, $warnings ),
+			self::price_facts( $orders, $from, $to, $warnings ),
 			self::funnel_facts( $from, $to, $warnings ),
 			self::external_facts( $from, $to, $warnings )
 		);
@@ -221,6 +222,7 @@ class BAP_Analysis_Packet {
 					'units'      => $product['units'],
 					'revenue'    => $product['revenue'],
 					'orders'     => $product['orders'],
+					'price'      => self::price_of( $product['id'] ),
 					'currency'   => $currency,
 				),
 				$product['orders'],
@@ -246,6 +248,7 @@ class BAP_Analysis_Packet {
 					'units'      => $product['units'],
 					'revenue'    => $product['revenue'],
 					'orders'     => $product['orders'],
+					'price'      => self::price_of( $product['id'] ),
 					'currency'   => $currency,
 				),
 				$product['orders'],
@@ -253,6 +256,56 @@ class BAP_Analysis_Packet {
 					'rank'       => $index + 1,
 					'product_id' => (string) $product['id'],
 				)
+			);
+		}
+
+		return $facts;
+	}
+
+	/**
+	 * A product's list price, for facts that otherwise only carry revenue.
+	 *
+	 * Revenue divided by units is the price people *paid*, which is a different
+	 * number as soon as a coupon or a sale is involved, and it is undefined for
+	 * the products that matter most here — the ones that sold nothing.
+	 *
+	 * @param int $product_id Product.
+	 * @return float Zero when it cannot be read.
+	 */
+	private static function price_of( $product_id ) {
+		$product = (int) $product_id > 0 && function_exists( 'wc_get_product' ) ? wc_get_product( (int) $product_id ) : null;
+
+		return ( $product && method_exists( $product, 'get_regular_price' ) )
+			? (float) $product->get_regular_price()
+			: 0.0;
+	}
+
+	/**
+	 * Facts about price.
+	 *
+	 * Kept in {@see BAP_Price_Facts} rather than written out here because each
+	 * one needs the catalogue as well as the orders, and because they are the
+	 * only facts in the packet that exist to be *tested* rather than read: they
+	 * are what {@see BAP_Commerce_Agent} turns into a price change with a
+	 * measured before and after.
+	 *
+	 * @param array  $orders   Orders.
+	 * @param string $from     Y-m-d.
+	 * @param string $to       Y-m-d.
+	 * @param array  $warnings Warnings, by reference.
+	 * @return array Facts.
+	 */
+	private static function price_facts( array $orders, $from, $to, array &$warnings ) {
+		$facts = array();
+
+		foreach ( BAP_Price_Facts::all( $orders, $from, $to, $warnings ) as $row ) {
+			$facts[] = self::fact(
+				$row['id'],
+				$row['kind'],
+				$row['label'],
+				$row['value'],
+				$row['sample_size'],
+				$row['dimensions']
 			);
 		}
 

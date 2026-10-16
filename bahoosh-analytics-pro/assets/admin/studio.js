@@ -304,6 +304,24 @@
   /* AI Center                                                          */
   /* ------------------------------------------------------------------ */
 
+  // Why a change was made, and what the measurement concluded. Kept beside the
+  // renderer rather than sent per row: these are a fixed vocabulary that the
+  // PHP side validates, and the explanatory sentence already arrives as text.
+  var AGENT_INTENTS = {
+    price_test: "آزمایش قیمت",
+    price_align: "هم‌ترازی با دسته",
+    clearance: "تخلیه انبار",
+    bundle: "پکیج",
+    manual: "دستی"
+  };
+
+  var AGENT_VERDICTS = {
+    worked: "جواب داد",
+    backfired: "نتیجه معکوس داد",
+    flat: "تفاوتی نکرد",
+    thin: "داده کافی نیست"
+  };
+
   var aiActionCatalog = {};
   var aiAutonomy = "approval";
 
@@ -412,6 +430,40 @@
         row.appendChild(el("span", "bap-muted", "پایان: " + ends));
       }
 
+      var intent = AGENT_INTENTS[(entry.data || {}).intent];
+      if (intent) row.appendChild(el("span", "bap-pill", intent));
+
+      // The result of the change, once there is one. Before the observation
+      // window closes this says so, rather than showing a zero that would read
+      // as "it did nothing".
+      var effect = entry.effect || {};
+      if (entry.effect_text) {
+        var result = el("div", "bap-agent-effect bap-agent-effect--" + (effect.verdict || "thin"));
+        result.appendChild(el("span", "bap-kicker", "نتیجه اندازه‌گیری‌شده"));
+        result.appendChild(el("strong", "", AGENT_VERDICTS[effect.verdict] || AGENT_VERDICTS.thin));
+        result.appendChild(el("p", "", entry.effect_text));
+        result.appendChild(
+          el(
+            "span",
+            "bap-muted",
+            "فروش این محصول: " +
+              formatNumber(effect.units_before) +
+              " عدد در " +
+              formatNumber(effect.baseline_days) +
+              " روز قبل، " +
+              formatNumber(effect.units_after) +
+              " عدد در " +
+              formatNumber(effect.days) +
+              " روز بعد."
+          )
+        );
+        row.appendChild(result);
+      } else if (entry.baseline && entry.baseline.products) {
+        row.appendChild(
+          el("span", "bap-muted", "نتیجه هنوز اندازه‌گیری نشده — دست‌کم یک هفته داده لازم است.")
+        );
+      }
+
       if (entry.reverted_at) {
         row.appendChild(el("span", "bap-badge", "بازگردانده شد"));
       } else {
@@ -497,6 +549,20 @@
         action.appendChild(actionHead);
         action.appendChild(el("strong", "", definition.label || item.action.type));
         if (definition.description) action.appendChild(el("p", "", definition.description));
+
+        // The exact numbers that would be written, before anything is clicked.
+        // "Apply a discount" is not a decision anyone can make; "22% off for 14
+        // days, reversible" is.
+        var payload = item.action.payload || {};
+        if (payload.percent) {
+          var terms = formatNumber(payload.percent) + "٪ تخفیف";
+          if (payload.days) terms += " برای " + formatNumber(payload.days) + " روز";
+          action.appendChild(el("strong", "bap-agent-terms", terms));
+        }
+        if (AGENT_INTENTS[payload.intent]) {
+          action.appendChild(el("span", "bap-muted", "هدف: " + AGENT_INTENTS[payload.intent]));
+        }
+
         action.appendChild(el("code", "bap-action-type", item.action.type));
         card.appendChild(action);
       }

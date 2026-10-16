@@ -40,6 +40,13 @@ defined( 'ABSPATH' ) || exit;
  * of a bad run is a discount the owner did not want for a fortnight, and one
  * click undoes it.
  *
+ * **Every change is measured.** Since 4.15.0 each applied change stores how the
+ * affected products were selling beforehand, and {@see BAP_Agent_Effect}
+ * compares that against what happened afterwards, with the rest of the
+ * catalogue as the control. An agent that acts and never checks is not running
+ * experiments, it is guessing repeatedly — and the shop owner is the one paying
+ * for the guesses.
+ *
  * @since 4.3.0
  */
 class BAP_Commerce_Agent {
@@ -110,8 +117,8 @@ class BAP_Commerce_Agent {
 		$auto = self::MODE_AUTO === self::mode();
 
 		$registry[ self::ACTION_DISCOUNT ] = array(
-			'label'       => __( 'تخفیف زمان‌دار روی محصول کم‌فروش', 'bahoosh-analytics-pro' ),
-			'description' => __( 'قیمت فروش ویژه را برای مدت محدود روی محصول اعمال می‌کند. قیمت اصلی دست‌نخورده می‌ماند و تغییر قابل بازگردانی است.', 'bahoosh-analytics-pro' ),
+			'label'       => __( 'آزمایش قیمت با تخفیف زمان‌دار', 'bahoosh-analytics-pro' ),
+			'description' => __( 'قیمت فروش ویژه را برای مدت محدود روی محصول اعمال می‌کند. قیمت اصلی دست‌نخورده می‌ماند، تغییر با یک کلیک قابل بازگردانی است، و نتیجه‌اش بعد از یک هفته در همین گزارش اندازه‌گیری و با بقیه فروشگاه مقایسه می‌شود.', 'bahoosh-analytics-pro' ),
 			'safe_auto'   => $auto,
 			'callback'    => array( __CLASS__, 'discount_product' ),
 		);
@@ -166,27 +173,126 @@ class BAP_Commerce_Agent {
 	 *
 	 * Returns null far more often than not, and that is correct: most useful
 	 * advice — fix the checkout, the mobile basket is smaller — is work for a
-	 * person, not a database write. Only two shapes of fact have a safe,
-	 * mechanical response, and those are the only two that get one.
+	 * person, not a database write. Only facts with a safe, mechanical response
+	 * get one.
+	 *
+	 * **Every candidate is scored, and the best one wins.** This used to take
+	 * the first fact it recognised, which meant the order facts happened to
+	 * arrive in decided what the shop did. A recommendation citing both a
+	 * product nobody has bought for a year and a product 200 people looked at
+	 * this week would act on whichever came first in the array. The scoring in
+	 * {@see self::score()} is a ranking of evidence strength, not a revenue
+	 * forecast, and it is written down so it can be argued with.
 	 *
 	 * @param array $facts Facts cited by one recommendation.
-	 * @return array|null Action, or null when nothing is executable.
+	 * @return array|null The best executable action, or null when there is none.
 	 */
 	public static function propose( array $facts ) {
 		if ( ! self::enabled() ) {
 			return null;
 		}
 
+		$best  = null;
+		$score = -1.0;
+
 		foreach ( $facts as $fact ) {
-			$kind  = (string) ( $fact['kind'] ?? '' );
-			$value = (array) ( $fact['value'] ?? array() );
+			$candidate = self::candidate( $fact );
 
-			if ( 'commerce.product_affinity' === $kind ) {
-				$a = (int) ( $value['product_a'] ?? 0 );
-				$b = (int) ( $value['product_b'] ?? 0 );
+			if ( null === $candidate ) {
+				continue;
+			}
 
-				if ( $a > 0 && $b > 0 ) {
-					return array(
+			if ( $candidate['score'] > $score ) {
+				$score = $candidate['score'];
+				$best  = $candidate['action'];
+			}
+		}
+
+		return $best;
+	}
+
+	/**
+	 * Turns one fact into a scored candidate action.
+	 *
+	 * The four shapes that have a mechanical answer, in the order of how
+	 * directly the fact speaks about price:
+	 *
+	 * - **`price_blocked`** — people looked and nobody bought. The clearest
+	 *   invitation to a price test there is, because demand is already proven.
+	 * - **`price_position`** — priced above its own shelf and not moving. The
+	 *   percentage comes from the fact's own gap down to the category median,
+	 *   capped: a test aimed at a number the shop can defend, rather than the
+	 *   maximum the setting allows.
+	 * - **`product_affinity`** — buy these two together.
+	 * - **`slow_product`** — never sold at all. Last, because a product with no
+	 *   sales *and* no views has a visibility problem that a discount cannot
+	 *   fix, and that is the most common reason a discount disappoints.
+	 *
+	 * @param array $fact One fact from the packet.
+	 * @return array{score:float,action:array}|null
+	 */
+	private static function candidate( $fact ) {
+		$kind   = (string) ( $fact['kind'] ?? '' );
+		$value  = (array) ( $fact['value'] ?? array() );
+		$sample = (int) ( $fact['sample_size'] ?? 0 );
+
+		if ( 'commerce.price_blocked' === $kind ) {
+			$product_id = (int) ( $value['product_id'] ?? 0 );
+
+			if ( $product_id > 0 ) {
+				return array(
+					'score'  => self::score( 100, $sample ),
+					'action' => array(
+						'type'    => self::ACTION_DISCOUNT,
+						'payload' => array(
+							'product_id' => $product_id,
+							// Deliberately not the cap. This is a measurement,
+							// and the point of the first step is to find out
+							// whether price is the obstacle at all — which a
+							// 10% cut answers as well as a 40% one, for a
+							// quarter of the margin.
+							'percent'    => min( 10, self::max_discount() ),
+							'days'       => self::DURATION_DAYS,
+							'intent'     => 'price_test',
+						),
+					),
+				);
+			}
+		}
+
+		if ( 'commerce.price_position' === $kind ) {
+			$product_id = (int) ( $value['product_id'] ?? 0 );
+			$gap        = (int) ( $value['gap_pc'] ?? 0 );
+
+			if ( $product_id > 0 && $gap > 0 ) {
+				return array(
+					'score'  => self::score( 90, $sample ),
+					'action' => array(
+						'type'    => self::ACTION_DISCOUNT,
+						'payload' => array(
+							'product_id' => $product_id,
+							'percent'    => min( $gap, self::max_discount() ),
+							'days'       => self::DURATION_DAYS,
+							'intent'     => 'price_align',
+						),
+					),
+				);
+			}
+		}
+
+		if ( 'commerce.product_affinity' === $kind ) {
+			$a = (int) ( $value['product_a'] ?? 0 );
+			$b = (int) ( $value['product_b'] ?? 0 );
+
+			if ( $a > 0 && $b > 0 ) {
+				// Lift is how much stronger the pairing is than chance, so it
+				// belongs in the ranking: a lift of 3 is a better bundle than a
+				// lift of 1.3 on the same number of baskets.
+				$lift = max( 1.0, (float) ( $value['lift'] ?? 1 ) );
+
+				return array(
+					'score'  => self::score( 70 * min( 2.0, $lift ), $sample ),
+					'action' => array(
 						'type'    => self::ACTION_BUNDLE,
 						'payload' => array(
 							'product_a' => $a,
@@ -196,28 +302,53 @@ class BAP_Commerce_Agent {
 							// so the incentive only has to cover the hesitation.
 							'percent'   => min( 10, self::max_discount() ),
 							'days'      => self::DURATION_DAYS,
+							'intent'    => 'bundle',
 						),
-					);
-				}
+					),
+				);
 			}
+		}
 
-			if ( 'commerce.slow_product' === $kind ) {
-				$product_id = (int) ( $value['product_id'] ?? 0 );
+		if ( 'commerce.slow_product' === $kind ) {
+			$product_id = (int) ( $value['product_id'] ?? 0 );
 
-				if ( $product_id > 0 ) {
-					return array(
+			if ( $product_id > 0 ) {
+				return array(
+					'score'  => self::score( 50, $sample ),
+					'action' => array(
 						'type'    => self::ACTION_DISCOUNT,
 						'payload' => array(
 							'product_id' => $product_id,
 							'percent'    => self::max_discount(),
 							'days'       => self::DURATION_DAYS,
+							'intent'     => 'clearance',
 						),
-					);
-				}
+					),
+				);
 			}
 		}
 
 		return null;
+	}
+
+	/**
+	 * How strongly one fact argues for acting on it.
+	 *
+	 * Base weight times the logarithm of the sample. Logarithmic because the
+	 * difference between 5 observations and 50 is decisive and the difference
+	 * between 500 and 5,000 is not, and multiplying by the raw sample would let
+	 * one popular product's view count outrank every other consideration.
+	 *
+	 * This is an ordering, not a prediction. It deliberately contains no
+	 * estimate of revenue: that would need an assumed conversion rate at the new
+	 * price, which is precisely the unknown the experiment exists to find out.
+	 *
+	 * @param float $weight Base weight for the fact kind.
+	 * @param int   $sample Observations behind the fact.
+	 * @return float
+	 */
+	private static function score( $weight, $sample ) {
+		return (float) $weight * log( 1 + max( 0, (int) $sample ) );
 	}
 
 	/**
@@ -268,6 +399,24 @@ class BAP_Commerce_Agent {
 			return new WP_Error( 'bap_agent_bad_price', __( 'قیمت محاسبه‌شده معتبر نیست.', 'bahoosh-analytics-pro' ) );
 		}
 
+		// Only checked when a cost-of-goods plugin has actually recorded a cost.
+		// Without one this is silent rather than guessing at a markup — but when
+		// the number is there, selling below it is the one outcome the shop owner
+		// cannot be expected to recompute for every proposal themselves.
+		$cost = BAP_Price_Facts::cost( $product_id );
+
+		if ( $cost > 0 && $sale < $cost ) {
+			return new WP_Error(
+				'bap_agent_below_cost',
+				sprintf(
+					/* translators: 1: discount percent, 2: cost of goods. */
+					__( '%1$d درصد تخفیف قیمت را به زیر قیمت تمام‌شده (%2$s) می‌برد، بنابراین اعمال نشد.', 'bahoosh-analytics-pro' ),
+					$percent,
+					(string) $cost
+				)
+			);
+		}
+
 		$starts = time();
 		$ends   = $starts + ( $days * DAY_IN_SECONDS );
 
@@ -300,9 +449,15 @@ class BAP_Commerce_Agent {
 				'percent'      => $percent,
 				'regular'      => $regular,
 				'sale'         => $sale,
+				'intent'       => self::intent( $payload ),
 				'ends_at'      => gmdate( 'c', $ends ),
 			),
-			$restore
+			$restore,
+			// Stored on the entry rather than recomputed at measurement time, so
+			// the comparison is always against the window that was current when
+			// the decision was made — not against whatever 28 days happen to
+			// precede the day somebody opens the report.
+			BAP_Agent_Effect::baseline( array( $product_id ) )
 		);
 
 		return array(
@@ -402,9 +557,11 @@ class BAP_Commerce_Agent {
 				'code'      => $code,
 				'percent'   => $percent,
 				'products'  => array( $product_a->get_name(), $product_b->get_name() ),
+				'intent'    => self::intent( $payload ),
 				'ends_at'   => gmdate( 'c', $expires ),
 			),
-			array( 'coupon_id' => $coupon_id )
+			array( 'coupon_id' => $coupon_id ),
+			BAP_Agent_Effect::baseline( array( $a, $b ) )
 		);
 
 		return array(
@@ -483,6 +640,49 @@ class BAP_Commerce_Agent {
 	}
 
 	/**
+	 * Why a change was made, as a slug the screen can label.
+	 *
+	 * Comes from {@see self::candidate()}, never from model text. A missing or
+	 * unrecognised value becomes `manual`, which is the truthful answer for an
+	 * action an administrator triggered directly through the REST route.
+	 *
+	 * @param array $payload Action payload.
+	 * @return string
+	 */
+	private static function intent( array $payload ) {
+		$intent = (string) ( $payload['intent'] ?? '' );
+
+		return in_array( $intent, array( 'price_test', 'price_align', 'clearance', 'bundle' ), true )
+			? $intent
+			: 'manual';
+	}
+
+	/**
+	 * Writes a measurement back onto a log entry.
+	 *
+	 * Called by {@see BAP_Agent_Effect} rather than computed here, so this class
+	 * stays the one that writes to the shop and that one stays the one that
+	 * judges the result.
+	 *
+	 * @param string $log_id Entry id.
+	 * @param array  $effect Effect record.
+	 * @return bool Whether the entry existed.
+	 */
+	public static function record_effect( $log_id, array $effect ) {
+		$log_id = sanitize_key( $log_id );
+		$rows   = self::entries();
+
+		if ( ! isset( $rows[ $log_id ] ) ) {
+			return false;
+		}
+
+		$rows[ $log_id ]['effect'] = $effect;
+		update_option( self::OPTION_LOG, $rows, false );
+
+		return true;
+	}
+
+	/**
 	 * The agent's change log, newest first.
 	 *
 	 * @param int $limit Maximum rows.
@@ -499,7 +699,17 @@ class BAP_Commerce_Agent {
 			}
 		);
 
-		return array_slice( $rows, 0, $limit );
+		$rows = array_slice( $rows, 0, $limit );
+
+		// The verdict is turned into a sentence here rather than in JavaScript,
+		// so the thresholds behind it live in exactly one place.
+		foreach ( $rows as $index => $row ) {
+			$rows[ $index ]['effect_text'] = ! empty( $row['effect'] )
+				? BAP_Agent_Effect::explain( (array) $row['effect'] )
+				: '';
+		}
+
+		return $rows;
 	}
 
 	/**
@@ -558,13 +768,14 @@ class BAP_Commerce_Agent {
 	/**
 	 * Records one change.
 	 *
-	 * @param string $type    Action type.
-	 * @param string $label   Human description.
-	 * @param array  $data    Details.
-	 * @param array  $restore What is needed to undo it.
+	 * @param string $type     Action type.
+	 * @param string $label    Human description.
+	 * @param array  $data     Details.
+	 * @param array  $restore  What is needed to undo it.
+	 * @param array  $baseline How the affected products were selling before.
 	 * @return array The stored entry.
 	 */
-	private static function log( $type, $label, array $data, array $restore ) {
+	private static function log( $type, $label, array $data, array $restore, array $baseline = array() ) {
 		$rows = self::entries();
 		$id   = 'agt_' . substr( str_replace( '-', '', wp_generate_uuid4() ), 0, 18 );
 
@@ -577,6 +788,11 @@ class BAP_Commerce_Agent {
 			'user_id' => get_current_user_id(),
 			'data'    => $data,
 			'restore' => $restore,
+			'baseline' => $baseline,
+			// Filled in by BAP_Agent_Effect once the change has been live long
+			// enough to say anything about. Empty is the honest state for the
+			// first week, and the screen says so rather than showing a zero.
+			'effect'  => array(),
 			'reverted_at' => '',
 		);
 
@@ -587,6 +803,10 @@ class BAP_Commerce_Agent {
 		}
 
 		update_option( self::OPTION_LOG, $rows, false );
+
+		if ( $baseline ) {
+			BAP_Agent_Effect::ensure_scheduled();
+		}
 
 		return $entry;
 	}
