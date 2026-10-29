@@ -28,7 +28,7 @@ class BAP_Segments_Page {
 	 * @return void
 	 */
 	public static function init() {
-		foreach ( array( 'save_policy', 'rotate_secret', 'download_bundle', 'import_results', 'decide', 'manual_coupon', 'manual_campaign' ) as $handler ) {
+		foreach ( array( 'save_policy', 'rotate_secret', 'download_bundle', 'import_results', 'advise', 'decide', 'manual_coupon', 'manual_campaign' ) as $handler ) {
 			add_action( 'admin_post_bap_ml_' . $handler, array( __CLASS__, 'handle_' . $handler ) );
 		}
 	}
@@ -147,6 +147,8 @@ class BAP_Segments_Page {
 					</div>
 				</section>
 			<?php else : ?>
+				<?php self::render_segment_chart( $segments, $currency ); ?>
+
 				<section class="bap-section bap-customer-intelligence">
 					<div class="bap-section-title"><div><span class="bap-kicker"><?php esc_html_e( 'شناخت مشتری', 'bahoosh-analytics-pro' ); ?></span>
 						<h2><?php esc_html_e( 'بخش‌های مشتری و فرصت‌های فروش', 'bahoosh-analytics-pro' ); ?></h2><p><?php esc_html_e( 'هر کارت یک گروه واقعی از مشتریان همین فروشگاه است؛ تصمیم بازاریابی را با ریسک ریزش، احتمال خرید و ارزش گروه کنار هم ببینید.', 'bahoosh-analytics-pro' ); ?></p></div><span class="bap-section-badge"><?php echo esc_html( sprintf( __( '%d دسته فعال', 'bahoosh-analytics-pro' ), count( $segments ) ) ); ?></span></div>
@@ -165,7 +167,7 @@ class BAP_Segments_Page {
 							<footer class="bap-segment-actions">
 								<?php if ( $can_edit && current_user_can( 'edit_shop_coupons' ) ) : ?><details><summary><span class="dashicons dashicons-tickets-alt"></span><?php esc_html_e( 'کد تخفیف', 'bahoosh-analytics-pro' ); ?></summary><form method="post" action="<?php echo esc_url( $post_url ); ?>"><?php wp_nonce_field( 'bap_ml_manual_coupon' ); ?><input type="hidden" name="action" value="bap_ml_manual_coupon"><input type="hidden" name="segment_key" value="<?php echo esc_attr( $key ); ?>"><div class="bap-inline-fields"><label><?php esc_html_e( 'درصد', 'bahoosh-analytics-pro' ); ?><input type="number" name="discount_value" min="1" max="<?php echo esc_attr( $policy['max_discount_percent'] ); ?>" value="<?php echo esc_attr( min( 10, $policy['max_discount_percent'] ) ); ?>"></label><label><?php esc_html_e( 'روز', 'bahoosh-analytics-pro' ); ?><input type="number" name="duration_days" min="1" max="<?php echo esc_attr( $policy['max_coupon_duration_days'] ); ?>" value="7"></label></div><button class="button button-primary bap-primary"><?php esc_html_e( 'ساخت کد', 'bahoosh-analytics-pro' ); ?></button></form></details><?php endif; ?>
 								<?php if ( $can_edit ) : ?><details><summary><span class="dashicons dashicons-email-alt"></span><?php esc_html_e( 'کمپین', 'bahoosh-analytics-pro' ); ?></summary><form method="post" action="<?php echo esc_url( $post_url ); ?>"><?php wp_nonce_field( 'bap_ml_manual_campaign' ); ?><input type="hidden" name="action" value="bap_ml_manual_campaign"><input type="hidden" name="segment_key" value="<?php echo esc_attr( $key ); ?>"><input type="text" name="subject" required maxlength="120" placeholder="<?php esc_attr_e( 'موضوع کمپین', 'bahoosh-analytics-pro' ); ?>"><textarea name="message" required rows="3" maxlength="2000" placeholder="<?php esc_attr_e( 'پیام کمپین', 'bahoosh-analytics-pro' ); ?>"></textarea><label><?php esc_html_e( 'زمان ارسال', 'bahoosh-analytics-pro' ); ?><input type="datetime-local" name="send_at"></label><button class="button button-primary bap-primary"><?php esc_html_e( 'زمان‌بندی', 'bahoosh-analytics-pro' ); ?></button></form></details><?php endif; ?>
-								<a class="bap-segment-action-link" href="#bap-ml-actions"><span class="dashicons dashicons-lightbulb"></span><?php esc_html_e( 'پیشنهادهای AI', 'bahoosh-analytics-pro' ); ?></a>
+								<a class="bap-segment-action-link" href="#bap-ml-actions"><span class="dashicons dashicons-lightbulb"></span><?php esc_html_e( 'اقدام‌های این بخش', 'bahoosh-analytics-pro' ); ?></a>
 							</footer>
 						</article>
 					<?php endforeach; ?>
@@ -181,7 +183,7 @@ class BAP_Segments_Page {
 			$quality = (array) ( $insights['quality'] ?? array() );
 			if ( $quality && isset( $quality['silhouette'] ) ) :
 				$silhouette = (float) $quality['silhouette'];
-				$verdict    = self::silhouette_verdict( $silhouette );
+				$verdict    = self::silhouette_verdict( $silhouette, (float) ( $quality['largest_segment_share'] ?? 0 ), count( $segments ) );
 				?>
 				<section class="bap-section bap-run-quality">
 					<div class="bap-section-title"><div><span class="bap-kicker"><?php esc_html_e( 'کیفیت اجرا', 'bahoosh-analytics-pro' ); ?></span>
@@ -220,9 +222,25 @@ class BAP_Segments_Page {
 
 			<section class="bap-section" id="bap-ml-actions">
 				<div class="bap-section-title"><div><span class="bap-kicker"><?php esc_html_e( 'اقدام‌ها', 'bahoosh-analytics-pro' ); ?></span>
-					<h2><?php esc_html_e( 'پیشنهاد، تأیید، اجرا، نتیجه', 'bahoosh-analytics-pro' ); ?></h2></div></div>
+					<h2><?php esc_html_e( 'پیشنهاد، تأیید، اجرا، نتیجه', 'bahoosh-analytics-pro' ); ?></h2></div>
+					<?php if ( $can_edit && $segments ) : ?>
+						<form method="post" action="<?php echo esc_url( $post_url ); ?>">
+							<?php wp_nonce_field( 'bap_ml_advise' ); ?>
+							<input type="hidden" name="action" value="bap_ml_advise">
+							<button class="button button-primary bap-primary"><span class="dashicons dashicons-lightbulb"></span> <?php esc_html_e( 'ساخت پیشنهاد برای هر بخش', 'bahoosh-analytics-pro' ); ?></button>
+						</form>
+					<?php endif; ?>
+				</div>
 				<?php if ( ! $actions ) : ?>
-					<div class="bap-empty-state"><?php esc_html_e( 'هنوز اقدامی پیشنهاد نشده است.', 'bahoosh-analytics-pro' ); ?></div>
+					<div class="bap-empty-state bap-rescue-empty">
+						<span class="dashicons dashicons-lightbulb"></span>
+						<strong><?php esc_html_e( 'هنوز اقدامی پیشنهاد نشده است.', 'bahoosh-analytics-pro' ); ?></strong>
+						<?php if ( $segments ) : ?>
+							<p><?php esc_html_e( 'دکمه بالا برای هر بخش مشتری یک اقدام پیشنهاد می‌دهد — کوپن بازگشت برای گروه‌هایی که رفته‌اند، و کمپین بدون تخفیف برای گروه‌هایی که بدون آن هم می‌خرند. همه از روی همین داده ساخته می‌شوند و بدون تأیید شما هیچ‌کدام اجرا نمی‌شوند.', 'bahoosh-analytics-pro' ); ?></p>
+						<?php else : ?>
+							<p><?php esc_html_e( 'اول نتیجه بخش‌بندی را وارد کنید؛ بدون بخش مشتری، اقدامی برای پیشنهاد دادن نیست.', 'bahoosh-analytics-pro' ); ?></p>
+						<?php endif; ?>
+					</div>
 				<?php else : ?>
 				<table class="widefat striped bap-ml-table">
 					<thead><tr>
@@ -528,6 +546,134 @@ class BAP_Segments_Page {
 	}
 
 	/**
+	 * Proposes an action for every segment of the latest run.
+	 *
+	 * @return void
+	 */
+	public static function handle_advise() {
+		self::guard( 'bap_ml_advise' );
+
+		$outcome = BAP_Segment_Advisor::advise();
+
+		if ( 0 === $outcome['proposed'] ) {
+			self::back(
+				$outcome['skipped'] > 0
+					? __( 'برای هیچ بخشی پیشنهاد روشنی پیدا نشد. گروه‌های خیلی کوچک و گروه‌هایی که الگوی مشخصی ندارند عمداً پیشنهاد نمی‌گیرند.', 'bahoosh-analytics-pro' )
+					: __( 'بخشی برای پیشنهاد دادن پیدا نشد. اول نتیجه بخش‌بندی را وارد کنید.', 'bahoosh-analytics-pro' )
+			);
+		}
+
+		$rejected = 0;
+		foreach ( (array) ( $outcome['result']['actions'] ?? array() ) as $row ) {
+			if ( 'rejected_by_policy' === ( $row['status'] ?? '' ) ) {
+				$rejected++;
+			}
+		}
+
+		self::back(
+			$rejected > 0
+				? sprintf(
+					/* translators: 1: proposals made, 2: rejected by policy. */
+					__( '%1$s پیشنهاد ساخته شد؛ %2$s مورد با سیاست فروشگاه نخواند و رد شد. دلیل هر کدام در جدول زیر آمده است.', 'bahoosh-analytics-pro' ),
+					number_format_i18n( $outcome['proposed'] ),
+					number_format_i18n( $rejected )
+				)
+				: sprintf(
+					/* translators: %s: number of proposals. */
+					__( '%s پیشنهاد ساخته شد. هیچ‌کدام بدون تأیید شما اجرا نمی‌شود.', 'bahoosh-analytics-pro' ),
+					number_format_i18n( $outcome['proposed'] )
+				)
+		);
+	}
+
+	/**
+	 * The segment chart: who they are, and what share of the money they are.
+	 *
+	 * Drawn as CSS bars rather than an SVG, for two reasons that both come down
+	 * to the language. Persian labels in an SVG need hand-placed `<text>` with
+	 * manual right-to-left anchoring and no wrapping; as ordinary markup the
+	 * browser lays them out correctly for free. And the page loads no
+	 * JavaScript at all, so a server-rendered chart needs no loading state and
+	 * works with scripts disabled.
+	 *
+	 * Two bars per row on purpose. A share of customers next to a share of
+	 * revenue is the one comparison that changes a marketing decision: a group
+	 * that is 12% of the shop and 48% of the money is treated very differently
+	 * from one that is 40% of the shop and 9% of the money, and either bar
+	 * alone hides that.
+	 *
+	 * @param array  $segments Segments, as BAP_ML_Store::segments() returns them.
+	 * @param string $currency Currency code.
+	 * @return void
+	 */
+	private static function render_segment_chart( array $segments, $currency ) {
+		$customers = array_sum( array_map( static fn( $s ) => (int) ( $s['customer_count'] ?? 0 ), $segments ) );
+		$revenue   = array_sum( array_map( static fn( $s ) => (float) ( $s['total_revenue'] ?? 0 ), $segments ) );
+
+		if ( $customers < 1 ) {
+			return;
+		}
+
+		// Bars are scaled against the largest share, not against 100%: with six
+		// segments every bar would otherwise be a stub, and the comparison
+		// between them is the point.
+		$peak_people  = max( 1, max( array_map( static fn( $s ) => (int) ( $s['customer_count'] ?? 0 ), $segments ) ) );
+		$peak_revenue = max( 1.0, max( array_map( static fn( $s ) => (float) ( $s['total_revenue'] ?? 0 ), $segments ) ) );
+
+		$palette = array( '--bap-accent', '--bap-teal', '--bap-success', '--bap-warning', '--bap-danger', '--bap-info', '--bap-accent-2', '--bap-muted' );
+		$index   = 0;
+		?>
+		<section class="bap-section bap-segment-chart">
+			<div class="bap-section-title">
+				<div><span class="bap-kicker"><?php esc_html_e( 'نمودار', 'bahoosh-analytics-pro' ); ?></span>
+					<h2><?php esc_html_e( 'سهم هر گروه از مشتریان و از درآمد', 'bahoosh-analytics-pro' ); ?></h2>
+					<p><?php esc_html_e( 'دو میله کنار هم: اگر میله درآمد از میله مشتری بلندتر باشد، آن گروه بیش از اندازه‌اش می‌ارزد.', 'bahoosh-analytics-pro' ); ?></p>
+				</div>
+			</div>
+
+			<div class="bap-chart-legend">
+				<span><i class="is-people"></i><?php esc_html_e( 'سهم مشتریان', 'bahoosh-analytics-pro' ); ?></span>
+				<span><i class="is-money"></i><?php esc_html_e( 'سهم درآمد', 'bahoosh-analytics-pro' ); ?></span>
+			</div>
+
+			<div class="bap-segment-bars">
+				<?php foreach ( $segments as $key => $seg ) : ?>
+					<?php
+					$count        = (int) ( $seg['customer_count'] ?? 0 );
+					$money        = (float) ( $seg['total_revenue'] ?? 0 );
+					$people_share = $customers > 0 ? ( 100 * $count / $customers ) : 0.0;
+					$money_share  = $revenue > 0 ? ( 100 * $money / $revenue ) : 0.0;
+					$colour       = $palette[ $index % count( $palette ) ];
+					$index++;
+					?>
+					<div class="bap-segment-bar" style="--row-colour: var(<?php echo esc_attr( $colour ); ?>)">
+						<div class="bap-segment-bar__label">
+							<strong><?php echo esc_html( (string) $seg['label'] ); ?></strong>
+							<small><?php echo esc_html( sprintf( /* translators: %s: customer count. */ __( '%s مشتری', 'bahoosh-analytics-pro' ), number_format_i18n( $count ) ) ); ?></small>
+						</div>
+						<div class="bap-segment-bar__track">
+							<div class="bap-segment-bar__fill is-people" style="width: <?php echo esc_attr( round( 100 * $count / $peak_people, 2 ) ); ?>%">
+								<span><?php echo esc_html( number_format_i18n( $people_share, 1 ) . '٪' ); ?></span>
+							</div>
+							<div class="bap-segment-bar__fill is-money" style="width: <?php echo esc_attr( round( 100 * $money / $peak_revenue, 2 ) ); ?>%">
+								<span><?php echo esc_html( number_format_i18n( $money_share, 1 ) . '٪' ); ?></span>
+							</div>
+						</div>
+						<div class="bap-segment-bar__value"><?php echo esc_html( number_format_i18n( $money ) . ' ' . $currency ); ?></div>
+					</div>
+				<?php endforeach; ?>
+			</div>
+
+			<?php if ( count( $segments ) < 2 ) : ?>
+				<p class="bap-muted bap-footnote">
+					<?php esc_html_e( 'فقط یک گروه ساخته شده، پس نموداری برای مقایسه نیست. این یعنی داده این فروشگاه هنوز گروه‌های جدا از هم ندارد — معمولاً به‌خاطر کم بودن تعداد مشتری. با بیشتر شدن سفارش‌ها، اجرای بعدی گروه‌های بیشتری پیدا می‌کند.', 'bahoosh-analytics-pro' ); ?>
+				</p>
+			<?php endif; ?>
+		</section>
+		<?php
+	}
+
+	/**
 	 * Turns a silhouette score into a sentence a shop owner can act on.
 	 *
 	 * The bands are the conventional reading of the statistic, and the wording
@@ -535,10 +681,25 @@ class BAP_Segments_Page {
 	 * segments are wrong, it means the data did not contain clean groups, which
 	 * is usually a shortage of customers rather than a fault in the method.
 	 *
+	 * A high score with one dominant group is the trap this guards against: a
+	 * clustering that puts nearly everybody in one segment separates trivially
+	 * well, because there is almost nothing to separate it from. Reporting that
+	 * as "good separation" would be the screen's most misleading sentence.
+	 *
 	 * @param float $silhouette Score, -1 to 1.
+	 * @param float $dominance  Share of customers in the largest segment, 0-1.
+	 * @param int   $segments   How many segments the run produced.
 	 * @return array{class:string,label:string,note:string}
 	 */
-	private static function silhouette_verdict( $silhouette ) {
+	private static function silhouette_verdict( $silhouette, $dominance = 0.0, $segments = 0 ) {
+		if ( $segments === 1 || $dominance >= 0.70 ) {
+			return array(
+				'class' => 'is-neutral',
+				'label' => __( 'یک گروه غالب', 'bahoosh-analytics-pro' ),
+				'note'  => __( 'تقریباً همه مشتریان در یک گروه افتاده‌اند، پس عدد جدایی بالا معنای زیادی ندارد: چیزی نبوده که از آن جدا شود. این معمولاً یعنی تعداد مشتری هنوز کم است. تا وقتی گروه دوم واقعی پیدا شود، تصمیم‌ها را روی کل فروشگاه بگیرید نه روی این بخش.', 'bahoosh-analytics-pro' ),
+			);
+		}
+
 		if ( $silhouette >= 0.5 ) {
 			return array(
 				'class' => 'is-healthy',

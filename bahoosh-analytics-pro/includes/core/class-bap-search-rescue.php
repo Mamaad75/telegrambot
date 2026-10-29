@@ -541,23 +541,43 @@ Return ONLY JSON: {\"matches\":[{\"term\":\"…\",\"product_id\":123,\"confidenc
 		}
 
 		$unmeasured = 0;
+		$too_few    = 0;
 		$searches   = BAP_Local_Reports::explorer( $from, $to )['searches'];
 
 		foreach ( $searches as $search ) {
 			if ( ! empty( $search['unmeasured'] ) ) {
 				$unmeasured++;
+				continue;
+			}
+
+			// A measured zero that simply has not been searched often enough.
+			// Silent until now, which made the screen look broken: the term is
+			// there, it found nothing, and the page said zero with no reason.
+			if ( ! empty( $search['no_results'] ) && (int) $search['count'] < self::MIN_SEARCHES ) {
+				$too_few++;
 			}
 		}
 
 		if ( $unmeasured > 0 ) {
 			$notes[] = sprintf(
 				/* translators: %s: number of search terms. */
-				__( 'برای %s عبارت، تعداد نتایج ثبت نشده است. این یعنی جست‌وجوی سایت شما از وردپرس نیست، یا آن جست‌وجوها قبل از این نسخه ثبت شده‌اند. چنین عبارت‌هایی اینجا نمی‌آیند، چون نمی‌دانیم نتیجه داشتند یا نه.', 'bahoosh-analytics-pro' ),
+				__( 'برای %s عبارت، تعداد نتایج ثبت نشده است. این عبارت‌ها پیش از نسخه ۴.۱۸.۰ ثبت شده‌اند (ایرادی در ردیاب، تعداد صفر را «ثبت‌نشده» ذخیره می‌کرد) یا جست‌وجوی سایتتان از وردپرس نیست. جست‌وجوهای تازه درست ثبت می‌شوند.', 'bahoosh-analytics-pro' ),
 				number_format_i18n( $unmeasured )
 			);
 		}
 
-		if ( $searches && ! $terms ) {
+		if ( $too_few > 0 ) {
+			$notes[] = sprintf(
+				/* translators: 1: number of terms, 2: minimum searches. */
+				__( '%1$s عبارت صفر نتیجه داشته ولی کمتر از %2$s بار جست‌وجو شده است. یک‌بار جست‌وجو می‌تواند اشتباه تایپی باشد؛ از %2$s بار به بالا یک الگوست. همین که دوباره جست‌وجو شوند، اینجا می‌آیند.', 'bahoosh-analytics-pro' ),
+				number_format_i18n( $too_few ),
+				number_format_i18n( self::MIN_SEARCHES )
+			);
+		}
+
+		if ( ! $searches ) {
+			$notes[] = __( 'در این بازه هیچ جست‌وجویی ثبت نشده است. بازه را بلندتر کنید، یا اگر تازه افزونه را نصب کرده‌اید، چند روز به ردیاب وقت بدهید.', 'bahoosh-analytics-pro' );
+		} elseif ( ! $terms && ! $unmeasured && ! $too_few ) {
 			$notes[] = __( 'هیچ جست‌وجویی با صفر نتیجه در این بازه ثبت نشده. خبر خوبی است.', 'bahoosh-analytics-pro' );
 		}
 

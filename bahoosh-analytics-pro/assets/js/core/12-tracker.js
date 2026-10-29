@@ -464,9 +464,14 @@
     try {
       var query = new URLSearchParams(loc.search || "").get(param);
       if (query) {
+        // `count || null` turned a genuine zero into "not reported", which is
+        // the one value this field exists to carry: a search that found
+        // nothing is what Search Rescue is looking for. Only a real absence
+        // may become null.
+        var found = this.config.search_results_count;
         this.track(TYPES.SEARCH, {
           query: util.truncate(query, 255),
-          results_count: this.config.search_results_count || null,
+          results_count: typeof found === "number" ? found : null,
         });
       }
     } catch (e) {

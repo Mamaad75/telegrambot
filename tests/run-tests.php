@@ -3583,9 +3583,9 @@ test( 'segments: every silhouette band gets its own honest verdict', function ()
 	$method = new ReflectionMethod( 'BAP_Segments_Page', 'silhouette_verdict' );
 	$method->setAccessible( true );
 
-	$strong = $method->invoke( null, 0.62 );
-	$middle = $method->invoke( null, 0.30 );
-	$weak   = $method->invoke( null, 0.08 );
+	$strong = $method->invoke( null, 0.62, 0.35, 4 );
+	$middle = $method->invoke( null, 0.30, 0.40, 3 );
+	$weak   = $method->invoke( null, 0.08, 0.30, 3 );
 
 	is_same( 'is-healthy', $strong['class'] );
 	is_same( 'is-warning', $middle['class'] );
@@ -3594,6 +3594,192 @@ test( 'segments: every silhouette band gets its own honest verdict', function ()
 	// A weak score must not be reported as "the segments are wrong".
 	ok( str_contains( $weak['note'], 'هنوز نمی‌دانیم' ), 'weak reads as unknown, not as broken' );
 	ok( $strong['label'] !== $weak['label'] );
+
+	// A single 93% blob scores 0.57 and separates from almost nothing. Calling
+	// that "good separation" would be this screen's most misleading sentence.
+	$blob = $method->invoke( null, 0.5677, 0.926, 1 );
+	is_same( 'is-neutral', $blob['class'], 'a dominant group is never reported as good' );
+	ok( str_contains( $blob['note'], 'چیزی نبوده که از آن جدا شود' ) );
+} );
+
+/* ============================================================ */
+/* Search Rescue: the zero that was being thrown away           */
+/* ============================================================ */
+
+test( 'search: a zero result count survives the tracker', function () {
+	// `count || null` in JavaScript turns 0 into null, and the store records a
+	// null as -1 ("not reported"). A search that found nothing is the one case
+	// Search Rescue exists for, so the feature could never see its own subject.
+	$tracker = file_get_contents( BAP_PLUGIN_DIR . 'assets/js/core/12-tracker.js' );
+
+	ok( ! str_contains( $tracker, 'this.config.search_results_count || null' ), 'the falsy check is gone' );
+	ok( str_contains( $tracker, 'typeof found === "number" ? found : null' ), 'only a real absence becomes null' );
+
+	// The built bundle is what actually runs on the site.
+	$bundle = file_get_contents( BAP_PLUGIN_DIR . 'assets/js/dist/bahoosh-tracker.js' );
+	ok( str_contains( $bundle, 'typeof found === "number"' ), 'and the bundle carries the fix' );
+} );
+
+test( 'search: the store keeps a measured zero apart from an unreported count', function () {
+	BAP_Local_Store::record( bap_event( array(
+		'event_type' => 'search',
+		'data'       => array( 'query' => 'چیزی که نداریم', 'results_count' => 0 ),
+	) ) );
+	BAP_Local_Store::record( bap_event( array(
+		'event_type' => 'search',
+		'data'       => array( 'query' => 'بدون شمارش' ),
+	) ) );
+
+	$rows = BAP_Local_Store::events( gmdate( 'Y-m-d' ), gmdate( 'Y-m-d' ) )['rows'];
+	$by   = array();
+	foreach ( $rows as $row ) {
+		$by[ $row['label'] ] = (int) $row['result_count'];
+	}
+
+	is_same( 0, $by['چیزی که نداریم'], 'a measured zero stays zero' );
+	is_same( -1, $by['بدون شمارش'], 'an absent count stays -1' );
+} );
+
+/* ============================================================ */
+/* Proposals built from the segments themselves                 */
+/* ============================================================ */
+
+/** Calls the advisor's private rule for one segment profile. */
+function bap_advise_segment( array $profile, array $policy = array() ): ?array {
+	$method = new ReflectionMethod( 'BAP_Segment_Advisor', 'for_segment' );
+	$method->setAccessible( true );
+
+	return $method->invoke(
+		null,
+		(string) ( $profile['segment_key'] ?? 'seg' ),
+		$profile,
+		array_merge( BAP_ML_Policy::defaults(), $policy )
+	);
+}
+
+test( 'advisor: customers who left get a coupon, and it is the deepest one', function () {
+	$action = bap_advise_segment( array(
+		'segment_key' => 'lapsed_loyal', 'label' => 'وفادارانِ از‌دست‌رفته',
+		'customer_count' => 120, 'average_recency' => 240, 'average_frequency' => 3.2,
+		'average_discount_share' => 0.05,
+	) );
+
+	is_same( 'create_coupon_for_segment', $action['action_type'] );
+	is_same( 'lapsed_loyal', $action['target']['segment_key'] );
+	is_same( 15.0, $action['parameters']['discount_value'], 'the policy ceiling, for a group worth recovering' );
+	ok( $action['parameters']['holdout_percent'] > 0, 'with a control group, so the effect is measurable' );
+} );
+
+test( 'advisor: a group that only buys on coupons is not offered another coupon', function () {
+	// The expensive mistake this rule exists to prevent: answering
+	// "they only buy when discounted" with another discount.
+	$action = bap_advise_segment( array(
+		'segment_key' => 'discount_led', 'label' => 'وابسته به تخفیف',
+		'customer_count' => 80, 'average_recency' => 40, 'average_frequency' => 1.4,
+		'average_discount_share' => 0.31,
+	) );
+
+	is_same( 'create_campaign', $action['action_type'] );
+	ok( ! isset( $action['parameters']['discount_value'] ), 'no discount anywhere in it' );
+	ok( str_contains( implode( ' ', $action['reason'] ), 'کوپن پیشنهاد نشد' ), 'and it says why' );
+} );
+
+test( 'advisor: customers already buying at full price are left alone', function () {
+	$action = bap_advise_segment( array(
+		'segment_key' => 'champions', 'label' => 'مشتریان طلایی',
+		'customer_count' => 116, 'average_recency' => 34, 'average_frequency' => 6.0,
+		'average_discount_share' => 0.02,
+	) );
+
+	is_same( 'create_campaign', $action['action_type'] );
+	ok( ! isset( $action['parameters']['discount_value'] ), 'discounting them would pay for a sale that already happens' );
+} );
+
+test( 'advisor: a new customer gets a small nudge toward a second order', function () {
+	$action = bap_advise_segment( array(
+		'segment_key' => 'new', 'label' => 'تازه‌واردها',
+		'customer_count' => 40, 'average_recency' => 20, 'average_frequency' => 1.0,
+		'average_discount_share' => 0.0,
+	) );
+
+	is_same( 'create_coupon_for_segment', $action['action_type'] );
+	ok( $action['parameters']['discount_value'] <= 10.0, 'small: the goal is the habit, not the margin' );
+} );
+
+test( 'advisor: a group with no clear pattern gets no proposal at all', function () {
+	// Returning nothing is a real answer. Proposing something for every segment
+	// teaches the shop owner to approve without reading.
+	is_same( null, bap_advise_segment( array(
+		'segment_key' => 'occasional', 'label' => 'خریداران گاه‌به‌گاه',
+		'customer_count' => 60, 'average_recency' => 120, 'average_frequency' => 1.8,
+		'average_discount_share' => 0.05,
+	) ) );
+} );
+
+test( 'advisor: a lower discount ceiling is respected, not merely checked later', function () {
+	$action = bap_advise_segment(
+		array(
+			'segment_key' => 'at_risk', 'label' => 'در خطر ریزش',
+			'customer_count' => 90, 'average_recency' => 300, 'average_frequency' => 4.0,
+			'average_discount_share' => 0.0,
+		),
+		array( 'max_discount_percent' => 5 )
+	);
+
+	is_same( 5.0, $action['parameters']['discount_value'], 'the proposal is built within the cap' );
+} );
+
+test( 'advisor: every proposal is shaped the way the action gate demands', function () {
+	$profiles = array(
+		array( 'segment_key' => 'a', 'label' => 'ا', 'customer_count' => 50, 'average_recency' => 300, 'average_frequency' => 3.0, 'average_discount_share' => 0.0 ),
+		array( 'segment_key' => 'b', 'label' => 'ب', 'customer_count' => 50, 'average_recency' => 30, 'average_frequency' => 1.0, 'average_discount_share' => 0.0 ),
+		array( 'segment_key' => 'c', 'label' => 'پ', 'customer_count' => 50, 'average_recency' => 30, 'average_frequency' => 5.0, 'average_discount_share' => 0.0 ),
+		array( 'segment_key' => 'd', 'label' => 'ت', 'customer_count' => 50, 'average_recency' => 30, 'average_frequency' => 1.2, 'average_discount_share' => 0.4 ),
+	);
+
+	foreach ( $profiles as $profile ) {
+		$action = bap_advise_segment( $profile );
+		ok( is_array( $action ), 'a proposal was made for ' . $profile['segment_key'] );
+
+		// normalise_action() drops anything failing either of these.
+		ok( (bool) preg_match( '/^[a-f0-9\-]{36}$/', $action['action_id'] ), 'the id matches the required pattern' );
+		ok( in_array( $action['action_type'], BAP_ML_Policy::ACTIONS, true ), 'the type is on the allowlist' );
+		ok( $action['confidence'] >= 0 && $action['confidence'] <= 1, 'confidence is a probability' );
+		is_same( 'rules', $action['source'], 'and it is labelled as rule-built, not as a model’s' );
+
+		// A campaign's text has hard length limits in the policy.
+		if ( 'create_campaign' === $action['action_type'] ) {
+			$subject = $action['parameters']['subject'];
+			$message = $action['parameters']['message'];
+			ok( mb_strlen( $subject ) >= 3 && mb_strlen( $subject ) <= 120, 'subject length' );
+			ok( mb_strlen( $message ) >= 10 && mb_strlen( $message ) <= 2000, 'message length' );
+			is_same( $subject . $message, wp_strip_all_tags( $subject . $message ), 'plain text only' );
+		}
+	}
+} );
+
+test( 'advisor: a segment too small to act on is skipped', function () {
+	$reflection = new ReflectionClass( 'BAP_Segment_Advisor' );
+	ok( $reflection->getConstant( 'MIN_SEGMENT' ) >= 10, 'a campaign to six people is not worth an approval click' );
+} );
+
+test( 'segments: the AI suggestions link now leads to something that acts', function () {
+	$page = file_get_contents( BAP_PLUGIN_DIR . 'includes/admin/class-bap-segments-page.php' );
+
+	ok( str_contains( $page, 'bap_ml_advise' ), 'the propose action is registered' );
+	ok( str_contains( $page, 'handle_advise' ), 'and handled' );
+	ok( str_contains( $page, 'BAP_Segment_Advisor::advise()' ), 'by the advisor' );
+
+	// The empty state used to be four words with no way forward.
+	ok( str_contains( $page, 'دکمه بالا برای هر بخش مشتری یک اقدام پیشنهاد می‌دهد' ), 'and the empty state says what to do' );
+} );
+
+test( 'segments: the chart is rendered server-side with the Persian label', function () {
+	$page = file_get_contents( BAP_PLUGIN_DIR . 'includes/admin/class-bap-segments-page.php' );
+
+	ok( str_contains( $page, 'render_segment_chart' ) );
+	ok( str_contains( $page, "esc_html( (string) \$seg['label'] )" ), 'the bar is labelled with the Persian name' );
+	ok( str_contains( $page, 'bap-segment-bar__fill is-money' ), 'and carries the revenue share beside the customer share' );
 } );
 
 run_tests();

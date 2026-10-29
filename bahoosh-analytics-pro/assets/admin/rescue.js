@@ -106,9 +106,17 @@
     if (!listEl) return;
     listEl.textContent = "";
 
-    (body.notes || []).forEach(function (note) {
-      listEl.appendChild(el("p", "bap-muted", note));
-    });
+    var notes = body.notes || [];
+    var hasTerms = (body.terms || []).length > 0;
+
+    // When there are terms, the notes are footnotes. When there are none, the
+    // notes ARE the answer — four zero cards with the reason in small grey
+    // text below reads as a broken screen.
+    if (hasTerms) {
+      notes.forEach(function (note) {
+        listEl.appendChild(el("p", "bap-muted", note));
+      });
+    }
 
     // The provider that actually answered, stated rather than assumed: the
     // deterministic matcher and a model produce different quality of match.
@@ -123,7 +131,15 @@
     var terms = body.terms || [];
 
     if (!terms.length) {
-      listEl.appendChild(el("div", "bap-empty-state", i18n.empty));
+      var empty = el("div", "bap-empty-state bap-rescue-empty");
+      empty.appendChild(el("span", "dashicons dashicons-search"));
+      empty.appendChild(el("strong", "", i18n.empty));
+
+      notes.forEach(function (note) {
+        empty.appendChild(el("p", "", note));
+      });
+
+      listEl.appendChild(empty);
       return;
     }
 

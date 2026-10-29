@@ -156,6 +156,7 @@ function rest_authorization_required_code() { return 401; }
 function is_user_logged_in() { return false; }
 function wp_create_nonce( $a = '' ) { return 'nonce'; }
 function human_time_diff( $from, $to = 0 ) { return '1 دقیقه'; }
+function wp_strip_all_tags( $text, $remove_breaks = false ) { return strip_tags( (string) $text ); }
 
 function wp_using_ext_object_cache() { return false; }
 function untrailingslashit( $s ) { return rtrim( (string) $s, '/\\' ); }

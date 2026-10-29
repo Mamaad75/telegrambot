@@ -4,7 +4,7 @@ Tags: analytics, woocommerce, tracking, gdpr, ecommerce, funnels, ai, heatmap
 Requires at least: 5.8
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 4.17.0
+Stable tag: 4.18.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -139,6 +139,15 @@ Yes. Set `window.bapConsent` before the tracker loads, or dispatch a
 consent" enabled, nothing is collected until analytics consent is granted.
 
 == Changelog ==
+
+= 4.18.0 =
+* Fixed: Search Rescue could never see a search that found nothing — the one thing it exists to find. The tracker wrote `count || null`, and in JavaScript `0 || null` is `null`, which the event store records as "not reported". Every zero-result search was filed as unmeasured and excluded from the screen, which is why the counters read zero.
+* New: Search Rescue now says why its list is empty instead of showing four zeros under a footnote. A term that found nothing but has only been searched once is reported as such, with the reason — one search can be a typo, two is a pattern.
+* New: A chart on the Customer Segments screen, showing each group's share of customers beside its share of revenue. Either bar alone hides the comparison that changes a decision: a group that is 12% of the shop and 48% of the money is not treated like one that is 40% of the shop and 9% of the money.
+* Fixed: The "AI suggestions" link on each segment card jumped to an actions table that was always empty, because the notebook sends segments and no actions. There is now a control that proposes one action per segment, derived from the segment's own profile by rules — no model, no API key, no network.
+* New: Those proposals encode an opinion worth stating: a discount is not the answer to every segment. Customers already buying at full price are offered recognition rather than money off, customers who only ever buy on a coupon are not offered another one, and a group with no clear pattern gets no proposal at all. Every proposal still passes through the same policy gate as a remote one.
+* Fixed: A run that puts nearly everybody in one segment is no longer reported as "good separation". It scores well on silhouette precisely because there is almost nothing to separate from, and saying so plainly is more useful than the number.
+* Improved: The notebook scales its minimum segment size to the shop. A fixed floor of ten left a 54-customer shop with a single segment holding 93% of it, because the second cluster had four people and was dropped.
 
 = 4.17.0 =
 * New: A "run quality" panel on the Customer Segments screen. It names the algorithm that produced the segmentation, its silhouette score, the share of customers in the largest segment, and how many were left unsegmented — so a shop owner can tell a real pattern from noise an algorithm found in too little data.
