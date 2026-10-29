@@ -4,7 +4,7 @@ Tags: analytics, woocommerce, tracking, gdpr, ecommerce, funnels, ai, heatmap
 Requires at least: 5.8
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 4.16.0
+Stable tag: 4.17.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -139,6 +139,13 @@ Yes. Set `window.bapConsent` before the tracker loads, or dispatch a
 consent" enabled, nothing is collected until analytics consent is granted.
 
 == Changelog ==
+
+= 4.17.0 =
+* New: A "run quality" panel on the Customer Segments screen. It names the algorithm that produced the segmentation, its silhouette score, the share of customers in the largest segment, and how many were left unsegmented — so a shop owner can tell a real pattern from noise an algorithm found in too little data.
+* New: A weak silhouette is reported as "we do not know yet", not as "the segments are wrong". The usual cause is too few customers, not a fault in the method, and the wording says so.
+* Fixed: Run metrics are stored under their own `quality` key rather than inside `insights`. `insights` is a list of cards the screen renders one by one, so a map of metrics placed there came out as a row of empty cards.
+* Improved: The companion Colab notebook now compares K-Means, hierarchical clustering and DBSCAN over a parameter sweep, scores all of them on silhouette, Calinski-Harabasz and Davies-Bouldin, and picks the winner. It also penalises two things no statistic catches: a segment holding more than half the shop, and two clusters that resolve to the same business name.
+* Improved: Customer features go beyond RFM, using the discount share, category variety, basket size, tenure and purchase regularity the export already carries. The discount share is what separates a customer who is loyal from one who only ever buys on a coupon, and the two want opposite treatment.
 
 = 4.16.0 =
 * New: Light and dark appearance, with a third "follow the system" setting, chosen per user rather than per site and stored in user meta so it follows them to another browser. The resolved theme is applied on `<html>` from the document head, before the first paint, because a class added on DOMContentLoaded means anyone who prefers light sees a full dark page flash white on every single load.

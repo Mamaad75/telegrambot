@@ -3533,4 +3533,67 @@ test( 'insights: a coupon-heavy shop is told so, with no action attached', funct
 	is_same( null, $found[0]['action'], 'changing every price in the shop is not an automatic action' );
 } );
 
+/* ============================================================ */
+/* The notebook round-trip                                      */
+/* ============================================================ */
+
+test( 'segments: a notebook result keeps its Persian labels through import', function () {
+	// The screen renders $seg['label'] as the card heading. An earlier draft of
+	// the notebook sent `title`, so every card fell back to the raw key and the
+	// shop owner saw `champions_0` instead of «مشتریان طلایی».
+	$payload = array(
+		'run_id'   => '11111111-2222-4333-8444-555555555555',
+		'segments' => array(
+			array( 'segment_key' => 'champions', 'label' => 'مشتریان طلایی', 'customer_count' => 40 ),
+			array( 'segment_key' => 'at_risk', 'label' => 'در خطر ریزش', 'customer_count' => 25 ),
+		),
+	);
+
+	is_same( null, BAP_ML_REST::reject_payload( $payload ), 'the import gate accepts it' );
+
+	foreach ( $payload['segments'] as $segment ) {
+		$key   = sanitize_key( $segment['segment_key'] );
+		$label = sanitize_text_field( $segment['label'] );
+
+		ok( '' !== $key, 'the key survives sanitize_key()' );
+		ok( $label !== $key && '' !== $label, 'the Persian label survives and is not the key' );
+	}
+} );
+
+test( 'segments: a Persian segment key would be destroyed, so keys stay ASCII', function () {
+	// sanitize_key() strips everything outside a-z0-9_-, so a Persian key comes
+	// back empty and save_run() skips the row entirely. The notebook must put
+	// Persian in `label` and keep `segment_key` ASCII.
+	is_same( '', sanitize_key( 'وفادار' ), 'a Persian key is stripped to nothing' );
+	is_same( 'champions', sanitize_key( 'champions' ) );
+} );
+
+test( 'segments: run quality is stored beside insights, not inside it', function () {
+	// `insights` is a list of cards the screen renders one by one. Metrics
+	// smuggled into it come out as empty cards, so they get their own key.
+	$rest = file_get_contents( BAP_PLUGIN_DIR . 'includes/ml/class-bap-ml-rest.php' );
+	$page = file_get_contents( BAP_PLUGIN_DIR . 'includes/admin/class-bap-segments-page.php' );
+
+	ok( str_contains( $rest, "'quality'         => BAP_Event_Validator::sanitize_data" ), 'the payload key is persisted' );
+	ok( str_contains( $page, "\$insights['quality']" ), 'and the screen reads it' );
+	ok( str_contains( $page, 'silhouette_verdict' ), 'and turns the score into a sentence' );
+} );
+
+test( 'segments: every silhouette band gets its own honest verdict', function () {
+	$method = new ReflectionMethod( 'BAP_Segments_Page', 'silhouette_verdict' );
+	$method->setAccessible( true );
+
+	$strong = $method->invoke( null, 0.62 );
+	$middle = $method->invoke( null, 0.30 );
+	$weak   = $method->invoke( null, 0.08 );
+
+	is_same( 'is-healthy', $strong['class'] );
+	is_same( 'is-warning', $middle['class'] );
+	is_same( 'is-neutral', $weak['class'] );
+
+	// A weak score must not be reported as "the segments are wrong".
+	ok( str_contains( $weak['note'], 'هنوز نمی‌دانیم' ), 'weak reads as unknown, not as broken' );
+	ok( $strong['label'] !== $weak['label'] );
+} );
+
 run_tests();

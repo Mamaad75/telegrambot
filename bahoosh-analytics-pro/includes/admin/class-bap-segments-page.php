@@ -174,6 +174,30 @@ class BAP_Segments_Page {
 				</section>
 			<?php endif; ?>
 
+			<?php
+			// How the last run was produced, and how good it was. Without this
+			// the shop owner sees segments with no way to tell whether they are
+			// a real pattern or noise the algorithm found in too little data.
+			$quality = (array) ( $insights['quality'] ?? array() );
+			if ( $quality && isset( $quality['silhouette'] ) ) :
+				$silhouette = (float) $quality['silhouette'];
+				$verdict    = self::silhouette_verdict( $silhouette );
+				?>
+				<section class="bap-section bap-run-quality">
+					<div class="bap-section-title"><div><span class="bap-kicker"><?php esc_html_e( 'کیفیت اجرا', 'bahoosh-analytics-pro' ); ?></span>
+						<h2><?php esc_html_e( 'این بخش‌بندی چقدر قابل اتکاست', 'bahoosh-analytics-pro' ); ?></h2></div>
+						<span class="bap-status-chip <?php echo esc_attr( $verdict['class'] ); ?>"><span></span><?php echo esc_html( $verdict['label'] ); ?></span>
+					</div>
+					<div class="bap-kpi-grid bap-kpi-grid--compact">
+						<div class="bap-kpi-card"><div><span><?php esc_html_e( 'الگوریتم', 'bahoosh-analytics-pro' ); ?></span><strong><?php echo esc_html( (string) ( $quality['algorithm'] ?? '—' ) ); ?></strong><small><?php echo esc_html( wp_json_encode( $quality['params'] ?? array(), JSON_UNESCAPED_UNICODE ) ); ?></small></div></div>
+						<div class="bap-kpi-card"><div><span><?php esc_html_e( 'سیلوئت', 'bahoosh-analytics-pro' ); ?></span><strong><?php echo esc_html( number_format_i18n( $silhouette, 3 ) ); ?></strong><small><?php esc_html_e( 'جدایی خوشه‌ها، از ۱- تا ۱', 'bahoosh-analytics-pro' ); ?></small></div></div>
+						<div class="bap-kpi-card"><div><span><?php esc_html_e( 'بزرگ‌ترین بخش', 'bahoosh-analytics-pro' ); ?></span><strong><?php echo esc_html( number_format_i18n( 100 * (float) ( $quality['largest_segment_share'] ?? 0 ), 0 ) . '٪' ); ?></strong><small><?php esc_html_e( 'سهم از کل مشتریان', 'bahoosh-analytics-pro' ); ?></small></div></div>
+						<div class="bap-kpi-card"><div><span><?php esc_html_e( 'مشتریان خوشه‌بندی‌شده', 'bahoosh-analytics-pro' ); ?></span><strong><?php echo esc_html( number_format_i18n( (int) ( $quality['customers_clustered'] ?? 0 ) ) ); ?></strong><small><?php echo esc_html( sprintf( /* translators: %s: number of customers left out. */ __( '%s نفر بدون بخش', 'bahoosh-analytics-pro' ), number_format_i18n( (int) ( $quality['noise_customers'] ?? 0 ) ) ) ); ?></small></div></div>
+					</div>
+					<p class="bap-muted bap-footnote"><?php echo esc_html( $verdict['note'] ); ?></p>
+				</section>
+			<?php endif; ?>
+
 			<?php if ( ! empty( $insights['insights'] ) || ! empty( $insights['recommendations'] ) ) : ?>
 				<section class="bap-section bap-insights-section">
 					<div class="bap-section-title"><div><span class="bap-kicker"><?php esc_html_e( 'تحلیل', 'bahoosh-analytics-pro' ); ?></span>
@@ -500,6 +524,41 @@ class BAP_Segments_Page {
 				number_format_i18n( (int) $stored['segments'] ),
 				number_format_i18n( (int) $stored['assignments'] )
 			)
+		);
+	}
+
+	/**
+	 * Turns a silhouette score into a sentence a shop owner can act on.
+	 *
+	 * The bands are the conventional reading of the statistic, and the wording
+	 * is deliberately cautious at the bottom: a weak score does not mean the
+	 * segments are wrong, it means the data did not contain clean groups, which
+	 * is usually a shortage of customers rather than a fault in the method.
+	 *
+	 * @param float $silhouette Score, -1 to 1.
+	 * @return array{class:string,label:string,note:string}
+	 */
+	private static function silhouette_verdict( $silhouette ) {
+		if ( $silhouette >= 0.5 ) {
+			return array(
+				'class' => 'is-healthy',
+				'label' => __( 'جدایی خوب', 'bahoosh-analytics-pro' ),
+				'note'  => __( 'گروه‌ها به‌روشنی از هم جدا هستند. می‌توانید با اطمینان برایشان کمپین و کد تخفیف جدا بسازید.', 'bahoosh-analytics-pro' ),
+			);
+		}
+
+		if ( $silhouette >= 0.25 ) {
+			return array(
+				'class' => 'is-warning',
+				'label' => __( 'جدایی متوسط', 'bahoosh-analytics-pro' ),
+				'note'  => __( 'گروه‌ها قابل استفاده‌اند ولی مرزهایشان نرم است؛ مشتریان نزدیک مرز می‌توانند با اجرای بعدی جابه‌جا شوند. برای تصمیم‌های بزرگ، بخش‌های پرتفاوت را انتخاب کنید.', 'bahoosh-analytics-pro' ),
+			);
+		}
+
+		return array(
+			'class' => 'is-neutral',
+			'label' => __( 'جدایی ضعیف', 'bahoosh-analytics-pro' ),
+			'note'  => __( 'داده این فروشگاه هنوز گروه‌های روشنی ندارد. این یعنی «هنوز نمی‌دانیم»، نه اینکه بخش‌ها اشتباه‌اند؛ معمولاً با بیشتر شدن تعداد مشتری و سفارش بهتر می‌شود.', 'bahoosh-analytics-pro' ),
 		);
 	}
 

@@ -214,6 +214,11 @@ class BAP_ML_REST {
 					'run_id'          => $run_id,
 					'received_at'     => gmdate( 'c' ),
 					'insights'        => BAP_Event_Validator::sanitize_data( (array) ( $body['insights'] ?? array() ) ),
+					// How the clustering was produced and how well it separated.
+					// Kept beside `insights` rather than inside it, because that
+					// key is a list of cards the screen renders one by one and a
+					// map of metrics smuggled into it comes out as empty cards.
+					'quality'         => BAP_Event_Validator::sanitize_data( (array) ( $body['quality'] ?? array() ) ),
 					'recommendations' => BAP_Event_Validator::sanitize_data( (array) ( $body['recommendations'] ?? array() ) ),
 					'timing'          => BAP_Event_Validator::sanitize_data( (array) ( $body['timing'] ?? array() ) ),
 					'planner'         => BAP_Event_Validator::sanitize_data( (array) ( $body['planner'] ?? array() ) ),
