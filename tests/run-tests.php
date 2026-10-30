@@ -3782,4 +3782,340 @@ test( 'segments: the chart is rendered server-side with the Persian label', func
 	ok( str_contains( $page, 'bap-segment-bar__fill is-money' ), 'and carries the revenue share beside the customer share' );
 } );
 
+/* ============================================================ */
+/* Heatmap — click density and scroll reach                     */
+/* ============================================================ */
+
+/** A click event shaped the way the tracker sends one. */
+function heat_click( $x, $y, $viewport = 1280, $path = '/product/x', $device = 'desktop' ) {
+	return array(
+		'event_type' => 'click',
+		'page'       => array( 'path' => $path ),
+		'context'    => array( 'device_type' => $device, 'viewport_width' => $viewport ),
+		'data'       => array( 'page_x' => $x, 'page_y' => $y, 'mouse_x' => $x, 'mouse_y' => $y ),
+	);
+}
+
+function heat_reset() {
+	$GLOBALS['wpdb']->heatmap = array();
+	$GLOBALS['bap_options']['bap_settings'] = array( 'module_heatmap' => true );
+}
+
+test( 'heatmap: the coordinates the tracker already sent are finally stored', function () {
+	// This is the whole point of the feature. `mouse_x`/`page_x` have been on
+	// the wire since v1 and BAP_Local_Store::record() dropped them, because its
+	// table has no column for them. Nothing was wrong with the tracker; there
+	// was simply nowhere for the numbers to go.
+	heat_reset();
+
+	is_same( true, BAP_Heatmap::observe( heat_click( 640, 300 ) ) );
+	is_same( 1, count( $GLOBALS['wpdb']->heatmap ), 'one cell' );
+
+	$cell = array_values( $GLOBALS['wpdb']->heatmap )[0];
+	is_same( 'click', $cell['kind'] );
+	is_same( 20, $cell['grid_x'], 'half way across a 40-column grid' );
+	is_same( 7, $cell['grid_y'], '300px down in 40px bands' );
+} );
+
+test( 'heatmap: x is a fraction of the viewport, so phone and desktop agree', function () {
+	// 300px is the gutter of a desktop and the middle of a phone. Storing the
+	// raw pixel would put the same tap in two different places; storing the
+	// fraction is what makes one page's grid comparable across widths.
+	heat_reset();
+
+	BAP_Heatmap::observe( heat_click( 640, 100, 1280, '/p', 'desktop' ) );
+	BAP_Heatmap::observe( heat_click( 195, 100, 390, '/p', 'mobile' ) );
+
+	$columns = array();
+	foreach ( $GLOBALS['wpdb']->heatmap as $cell ) { $columns[ $cell['device'] ] = $cell['grid_x']; }
+
+	is_same( $columns['desktop'], $columns['mobile'], 'the middle of the screen is the middle of the grid' );
+} );
+
+test( 'heatmap: a click with no viewport width is dropped, not guessed', function () {
+	heat_reset();
+
+	is_same( false, BAP_Heatmap::observe( heat_click( 640, 300, 0 ) ) );
+	is_same( array(), $GLOBALS['wpdb']->heatmap, 'a width that was invented would move a real hotspot' );
+} );
+
+test( 'heatmap: a coordinate past any real page is dropped rather than clamped', function () {
+	heat_reset();
+
+	is_same( false, BAP_Heatmap::observe( heat_click( 640, 500000 ) ), 'no page is 500,000px long' );
+	is_same( false, BAP_Heatmap::observe( heat_click( -50, 300 ) ), 'nor is there a place left of the page' );
+
+	// Clamping these into the last band would paint a hotspot at the bottom of
+	// the page that nobody ever clicked.
+	is_same( array(), $GLOBALS['wpdb']->heatmap );
+} );
+
+test( 'heatmap: repeated clicks in one spot increment a counter, not the row count', function () {
+	heat_reset();
+
+	for ( $i = 0; $i < 9; $i++ ) {
+		// Four pixels apart: the same cell, which is the point of a grid.
+		BAP_Heatmap::observe( heat_click( 640 + $i, 300 ) );
+	}
+
+	is_same( 1, count( $GLOBALS['wpdb']->heatmap ), 'nine clicks, one row' );
+	is_same( 9, array_values( $GLOBALS['wpdb']->heatmap )[0]['hits'] );
+} );
+
+test( 'heatmap: no individual click is recoverable from what is kept', function () {
+	heat_reset();
+	BAP_Heatmap::observe( heat_click( 640, 300 ) );
+
+	$cell = array_values( $GLOBALS['wpdb']->heatmap )[0];
+
+	foreach ( array( 'anonymous_id', 'customer_key', 'event_id', 'occurred_at', 'page_view_id' ) as $field ) {
+		ok( ! array_key_exists( $field, $cell ), 'the grid holds no ' . $field );
+	}
+} );
+
+test( 'heatmap: a scroll milestone is stored and an invented depth is not', function () {
+	heat_reset();
+
+	$scroll = function ( $depth ) {
+		return array(
+			'event_type' => 'scroll',
+			'page'       => array( 'path' => '/p' ),
+			'context'    => array( 'device_type' => 'desktop' ),
+			'data'       => array( 'depth_percent' => $depth ),
+		);
+	};
+
+	is_same( true, BAP_Heatmap::observe( $scroll( 50 ) ) );
+	is_same( false, BAP_Heatmap::observe( $scroll( 37 ) ), 'the tracker only reports 25/50/75/100' );
+	is_same( false, BAP_Heatmap::observe( $scroll( 150 ) ) );
+	is_same( 1, count( $GLOBALS['wpdb']->heatmap ) );
+} );
+
+test( 'heatmap: scroll reach is withheld rather than divided by a missing denominator', function () {
+	heat_reset();
+
+	// Milestones with no page views recorded: the count is a fact, the
+	// percentage is not computable, and inventing one would be a fabricated
+	// metric on a screen whose whole job is to be trusted.
+	$GLOBALS['wpdb']->heatmap['/p|desktop|scroll|0|50'] = array(
+		'page_path' => '/p', 'device' => 'desktop', 'kind' => 'scroll',
+		'grid_x' => 0, 'grid_y' => 50, 'hits' => 12,
+	);
+
+	$reach = BAP_Heatmap::scroll( '/p', 'desktop' );
+	is_same( 0, $reach['views'] );
+
+	foreach ( $reach['reach'] as $step ) {
+		is_same( null, $step['percent'], 'no percentage without a denominator' );
+		if ( 50 === $step['depth'] ) { is_same( 12, $step['visitors'], 'but the count is still reported' ); }
+	}
+} );
+
+test( 'heatmap: a page view supplies the denominator the percentage needs', function () {
+	heat_reset();
+
+	$view = array(
+		'event_type' => 'page_view',
+		'page'       => array( 'path' => '/p' ),
+		'context'    => array( 'device_type' => 'desktop' ),
+		'data'       => array(),
+	);
+
+	for ( $i = 0; $i < 10; $i++ ) { BAP_Heatmap::observe( $view ); }
+
+	$GLOBALS['wpdb']->heatmap['/p|desktop|scroll|0|25'] = array(
+		'page_path' => '/p', 'device' => 'desktop', 'kind' => 'scroll',
+		'grid_x' => 0, 'grid_y' => 25, 'hits' => 6,
+	);
+
+	$reach = BAP_Heatmap::scroll( '/p', 'desktop' );
+	is_same( 10, $reach['views'] );
+	is_same( 60.0, $reach['reach'][0]['percent'], '6 of 10 reached a quarter of the way' );
+	is_same( 0.0, $reach['reach'][3]['percent'], 'and nobody reached the bottom' );
+} );
+
+test( 'heatmap: the grid comes back as cells with a peak, not as a dense matrix', function () {
+	heat_reset();
+
+	BAP_Heatmap::observe( heat_click( 100, 100 ) );
+	BAP_Heatmap::observe( heat_click( 640, 300 ) );
+	BAP_Heatmap::observe( heat_click( 644, 304 ) );
+
+	$grid = BAP_Heatmap::clicks( '/product/x', 'desktop' );
+
+	is_same( 2, count( $grid['cells'] ), 'a long page is mostly empty; the zeroes are not sent' );
+	is_same( 2, $grid['peak'] );
+	is_same( 3, $grid['clicks'] );
+	is_same( BAP_Heatmap::COLS, $grid['cols'], 'the renderer is told the grid it is drawing' );
+	is_same( BAP_Heatmap::BAND_PX, $grid['band'] );
+} );
+
+test( 'heatmap: a query string never reaches the grid', function () {
+	heat_reset();
+
+	BAP_Heatmap::observe( heat_click( 640, 300, 1280, 'https://shop.test/checkout?token=secret' ) );
+
+	$cell = array_values( $GLOBALS['wpdb']->heatmap )[0];
+	is_same( '/checkout', $cell['page_path'], 'the same normalisation the rest of the plugin uses' );
+} );
+
+test( 'heatmap: a click with no page to belong to is dropped', function () {
+	heat_reset();
+
+	is_same( false, BAP_Heatmap::observe( heat_click( 640, 300, 1280, '' ) ) );
+} );
+
+test( 'heatmap: nothing is recorded when the module is switched off', function () {
+	heat_reset();
+	$GLOBALS['bap_options']['bap_settings'] = array( 'module_heatmap' => false );
+
+	is_same( false, BAP_Heatmap::observe( heat_click( 640, 300 ) ) );
+	is_same( array(), $GLOBALS['wpdb']->heatmap, 'a shop that turns it off stops paying for it' );
+
+	heat_reset();
+} );
+
+test( 'heatmap: pages are listed busiest first and a page with only views is left out', function () {
+	heat_reset();
+
+	BAP_Heatmap::observe( heat_click( 100, 100, 1280, '/quiet' ) );
+	for ( $i = 0; $i < 5; $i++ ) { BAP_Heatmap::observe( heat_click( 100 + $i * 40, 100, 1280, '/busy' ) ); }
+	BAP_Heatmap::observe( array(
+		'event_type' => 'page_view',
+		'page'       => array( 'path' => '/never-clicked' ),
+		'context'    => array( 'device_type' => 'desktop' ),
+		'data'       => array(),
+	) );
+
+	$pages = BAP_Heatmap::pages( 10 );
+
+	is_same( 2, count( $pages ), 'a page with views but no clicks has no heatmap to show' );
+	is_same( '/busy', $pages[0]['path'] );
+	is_same( 5, $pages[0]['clicks'] );
+} );
+
+test( 'heatmap: pruning drops the quietest pages, never the top of a busy one', function () {
+	heat_reset();
+
+	// Pruned by page, not by age: a grid cell is a running total with no age
+	// worth keeping, and dropping the oldest cells would eat the top of a page
+	// that has been live for a year while sparing one nobody visits.
+	for ( $i = 0; $i < 30; $i++ ) { BAP_Heatmap::observe( heat_click( 100 + $i * 30, 100, 1280, '/busy' ) ); }
+	BAP_Heatmap::observe( heat_click( 100, 100, 1280, '/quiet' ) );
+
+	$reflection = new ReflectionClass( 'BAP_Heatmap' );
+	ok( $reflection->getConstant( 'MAX_PAGES' ) > 0 );
+	ok( $reflection->getConstant( 'MAX_ROWS' ) > $reflection->getConstant( 'MAX_PAGES' ) );
+} );
+
+test( 'heatmap: the ingest route records the grid alongside the event row', function () {
+	$controller = file_get_contents( BAP_PLUGIN_DIR . 'includes/api/class-bap-rest-controller.php' );
+
+	// Both ingest paths — the single event and the batch — or a shop that uses
+	// the batched transport would collect nothing at all.
+	is_same( 2, preg_match_all( '/BAP_Heatmap::observe\(/', $controller ), 'the single route and the batch route' );
+} );
+
+test( 'heatmap: viewing a heatmap does not add to it', function () {
+	$integration = file_get_contents( BAP_PLUGIN_DIR . 'includes/integrations/class-bap-wordpress.php' );
+
+	// The frame loads the real front end. Without this the administrator
+	// studying where visitors click is recorded clicking there themselves, and
+	// the heatmap slowly fills with the clicks of the one person looking at it.
+	ok( str_contains( $integration, 'is_heatmap_frame' ), 'the frame is recognised' );
+	ok( str_contains( $integration, 'hide_admin_bar_for_heatmap' ), 'and the admin bar is dropped so the overlay lines up' );
+
+	$enqueue = substr( $integration, strpos( $integration, 'public static function enqueue()' ) );
+	ok( str_contains( substr( $enqueue, 0, 220 ), 'is_heatmap_frame' ), 'the tracker is not loaded in the frame' );
+} );
+
+test( 'heatmap: the legend in CSS matches the ramp the canvas paints', function () {
+	// Two copies of one scale: the canvas reads the JS array, the legend reads
+	// the CSS tokens. If they drift, the legend tells the viewer that red means
+	// something it does not, which is worse than having no legend.
+	$css = file_get_contents( BAP_PLUGIN_DIR . 'assets/admin/design-system.css' );
+	$js  = file_get_contents( BAP_PLUGIN_DIR . 'assets/admin/heatmap.js' );
+
+	preg_match_all( '/--bap-heat-(\d):\s*rgba?\(([0-9]+),\s*([0-9]+),\s*([0-9]+)/', $css, $tokens, PREG_SET_ORDER );
+	is_same( 5, count( $tokens ), 'five stops are tokenised' );
+
+	preg_match_all( '/\[[0-9.]+,\s*\[([0-9]+),\s*([0-9]+),\s*([0-9]+),\s*[0-9]+\]\]/', $js, $stops, PREG_SET_ORDER );
+	is_same( 6, count( $stops ), 'six stops in the ramp — the first is fully transparent' );
+
+	// Token 1 is the JS ramp's second stop: the first JS stop is the
+	// transparent end, which a legend has no swatch for.
+	foreach ( $tokens as $i => $token ) {
+		$stop = $stops[ $i + 1 ];
+		is_same(
+			array( $stop[1], $stop[2], $stop[3] ),
+			array( $token[2], $token[3], $token[4] ),
+			'stop ' . ( $i + 1 ) . ' agrees between the legend and the canvas'
+		);
+	}
+} );
+
+test( 'heatmap: the screen says the ramp is not the only encoding', function () {
+	$page = file_get_contents( BAP_PLUGIN_DIR . 'includes/admin/class-bap-dashboard-page.php' );
+	$js   = file_get_contents( BAP_PLUGIN_DIR . 'assets/admin/heatmap.js' );
+
+	// Semantic heat is the one sanctioned multi-hue ramp for a magnitude, and
+	// it is sanctioned on condition of a scale legend. The table is the other
+	// half: nobody should have to tell yellow from green to read a number.
+	ok( str_contains( $page, 'data-heat-legend' ), 'there is a scale legend' );
+	ok( str_contains( $page, 'data-heat-table' ), 'and the same numbers as a table' );
+	ok( str_contains( $js, 'renderTable' ), 'which is filled, not decorative' );
+} );
+
+test( 'heatmap: the overlay is drawn at the width the clicks were recorded at', function () {
+	// Squeezing the frame into the admin column would re-flow the page to a
+	// width no visitor used, and every recorded coordinate would land somewhere
+	// else. The frame is laid out at the device width and scaled instead.
+	$js = file_get_contents( BAP_PLUGIN_DIR . 'assets/admin/heatmap.js' );
+
+	ok( str_contains( $js, 'inner.style.width = width' ), 'laid out at the device width' );
+	ok( str_contains( $js, '"scale(" + scale + ")"' ), 'and scaled down to fit' );
+
+	$widths = array();
+	foreach ( BAP_Dashboard_Page::heatmap_devices() as $key => $device ) {
+		ok( $device['width'] > 0, $key . ' has a render width' );
+		$widths[] = $device['width'];
+	}
+
+	is_same( $widths, array_values( array_unique( $widths ) ), 'each device renders at its own width' );
+} );
+
+test( 'heatmap: a bucket that covers many pages is not framed over one of them', function () {
+	// /product/4471 and /product/9032 are stored as /product/{id} — the right
+	// call for the data, and no address at all for a frame. Showing one
+	// product's layout under every product's clicks is the kind of near-truth
+	// that is worse than an empty frame.
+	$method = new ReflectionMethod( 'BAP_REST_Controller', 'heatmap_frame_url' );
+	$method->setAccessible( true );
+
+	is_same( '', $method->invoke( null, '/product/{id}' ) );
+	is_same( '', $method->invoke( null, '' ) );
+	ok( str_contains( $method->invoke( null, '/checkout' ), '/checkout' ), 'a real path is framed' );
+} );
+
+test( 'heatmap: the frame URL survives a subdirectory install', function () {
+	// The path the browser reports already carries the subdirectory WordPress
+	// lives in, so home_url( $path ) would add it twice and frame a 404.
+	$method = new ReflectionMethod( 'BAP_REST_Controller', 'heatmap_frame_url' );
+	$method->setAccessible( true );
+
+	$url = $method->invoke( null, '/shop/product-x' );
+
+	is_same( 1, substr_count( $url, '/shop/' ), 'the subdirectory appears once' );
+	ok( str_contains( $url, 'bap_heatmap=1' ), 'and the frame is marked as one' );
+} );
+
+test( 'heatmap: the legend ramp runs low-to-high the way the panel reads', function () {
+	// The panel is RTL, so the legend's minimum label sits on the right. A
+	// plain 90deg gradient runs the other way and put the red end next to the
+	// zero — a legend that states the opposite of the truth.
+	$css = file_get_contents( BAP_PLUGIN_DIR . 'assets/admin/admin.css' );
+
+	ok( preg_match( '/legend-ramp\{[^}]*linear-gradient\(270deg,var\(--bap-heat-1\)/', $css ), 'the low stop ends up beside the minimum' );
+} );
+
 run_tests();

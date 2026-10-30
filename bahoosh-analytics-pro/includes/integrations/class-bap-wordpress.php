@@ -30,6 +30,40 @@ class BAP_WordPress {
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue' ) );
 		add_action( 'wp_login', array( __CLASS__, 'record_login' ), 10, 2 );
 		add_action( 'user_register', array( __CLASS__, 'record_signup' ) );
+		add_filter( 'show_admin_bar', array( __CLASS__, 'hide_admin_bar_for_heatmap' ) );
+	}
+
+	/**
+	 * Whether this request is the heatmap screen framing the page.
+	 *
+	 * Gated on the capability that owns the reports, so the parameter is not a
+	 * switch any visitor can flip.
+	 *
+	 * @return bool
+	 */
+	public static function is_heatmap_frame() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only, and it only ever suppresses chrome.
+		if ( empty( $_GET['bap_heatmap'] ) ) {
+			return false;
+		}
+
+		return current_user_can( BAP_Admin::reports_capability() );
+	}
+
+	/**
+	 * Drops the admin bar when the heatmap is framing a page.
+	 *
+	 * The coordinates in the grid were recorded by visitors, almost none of whom
+	 * were logged in and so none of whom had a 32-pixel bar pushing the page
+	 * down. Leaving it in place for the administrator viewing the heatmap would
+	 * offset the whole overlay against the page it is drawn on, by exactly the
+	 * height of a bar that was never there.
+	 *
+	 * @param bool $show Whether to show the bar.
+	 * @return bool
+	 */
+	public static function hide_admin_bar_for_heatmap( $show ) {
+		return self::is_heatmap_frame() ? false : $show;
 	}
 
 	/**
@@ -87,6 +121,14 @@ class BAP_WordPress {
 			return;
 		}
 
+		// Not inside the heatmap's own frame. An administrator studying where
+		// visitors click would otherwise be recorded clicking there themselves,
+		// and the heatmap would slowly fill with the clicks of the one person
+		// looking at it.
+		if ( self::is_heatmap_frame() ) {
+			return;
+		}
+
 		$stub = 'window.bahoosh=window.bahoosh||function(){(window.bahoosh.q=window.bahoosh.q||[]).push(arguments)};';
 
 		if ( function_exists( 'wp_print_inline_script_tag' ) ) {
@@ -103,6 +145,10 @@ class BAP_WordPress {
 	 * @return void
 	 */
 	public static function enqueue() {
+		if ( self::is_heatmap_frame() ) {
+			return;
+		}
+
 		if ( ! BAP_Settings::tracking_enabled() || ! BAP_Settings::collects_in_browser() || ! BAP_Identity::should_track_current_user() ) {
 			return;
 		}

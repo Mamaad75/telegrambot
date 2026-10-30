@@ -582,6 +582,64 @@ class BAP_Admin {
 			) . ';',
 			'before'
 		);
+
+		self::enqueue_heatmap();
+	}
+
+	/**
+	 * Script and strings for the dashboard heatmap.
+	 *
+	 * @return void
+	 */
+	private static function enqueue_heatmap() {
+		if ( ! BAP_Settings::get( 'module_heatmap', true ) ) {
+			return;
+		}
+
+		wp_enqueue_script( 'bahoosh-heatmap', BAP_PLUGIN_URL . 'assets/admin/heatmap.js', array(), BAP_VERSION, true );
+
+		wp_localize_script(
+			'bahoosh-heatmap',
+			'BAP_HEATMAP',
+			array(
+				'restUrl' => rest_url( BAP_REST_Controller::NAMESPACE_V2 . '/heatmap' ),
+				'nonce'   => wp_create_nonce( 'wp_rest' ),
+				'i18n'    => array(
+					'loading'  => __( 'در حال بارگذاری…', 'bahoosh-analytics-pro' ),
+					'error'    => __( 'نقشه حرارتی بارگذاری نشد.', 'bahoosh-analytics-pro' ),
+					'disabled' => __( 'نقشه حرارتی در تنظیمات خاموش است.', 'bahoosh-analytics-pro' ),
+					// Said plainly, because the alternative is an administrator
+					// concluding the feature is broken. The coordinates were
+					// never stored before this version, so there is no history
+					// to draw and no way to recover one.
+					'noData'   => __( 'هنوز کلیکی ثبت نشده است. مختصات کلیک تا پیش از این نسخه ذخیره نمی‌شد، پس این نقشه از همین حالا پر می‌شود و داده قبلی وجود ندارد.', 'bahoosh-analytics-pro' ),
+					'fromNow'  => __( 'یک صفحه از فروشگاه را باز کنید، چند جا کلیک کنید و یک دقیقه بعد همین صفحه را به‌روزرسانی کنید.', 'bahoosh-analytics-pro' ),
+					// The default capture mode only records clicks that land on
+					// something clickable, which is the opposite of what a
+					// heatmap is asking about.
+					'interactiveOnly' => __( 'حالت ثبت کلیک روی «فقط عناصر تعاملی» است، پس فقط کلیک روی لینک و دکمه و فیلد ثبت می‌شود. برای نقشه کامل، در تنظیمات آن را روی «همه کلیک‌ها» بگذارید.', 'bahoosh-analytics-pro' ),
+					'frameBlocked'    => __( 'صفحه سایت در این قاب بارگذاری نشد (معمولاً یک افزونه امنیتی جلوی آن را می‌گیرد)، پس نقشه روی پس‌زمینه خالی کشیده شد.', 'bahoosh-analytics-pro' ),
+					'frameTitle'      => __( 'پیش‌نمایش صفحه زیر نقشه حرارتی', 'bahoosh-analytics-pro' ),
+					'collapsedPath'   => __( 'این آدرس همه محصولات را با هم جمع می‌کند، پس یک صفحه مشخص برای نمایش زیر نقشه وجود ندارد. اعداد درست‌اند؛ فقط تصویر صفحه زیرشان نیست.', 'bahoosh-analytics-pro' ),
+					'noDeviceData'    => __( 'برای این صفحه و این دستگاه کلیکی ثبت نشده است. دستگاه دیگری را امتحان کنید.', 'bahoosh-analytics-pro' ),
+					'noScrollData'    => __( 'برای این صفحه و این دستگاه بازدیدی ثبت نشده، پس درصد اسکرول قابل محاسبه نیست.', 'bahoosh-analytics-pro' ),
+					/* translators: %s: click count. */
+					'clickCount'      => __( '%s کلیک', 'bahoosh-analytics-pro' ),
+					/* translators: %s: page view count. */
+					'viewCount'       => __( '%s بازدید', 'bahoosh-analytics-pro' ),
+					/* translators: 1: share of visitors, 2: depth. */
+					'reached'         => __( '%1$s تا %2$s صفحه', 'bahoosh-analytics-pro' ),
+					/* translators: %s: screen number. */
+					'screenful'       => __( 'پرده %s', 'bahoosh-analytics-pro' ),
+					/* translators: %s: depth percentage. */
+					'depth'           => __( 'تا %s صفحه', 'bahoosh-analytics-pro' ),
+					// The ramp is the only encoding on the canvas, so it never
+					// appears without a scale that says what it means.
+					'legendClick'     => __( 'کلیک در هر نقطه', 'bahoosh-analytics-pro' ),
+					'legendScroll'    => __( 'سهم بازدیدکنندگانی که تا اینجا رسیده‌اند', 'bahoosh-analytics-pro' ),
+				),
+			)
+		);
 	}
 
 	/**

@@ -4,7 +4,7 @@ Tags: analytics, woocommerce, tracking, gdpr, ecommerce, funnels, ai, heatmap
 Requires at least: 5.8
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 4.18.0
+Stable tag: 4.19.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -139,6 +139,15 @@ Yes. Set `window.bapConsent` before the tracker loads, or dispatch a
 consent" enabled, nothing is collected until analytics consent is granted.
 
 == Changelog ==
+
+= 4.19.0 =
+* New: A click-and-scroll heatmap on the dashboard, drawn over the real page. Pick a page and a device width; the page is loaded in a frame and the click density is painted on top of it, with a scroll mode showing the share of visitors who reached each quarter of the page.
+* Fixed: Click coordinates were being collected and thrown away. The tracker has sent `page_x`, `page_y` and the viewport width since the first version, and the event table has no column for any of them, so every one of those numbers was discarded at the moment it arrived. Nothing was wrong with the tracker; there was nowhere for the data to go. Because of that there is no history to draw: the heatmap starts filling from this version onward.
+* New: The heatmap is stored as a count grid — the page divided into 40 columns and 40-pixel bands, one counter per cell — not as individual clicks. It stays small on a busy shop, it is one write with no read, and no visitor's click path can be reconstructed from it. There is no visitor id and no per-click timestamp in the table.
+* New: The x coordinate is stored as a fraction of the viewport width rather than as a pixel. 300px is the gutter of a desktop and the middle of a phone; storing the raw pixel would put the same tap in two different places on the same grid.
+* New: Scroll depth is reported as the share of page views that reached each quarter. Where a page has milestones recorded but no page views to divide by, the count is shown and the percentage is withheld rather than computed against zero.
+* Improved: Viewing a heatmap does not add to it. The framed page loads without the tracker and without the admin bar — the bar would otherwise push the whole page down by 32 pixels that the recorded coordinates do not contain, and offset the entire overlay.
+* Note: The default click-capture setting records only clicks that land on a link, button or field, which is the right default for an event log and the wrong one for a heatmap. The screen says so and points at the setting. The heatmap itself can be switched off; it costs one database write per click on a busy shop.
 
 = 4.18.0 =
 * Fixed: Search Rescue could never see a search that found nothing — the one thing it exists to find. The tracker wrote `count || null`, and in JavaScript `0 || null` is `null`, which the event store records as "not reported". Every zero-result search was filed as unmeasured and excluded from the screen, which is why the counters read zero.

@@ -483,3 +483,18 @@ html[data-bap-theme="light"] .bap-segment-bar__fill.is-money span{color:var(--ba
 /* 4.9 commercial rollout details */
 .bap-rollout-section .bap-section-title p{margin:5px 0 0;max-width:720px;color:var(--bap-muted);font-size:10.5px;line-height:1.85}
 .bap-rollout-section .bap-empty-mini{grid-column:1/-1}
+
+/* Click and scroll heatmap ---------------------------------------------- */
+/* The frame is laid out at the visitor's width and scaled down, so the shell
+   carries the scaled box and the inner carries the real one. `direction:ltr`
+   on both is deliberate: the overlay's coordinate maths is physical, and in an
+   RTL admin a logical origin would mirror the whole heatmap. */
+.bap-heatmap__controls{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px}.bap-heatmap__controls label{font-size:10.5px;color:var(--bap-muted)}.bap-heatmap__controls select{max-width:360px}.bap-heatmap__modes{display:inline-flex;gap:3px;padding:3px;border:1px solid var(--bap-border);border-radius:10px;background:var(--bap-surface)}.bap-heatmap__modes .button{min-height:28px!important;padding:0 10px!important;border:0!important;border-radius:7px!important;background:transparent!important;color:var(--bap-muted)!important;font-size:10.5px!important;box-shadow:none!important}.bap-heatmap__modes .button.is-active{background:color-mix(in srgb,var(--bap-accent) 14%,transparent)!important;color:var(--bap-text)!important}.bap-heatmap__toggle{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;color:var(--bap-muted)}
+.bap-heatmap__legend{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:10.5px;color:var(--bap-muted)}.bap-heatmap__legend-ramp{display:block;width:170px;height:9px;border-radius:99px;border:1px solid var(--bap-border);background:linear-gradient(270deg,var(--bap-heat-1),var(--bap-heat-2),var(--bap-heat-3),var(--bap-heat-4),var(--bap-heat-5))}.bap-heatmap__legend-label{font-variant-numeric:tabular-nums;color:var(--bap-text-2)}.bap-heatmap__legend-caption{color:var(--bap-faint)}
+/* Capped height: a long page scaled to fit is still thousands of pixels tall,
+   and letting the section grow to match would push the rest of the dashboard
+   off the screen. */
+.bap-heatmap__stage{max-height:72vh;overflow:auto;border:1px solid var(--bap-border);border-radius:13px;background:var(--bap-surface-2);padding:0}.bap-heatmap__stage>.bap-muted{margin:0;padding:22px;text-align:center}
+.bap-heatmap__shell{position:relative;direction:ltr;overflow:hidden;margin:0 auto;background:var(--bap-heat-backdrop)}.bap-heatmap__inner{position:absolute;top:0;left:0;direction:ltr;transform-origin:0 0}.bap-heatmap__frame{display:block;width:100%;border:0;background:var(--bap-heat-backdrop)}.bap-heatmap__canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}.bap-heatmap__labels{position:absolute;top:0;left:0;width:100%;height:100%;direction:rtl;pointer-events:none}.bap-heatmap__depth{position:absolute;right:16px;padding:5px 11px;border-radius:8px;background:var(--bap-heat-label);color:var(--bap-heat-label-ink);font-size:15px;font-weight:650;white-space:nowrap;backdrop-filter:blur(2px)}
+.bap-heatmap__table{margin-top:12px!important}.bap-heatmap__table caption{padding:0 0 7px;color:var(--bap-faint);font-size:10.5px;text-align:start}
+@media(max-width:782px){.bap-heatmap__controls select{max-width:100%;flex:1}.bap-heatmap__stage{max-height:60vh}}

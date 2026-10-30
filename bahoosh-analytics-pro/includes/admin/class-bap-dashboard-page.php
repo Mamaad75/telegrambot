@@ -114,6 +114,113 @@ class BAP_Dashboard_Page {
 	}
 
 	/**
+	 * Device widths the heatmap renders a page at.
+	 *
+	 * A heatmap is drawn over a page, so the page has to be laid out at *some*
+	 * width, and the recorded clicks only line up with it if that width is close
+	 * to the one the visitor used. These are the three the grid is filed under:
+	 * a common laptop, a tablet in portrait, and a large phone.
+	 *
+	 * @return array<string,array{label:string,width:int}>
+	 */
+	public static function heatmap_devices() {
+		return array(
+			'desktop' => array(
+				'label' => __( 'دسکتاپ', 'bahoosh-analytics-pro' ),
+				'width' => 1280,
+			),
+			'tablet'  => array(
+				'label' => __( 'تبلت', 'bahoosh-analytics-pro' ),
+				'width' => 834,
+			),
+			'mobile'  => array(
+				'label' => __( 'موبایل', 'bahoosh-analytics-pro' ),
+				'width' => 390,
+			),
+		);
+	}
+
+	/**
+	 * The click-and-scroll heatmap.
+	 *
+	 * The page itself is loaded in a same-origin frame and the density is drawn
+	 * over it, which is the only way an overlay can line up with a layout that
+	 * the plugin does not control and never photographed. It is an approximation
+	 * and the screen says so: the frame renders the page as it is *today*, while
+	 * the clicks were recorded against the page as it was *then*, and a theme
+	 * change between the two moves the content out from under the heat.
+	 *
+	 * @return void
+	 */
+	private static function render_heatmap_section() {
+		if ( ! BAP_Settings::get( 'module_heatmap', true ) ) {
+			return;
+		}
+		?>
+		<div class="bap-section bap-heatmap" id="bap-heatmap">
+			<div class="bap-section-title">
+				<div>
+					<span class="bap-kicker"><?php esc_html_e( 'نقشه حرارتی', 'bahoosh-analytics-pro' ); ?></span>
+					<h2><?php esc_html_e( 'کجای صفحه را کلیک می‌کنند', 'bahoosh-analytics-pro' ); ?></h2>
+				</div>
+				<span class="bap-section-badge" data-heat-count></span>
+			</div>
+
+			<div class="bap-heatmap__controls">
+				<label for="bap-heat-page"><?php esc_html_e( 'صفحه', 'bahoosh-analytics-pro' ); ?></label>
+				<select id="bap-heat-page"></select>
+
+				<label for="bap-heat-device"><?php esc_html_e( 'دستگاه', 'bahoosh-analytics-pro' ); ?></label>
+				<select id="bap-heat-device">
+					<?php foreach ( self::heatmap_devices() as $key => $device ) : ?>
+						<option value="<?php echo esc_attr( $key ); ?>" data-width="<?php echo esc_attr( $device['width'] ); ?>">
+							<?php echo esc_html( $device['label'] ); ?>
+						</option>
+					<?php endforeach; ?>
+				</select>
+
+				<div class="bap-heatmap__modes" role="group" aria-label="<?php esc_attr_e( 'نوع نقشه', 'bahoosh-analytics-pro' ); ?>">
+					<button type="button" class="button is-active" data-heat-mode="click"><?php esc_html_e( 'کلیک', 'bahoosh-analytics-pro' ); ?></button>
+					<button type="button" class="button" data-heat-mode="scroll"><?php esc_html_e( 'عمق اسکرول', 'bahoosh-analytics-pro' ); ?></button>
+				</div>
+
+				<label class="bap-heatmap__toggle">
+					<input type="checkbox" id="bap-heat-overlay" checked>
+					<?php esc_html_e( 'نمایش روی صفحه', 'bahoosh-analytics-pro' ); ?>
+				</label>
+
+				<a class="button" href="#" target="_blank" rel="noopener" data-heat-open hidden><?php esc_html_e( 'باز کردن صفحه', 'bahoosh-analytics-pro' ); ?></a>
+			</div>
+
+			<p class="bap-muted" data-heat-note></p>
+
+			<div class="bap-heatmap__legend" data-heat-legend hidden>
+				<span class="bap-heatmap__legend-label" data-heat-legend-min>۰</span>
+				<span class="bap-heatmap__legend-ramp" aria-hidden="true"></span>
+				<span class="bap-heatmap__legend-label" data-heat-legend-max></span>
+				<span class="bap-heatmap__legend-caption" data-heat-legend-caption><?php esc_html_e( 'کلیک در هر نقطه', 'bahoosh-analytics-pro' ); ?></span>
+			</div>
+
+			<div class="bap-heatmap__stage" data-heat-stage>
+				<p class="bap-muted" data-heat-status><?php esc_html_e( 'در حال بارگذاری…', 'bahoosh-analytics-pro' ); ?></p>
+			</div>
+
+			<table class="bap-heatmap__table widefat striped" data-heat-table hidden>
+				<caption><?php esc_html_e( 'همان داده به‌صورت عدد، برای وقتی که رنگ کافی نیست', 'bahoosh-analytics-pro' ); ?></caption>
+				<thead>
+					<tr>
+						<th scope="col"><?php esc_html_e( 'ناحیه صفحه', 'bahoosh-analytics-pro' ); ?></th>
+						<th scope="col"><?php esc_html_e( 'کلیک', 'bahoosh-analytics-pro' ); ?></th>
+						<th scope="col"><?php esc_html_e( 'سهم', 'bahoosh-analytics-pro' ); ?></th>
+					</tr>
+				</thead>
+				<tbody></tbody>
+			</table>
+		</div>
+		<?php
+	}
+
+	/**
 	 * Renders the screen.
 	 *
 	 * @return void
@@ -217,6 +324,8 @@ class BAP_Dashboard_Page {
 					<p class="bap-muted"><?php esc_html_e( 'در حال بارگذاری…', 'bahoosh-analytics-pro' ); ?></p>
 				</div>
 			</div>
+
+			<?php self::render_heatmap_section(); ?>
 
 			<div class="bap-panels" id="bap-panels">
 				<?php foreach ( self::panels() as $metric => $label ) : ?>

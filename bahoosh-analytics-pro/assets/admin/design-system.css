@@ -219,6 +219,42 @@ body.bap-admin-page html[data-bap-theme="light"] #wpbody-content {
 }
 
 /*
+ * Heatmap encoding — deliberately not themed.
+ *
+ * Every other colour here has a light value and a dark one, because chrome
+ * should follow the viewer's setting. These do not, and must not. They are not
+ * chrome: they are the scale a density is read against, and "red means most
+ * clicked" has to mean the same thing in both themes or the same heatmap tells
+ * two different stories depending on a preference.
+ *
+ * They are also drawn over the shop's own page, not over this panel's surface,
+ * so there is no surface here for them to contrast against — which is why the
+ * ramp ships with a scale legend and the numbers repeated in a table.
+ *
+ * A multi-hue ramp for a magnitude is normally wrong, for the good reason that
+ * nobody can say whether green or yellow is "more". Semantic heat is the
+ * documented exception, and this is the ramp every heatmap tool has trained
+ * people to read.
+ *
+ * `--bap-heat-backdrop` is the paper the framed page sits on while it loads. It
+ * stays white in dark mode on purpose: the thing in front of it is the shop's
+ * page, which this plugin does not theme, and a dark backdrop behind a light
+ * page reads as a rendering fault.
+ */
+:root {
+  --bap-heat-1: rgba(43, 80, 255, 0.42);
+  --bap-heat-2: rgb(0, 213, 255);
+  --bap-heat-3: rgb(68, 224, 106);
+  --bap-heat-4: rgb(255, 224, 43);
+  --bap-heat-5: rgb(255, 45, 45);
+  --bap-heat-backdrop: #ffffff;
+  /* The depth marker sits on the shop's page too, so it keeps its own contrast
+     instead of borrowing an ink token that goes nearly transparent in light. */
+  --bap-heat-label: rgba(10, 13, 24, 0.86);
+  --bap-heat-label-ink: #ffffff;
+}
+
+/*
  * The shell.
  *
  * One rule. There used to be four — one here and three in admin.css, each with

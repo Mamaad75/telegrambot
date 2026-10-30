@@ -30,6 +30,19 @@ class Fake_WPDB {
 		return array( 'sql' => $query, 'args' => $args );
 	}
 
+	/**
+	 * Rows in wp_bap_heatmap, keyed path|device|kind|x|y.
+	 *
+	 * Modelled rather than stubbed because the heatmap's whole behaviour *is*
+	 * the upsert: which event lands in which cell, and whether a second click
+	 * in the same spot increments the first one's counter or starts a new row.
+	 * A fake that answered 1 and remembered nothing would let both of those be
+	 * wrong while the tests passed.
+	 *
+	 * @var array<string,array<string,mixed>>
+	 */
+	public array $heatmap = array();
+
 	/** @var array<int,array<string,mixed>> Rows in wp_bap_local_events. */
 	public array $local = array();
 	/** @var array<string,array<string,mixed>> Rows in wp_bap_daily_summary, by date. */
@@ -42,6 +55,39 @@ class Fake_WPDB {
 	public function query( $prepared ) {
 		[ $sql, $args ] = $this->unpack( $prepared );
 		$this->log[]    = $sql;
+
+		// Before the generic upsert branch below, which destructures the
+		// rollup's argument order and would silently mangle this one.
+		if ( str_contains( $sql, 'bap_heatmap' ) && str_contains( $sql, 'INSERT INTO' ) ) {
+			[ $path, $device, $kind, $x, $y ] = $args;
+			$key = "{$path}|{$device}|{$kind}|{$x}|{$y}";
+
+			if ( isset( $this->heatmap[ $key ] ) ) {
+				$this->heatmap[ $key ]['hits']++;
+			} else {
+				$this->heatmap[ $key ] = array(
+					'page_path' => $path, 'device' => $device, 'kind' => $kind,
+					'grid_x' => (int) $x, 'grid_y' => (int) $y, 'hits' => 1,
+				);
+			}
+			return 1;
+		}
+
+		if ( str_contains( $sql, 'bap_heatmap' ) && str_contains( $sql, 'DELETE FROM' ) ) {
+			$before = count( $this->heatmap );
+
+			if ( str_contains( $sql, 'NOT IN' ) ) {
+				foreach ( array_keys( $this->heatmap ) as $k ) {
+					if ( ! in_array( $this->heatmap[ $k ]['page_path'], $args, true ) ) {
+						unset( $this->heatmap[ $k ] );
+					}
+				}
+			} else {
+				$this->heatmap = array();
+			}
+
+			return $before - count( $this->heatmap );
+		}
 
 		if ( str_contains( $sql, 'bap_daily_summary' ) && str_contains( $sql, 'INSERT INTO' ) ) {
 			[ $date, $events, $pv, $searches, $purchases, $revenue, $visitors, $sessions, $continued, $breakdowns ] = $args;
@@ -120,6 +166,61 @@ class Fake_WPDB {
 		[ $sql, $args ] = $this->unpack( $prepared );
 		$this->log[]    = $sql;
 
+		// Ahead of the rollup's own `GROUP BY page_path` branch, which this
+		// query would otherwise match.
+		if ( str_contains( $sql, 'bap_heatmap' ) ) {
+			if ( str_contains( $sql, 'GROUP BY page_path' ) ) {
+				$grouped = array();
+				foreach ( $this->heatmap as $row ) {
+					$p = $row['page_path'];
+					if ( ! isset( $grouped[ $p ] ) ) {
+						$grouped[ $p ] = array( 'page_path' => $p, 'clicks' => 0, 'views' => 0 );
+					}
+					if ( 'click' === $row['kind'] ) { $grouped[ $p ]['clicks'] += $row['hits']; }
+					if ( 'view' === $row['kind'] )  { $grouped[ $p ]['views']  += $row['hits']; }
+				}
+				// HAVING clicks > 0, then ORDER BY clicks DESC, then LIMIT.
+				$grouped = array_filter( $grouped, static fn( $r ) => $r['clicks'] > 0 );
+				usort( $grouped, static fn( $a, $b ) => $b['clicks'] <=> $a['clicks'] );
+				return array_slice( $grouped, 0, (int) end( $args ) );
+			}
+
+			if ( str_contains( $sql, 'GROUP BY device' ) ) {
+				$path    = (string) $args[0];
+				$grouped = array();
+				foreach ( $this->heatmap as $row ) {
+					if ( $row['page_path'] !== $path || 'click' !== $row['kind'] ) { continue; }
+					$grouped[ $row['device'] ] = ( $grouped[ $row['device'] ] ?? 0 ) + $row['hits'];
+				}
+				arsort( $grouped );
+				$out = array();
+				foreach ( $grouped as $device => $clicks ) {
+					$out[] = array( 'device' => $device, 'clicks' => $clicks );
+				}
+				return $out;
+			}
+
+			[ $path, $device ] = $args;
+			$kind = str_contains( $sql, "kind = 'scroll'" ) ? 'scroll' : 'click';
+			$out  = array();
+
+			foreach ( $this->heatmap as $row ) {
+				if ( $row['page_path'] !== $path || $row['device'] !== $device || $row['kind'] !== $kind ) { continue; }
+				$out[] = 'scroll' === $kind
+					? array( 'depth' => $row['grid_y'], 'hits' => $row['hits'] )
+					: array( 'grid_x' => $row['grid_x'], 'grid_y' => $row['grid_y'], 'hits' => $row['hits'] );
+			}
+
+			if ( 'click' === $kind ) {
+				usort(
+					$out,
+					static fn( $a, $b ) => array( $a['grid_y'], $a['grid_x'] ) <=> array( $b['grid_y'], $b['grid_x'] )
+				);
+			}
+
+			return $out;
+		}
+
 		if ( str_contains( $sql, 'bap_daily_summary' ) ) {
 			[ $from, $to ] = $args;
 			$rows = array_values( array_filter( $this->summary, static fn( $r ) => $r['bucket_date'] >= $from && $r['bucket_date'] <= $to ) );
@@ -177,6 +278,17 @@ class Fake_WPDB {
 		[ $sql, $args ] = $this->unpack( $prepared );
 		$this->log[]    = $sql;
 
+		// Ahead of the catch-all `SELECT COUNT(*)` branch, which counts rollup.
+		if ( str_contains( $sql, 'bap_heatmap' ) ) {
+			if ( str_contains( $sql, 'COUNT(*)' ) ) {
+				return (string) count( $this->heatmap );
+			}
+
+			[ $path, $device ] = $args;
+			$key = "{$path}|{$device}|view|0|0";
+			return isset( $this->heatmap[ $key ] ) ? (string) $this->heatmap[ $key ]['hits'] : null;
+		}
+
 		if ( str_contains( $sql, 'bap_daily_visitors' ) && str_contains( $sql, 'COUNT(DISTINCT anonymous_id)' ) ) {
 			[ $from, $to ] = $args;
 			$seen = array();
@@ -229,6 +341,23 @@ class Fake_WPDB {
 
 		if ( str_contains( $sql, 'SELECT COUNT(*)' ) ) { return (string) count( $this->rollup ); }
 		return null;
+	}
+
+	public function get_col( $prepared = null, $x = 0 ) {
+		[ $sql, $args ] = $this->unpack( $prepared );
+		$this->log[]    = $sql;
+
+		// The pages the heatmap prune decides to keep: busiest first, capped.
+		if ( str_contains( (string) $sql, 'bap_heatmap' ) ) {
+			$totals = array();
+			foreach ( $this->heatmap as $row ) {
+				$totals[ $row['page_path'] ] = ( $totals[ $row['page_path'] ] ?? 0 ) + $row['hits'];
+			}
+			arsort( $totals );
+			return array_slice( array_keys( $totals ), 0, (int) ( $args[0] ?? 0 ) );
+		}
+
+		return array();
 	}
 
 	public function get_row( $prepared = null, $o = OBJECT, $y = 0 ) {

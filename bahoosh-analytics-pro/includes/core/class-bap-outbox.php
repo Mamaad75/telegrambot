@@ -278,6 +278,7 @@ class BAP_Outbox {
 			BAP_Local_Store::prune();
 			BAP_Rollup::prune();
 			BAP_Daily_Summary::prune();
+			BAP_Heatmap::prune();
 		}
 
 		// Yesterday's books are closed here, and any finished day still missing

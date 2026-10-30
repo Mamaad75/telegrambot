@@ -50,6 +50,10 @@ function esc_url( $u ) { return esc_url_raw( $u ); }
 
 function __( $t, $d = null ) { return $t; }
 function esc_html__( $t, $d = null ) { return esc_html( $t ); }
+function esc_html_e( $t, $d = null ) { echo esc_html( $t ); }
+function esc_attr__( $t, $d = null ) { return esc_attr( $t ); }
+function esc_attr_e( $t, $d = null ) { echo esc_attr( $t ); }
+function _e( $t, $d = null ) { echo $t; }
 function _n( $one, $many, $n, $d = null ) { return 1 === (int) $n ? $one : $many; }
 function number_format_i18n( $n, $decimals = 0 ) { return number_format( (float) $n, $decimals ); }
 
@@ -105,9 +109,24 @@ function wp_list_pluck( $list, $field ) {
 	foreach ( (array) $list as $row ) { $out[] = is_array( $row ) ? ( $row[ $field ] ?? null ) : ( $row->$field ?? null ); }
 	return $out;
 }
-function add_query_arg( $args, $url = '' ) {
+/**
+ * Both of WordPress's signatures: ( $args_array, $url ) and ( $key, $value, $url ).
+ *
+ * The array form alone was modelled, so every three-argument call in the plugin
+ * — the campaign links, the redirect notices, the heatmap frame — came back as
+ * nonsense like `1?0=bap_heatmap` with no test able to see it.
+ */
+function add_query_arg( ...$args ) {
+	if ( count( $args ) >= 3 ) {
+		[ $key, $value, $url ] = $args;
+		$pairs = array( $key => $value );
+	} else {
+		$pairs = (array) $args[0];
+		$url   = (string) ( $args[1] ?? '' );
+	}
+
 	$sep = str_contains( (string) $url, '?' ) ? '&' : '?';
-	return $url . $sep . http_build_query( (array) $args );
+	return $url . $sep . http_build_query( $pairs );
 }
 function wp_remote_get( $url, $args = array() ) {
 	$GLOBALS['bap_http_request'] = array( 'method' => 'GET', 'url' => $url, 'args' => $args );

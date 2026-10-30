@@ -66,6 +66,12 @@ class BAP_Settings {
 			// a shop that does not want another screen should not have one.
 			'module_ux_tasks'         => true,
 			'module_search_rescue'    => true,
+			// The heatmap costs one upsert per click, scroll milestone and page
+			// view. That is real write load on a busy shop, and it is the only
+			// module that writes on the visitor's request path for the sake of a
+			// screen the visitor never sees — so it is switchable, and a shop
+			// that turns it off stops paying for it immediately.
+			'module_heatmap'          => true,
 			'ai_enabled'              => false,
 			'ai_autonomy'             => 'approval',
 			'ai_min_confidence'       => 80,
@@ -205,6 +211,7 @@ class BAP_Settings {
 			'module_ai',
 			'module_ux_tasks',
 			'module_search_rescue',
+			'module_heatmap',
 			'ai_enabled',
 			'multi_tab_coordination',
 			'debug',

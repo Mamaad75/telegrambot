@@ -12,7 +12,7 @@ defined( 'ABSPATH' ) || exit;
  */
 class BAP_Installer {
 
-	const DB_VERSION = 13;
+	const DB_VERSION = 14;
 
 	/**
 	 * Runs on activation.
@@ -23,6 +23,7 @@ class BAP_Installer {
 		$installed = (int) get_option( BAP_Settings::OPTION_DB_VERSION, 0 );
 		BAP_Outbox::install();
 		BAP_Rollup::install();
+		BAP_Heatmap::install();
 		self::migrate_to_v11( $installed );
 		BAP_ML_Store::install();
 		self::migrate_from_v1();
@@ -58,6 +59,7 @@ class BAP_Installer {
 
 		BAP_Outbox::install();
 		BAP_Rollup::install();
+		BAP_Heatmap::install();
 		self::migrate_to_v11( $installed );
 		BAP_ML_Store::install();
 		self::migrate_from_v1();

@@ -172,6 +172,16 @@ class BAP_REST_Controller {
 
 		register_rest_route(
 			self::NAMESPACE_V2,
+			'/heatmap',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( __CLASS__, 'handle_heatmap' ),
+				'permission_callback' => array( __CLASS__, 'can_view_reports' ),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE_V2,
 			'/funnels',
 			array(
 				array(
@@ -507,6 +517,11 @@ class BAP_REST_Controller {
 		// retry cannot inflate anything.
 		BAP_Local_Store::record( $event );
 
+		// Click coordinates have been on the wire since v1 and stored nowhere:
+		// the event table has no column for them. This is the only place they
+		// are kept, as a count grid rather than as clicks.
+		BAP_Heatmap::observe( $event );
+
 		// With no collector configured there is nothing to forward to, and this
 		// is a settled outcome rather than a failure. Answering 502 here — as
 		// this route used to — told every browser to keep the event and retry
@@ -594,6 +609,7 @@ class BAP_REST_Controller {
 
 			BAP_Rollup::observe( $event );
 			BAP_Local_Store::record( $event );
+			BAP_Heatmap::observe( $event );
 
 			if ( ! $configured ) {
 				$results[] = array(
@@ -1073,6 +1089,90 @@ class BAP_REST_Controller {
 			),
 			200
 		);
+	}
+
+	/**
+	 * Click density and scroll reach for one page.
+	 *
+	 * With no page named, answers with the list of pages that have data and
+	 * nothing else, so the screen can populate its selector in one request
+	 * before it knows what to draw.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response
+	 */
+	public static function handle_heatmap( WP_REST_Request $request ) {
+		$enabled = (bool) BAP_Settings::get( 'module_heatmap', true );
+		$pages   = $enabled ? BAP_Heatmap::pages( 50 ) : array();
+
+		$response = array(
+			'success'       => true,
+			'enabled'       => $enabled,
+			// The default capture mode records only clicks that land on a link,
+			// a button or a field. That is the right default for an event log
+			// and the wrong one for a heatmap, which is asking where people
+			// click including the places where clicking does nothing. The screen
+			// says so rather than presenting a half-empty page as the truth.
+			'click_capture' => (string) BAP_Settings::get( 'click_capture', 'interactive' ),
+			'pages'         => $pages,
+		);
+
+		$path = (string) $request->get_param( 'path' );
+		if ( '' === $path ) {
+			return new WP_REST_Response( $response, 200 );
+		}
+
+		$path   = BAP_Rollup::normalize_path( $path );
+		$device = (string) $request->get_param( 'device' );
+		$device = '' !== $device ? $device : 'desktop';
+
+		$response['path']    = $path;
+		$response['device']  = BAP_Rollup::normalize_device( $device );
+		$response['devices'] = BAP_Heatmap::devices( $path );
+		$response['clicks']  = BAP_Heatmap::clicks( $path, $device );
+		$response['scroll']   = BAP_Heatmap::scroll( $path, $device );
+		$response['frameUrl'] = self::heatmap_frame_url( $path );
+
+		return new WP_REST_Response( $response, 200 );
+	}
+
+	/**
+	 * The front-end URL to draw a page's heatmap over.
+	 *
+	 * Empty when there is no single page to draw on. `/product/4471` and
+	 * `/product/9032` are stored as one bucket `/product/{id}`, which is the
+	 * right call for the data — a thousand product URLs would otherwise be a
+	 * thousand heatmaps of two clicks each — and no address at all for a frame.
+	 * Picking one product to stand for the bucket would show the administrator a
+	 * heatmap of every product laid over the layout of one, which is the kind of
+	 * near-truth that is worse than an empty frame.
+	 *
+	 * @param string $path Normalised page path.
+	 * @return string Empty when the page cannot be framed.
+	 */
+	private static function heatmap_frame_url( $path ) {
+		if ( '' === $path || str_contains( $path, '{id}' ) ) {
+			return '';
+		}
+
+		// Built from the origin rather than from home_url( $path ): the path the
+		// browser reported already contains any subdirectory WordPress is
+		// installed in, and home_url() would add it a second time.
+		$home = wp_parse_url( home_url( '/' ) );
+
+		if ( empty( $home['scheme'] ) || empty( $home['host'] ) ) {
+			return '';
+		}
+
+		$origin = $home['scheme'] . '://' . $home['host'];
+		if ( ! empty( $home['port'] ) ) {
+			$origin .= ':' . (int) $home['port'];
+		}
+
+		// The frame renders without the admin bar, which is 32 pixels of offset
+		// the recorded coordinates do not contain, and without the tracker, so
+		// that looking at a heatmap does not add to it.
+		return add_query_arg( 'bap_heatmap', '1', $origin . $path );
 	}
 
 	/** Records that a human has done or dismissed one task. */
